@@ -1,0 +1,11 @@
+{
+    "dataset": "Peptides-func",
+    "model": "ChebNet_K10",
+    "test_ap": 0.6743715627408889,
+    "best_val_ap": 0.6983690813214217,
+    "config": {
+        "epochs": 100,
+        "batch_size": 128,
+        "hidden_dim": 256
+    }
+}

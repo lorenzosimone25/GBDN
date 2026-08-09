@@ -1,0 +1,11 @@
+{
+    "dataset": "Peptides-func",
+    "model": "GBDN+",
+    "test_ap": 0.6790375504208724,
+    "best_val_ap": 0.7043757353500599,
+    "config": {
+        "epochs": 100,
+        "batch_size": 128,
+        "hidden_dim": 256
+    }
+}
