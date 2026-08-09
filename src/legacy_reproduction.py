@@ -1223,7 +1223,7 @@ Completed Peptides-func artifacts: **{sum(key in reproduced_lrgb for key in [('P
 {environment}
 ```
 
-Every training command fails closed unless `CUDA_VISIBLE_DEVICES` selects the host's last physical GPU and PyTorch sees exactly one logical CUDA device.
+Every training command fails closed unless `CUDA_VISIBLE_DEVICES` selects one physical H100 and PyTorch sees exactly one logical CUDA device.
 
 ## Protocol
 

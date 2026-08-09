@@ -11,8 +11,8 @@ Requirements: Linux, Python 3.11, one accessible NVIDIA H100, `nvidia-smi`,
 internet access, and enough persistent disk for downloaded PyG datasets.
 
 ```bash
-git clone <private-github-url> gbdn-reproduction
-cd gbdn-reproduction
+git clone https://github.com/lorenzosimone25/GBDN.git
+cd GBDN
 bash scripts/setup_h100.sh
 bash scripts/run_h100.sh smoke
 bash scripts/run_h100.sh run-all --workers auto
