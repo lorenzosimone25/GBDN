@@ -624,6 +624,7 @@ def run_heterophily(
     rerun: bool = False,
     epochs: int | None = None,
     reseed: bool = True,
+    on_epoch: Callable[..., Any] | None = None,
 ) -> Path:
     if dataset_name not in HETERO_DATASETS or model_name not in HETERO_MODELS:
         raise ValueError(f"unsupported pair: {dataset_name}/{model_name}")
@@ -650,7 +651,8 @@ def run_heterophily(
     final = {"val_auroc": 0.0, "test_auroc": 0.0, "test_acc": 0.0, "test_probs": [], "test_labels": []}
     torch.cuda.reset_peak_memory_stats()
     started = time.perf_counter()
-    for _ in range(config["epochs"]):
+    total_epochs = config["epochs"]
+    for epoch in range(total_epochs):
         model.train()
         optimizer.zero_grad()
         raw = model(data.x, data.edge_index)
@@ -681,6 +683,14 @@ def run_heterophily(
                     "test_probs": test_probs.cpu().tolist(),
                     "test_labels": test_labels.cpu().tolist(),
                 }
+        if on_epoch is not None:
+            on_epoch(
+                epoch,
+                total_epochs,
+                best_val=best_val,
+                test_auroc=final["test_auroc"],
+                test_acc=final["test_acc"],
+            )
     payload = {
         "dataset": dataset_name,
         "model": model_name,
@@ -709,6 +719,9 @@ def run_model(
     state_root: Path,
     rerun: bool = False,
     epochs: int | None = None,
+    on_epoch: Callable[..., Any] | None = None,
+    on_dataset: Callable[..., Any] | None = None,
+    on_dataset_done: Callable[..., Any] | None = None,
 ) -> list[Path]:
     """Run one model over datasets in legacy order with exact resumable RNG state."""
     if model_name not in HETERO_MODELS:
@@ -723,25 +736,37 @@ def run_model(
         identity = _identity(config, manifest)
         output_path = output_root / dataset_name / f"{model_name}.json"
         checkpoint_path = state_root / model_name / f"{dataset_name}.pt"
-        if (
+        skipped = (
             not rerun
             and _artifact_matches(output_path, config, manifest)
             and _load_rng_checkpoint(checkpoint_path, identity)
-        ):
+        )
+        if on_dataset is not None:
+            on_dataset(dataset_name, skipped=skipped, epochs=config["epochs"])
+        if skipped:
             completed.append(output_path)
+            if on_dataset_done is not None:
+                on_dataset_done(dataset_name, skipped=True)
             continue
         try:
+            run_kwargs = {
+                "rerun": rerun,
+                "epochs": epochs,
+                "reseed": False,
+            }
+            if on_epoch is not None:
+                run_kwargs["on_epoch"] = on_epoch
             path = run_heterophily(
                 dataset_name,
                 model_name,
                 output_root,
                 data_root,
-                rerun=rerun,
-                epochs=epochs,
-                reseed=False,
+                **run_kwargs,
             )
             _write_rng_checkpoint(checkpoint_path, identity)
             completed.append(path)
+            if on_dataset_done is not None:
+                on_dataset_done(dataset_name, skipped=False)
         except Exception as error:
             _record_failure(
                 failures / dataset_name / f"{model_name}.json",
@@ -835,13 +860,22 @@ def _lrgb_optimizer(name, model, learning_rate):
     return torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
 
-def _train_lrgb(model, optimizer, loaders, epochs):
+def _train_lrgb(
+    model,
+    optimizer,
+    loaders,
+    epochs,
+    on_epoch: Callable[..., Any] | None = None,
+    on_batch: Callable[..., Any] | None = None,
+):
     best_val = final_test = 0.0
     torch.cuda.reset_peak_memory_stats()
     started = time.perf_counter()
-    for _ in range(epochs):
+    train_loader = loaders["train"]
+    n_batches = len(train_loader)
+    for epoch in range(epochs):
         model.train()
-        for data in loaders["train"]:
+        for batch_idx, data in enumerate(train_loader):
             data = data.to("cuda:0")
             optimizer.zero_grad()
             if hasattr(model.base_model, "cheb_computer"):
@@ -849,10 +883,14 @@ def _train_lrgb(model, optimizer, loaders, epochs):
             output = model(data.x.float(), data.edge_index, data.edge_weight, data.batch)
             F.binary_cross_entropy_with_logits(output, data.y.float()).backward()
             optimizer.step()
+            if on_batch is not None:
+                on_batch(batch_idx, n_batches, epoch, epochs)
         val = _lrgb_evaluate(model, loaders["val"])
         if val > best_val:
             best_val = val
             final_test = _lrgb_evaluate(model, loaders["test"])
+        if on_epoch is not None:
+            on_epoch(epoch, epochs, best_val=best_val, test_ap=final_test)
     return best_val, final_test, time.perf_counter() - started, torch.cuda.max_memory_allocated()
 
 
@@ -862,6 +900,10 @@ def run_lrgb(
     data_root: Path,
     rerun: bool = False,
     epochs: int | None = None,
+    on_epoch: Callable[..., Any] | None = None,
+    on_batch: Callable[..., Any] | None = None,
+    on_model: Callable[..., Any] | None = None,
+    on_model_done: Callable[..., Any] | None = None,
 ) -> Path:
     gpu = verify_last_gpu()
     manifest = environment_manifest(gpu)
@@ -878,6 +920,11 @@ def run_lrgb(
         _artifact_matches(path, {**config, "model": name}, manifest)
         for name, path in expected_paths.items()
     ):
+        if on_model is not None:
+            for name in LRGB_MODELS:
+                on_model(name, skipped=True, epochs=config["epochs"])
+                if on_model_done is not None:
+                    on_model_done(name, skipped=True)
         return expected_paths[model_name]
     seed_everything(config["seed"])
     datasets = {
@@ -924,9 +971,20 @@ def run_lrgb(
     selected_path = None
     for current_name, model in models.items():
         current_config = {**config, "model": current_name}
+        if on_model is not None:
+            on_model(current_name, skipped=False, epochs=config["epochs"])
         optimizer = _lrgb_optimizer(current_name, model, config["lr"])
+        train_kwargs = {}
+        if on_epoch is not None:
+            train_kwargs["on_epoch"] = on_epoch
+        if on_batch is not None:
+            train_kwargs["on_batch"] = on_batch
         best_val, final_test, duration, peak_memory = _train_lrgb(
-            model, optimizer, loaders, config["epochs"]
+            model,
+            optimizer,
+            loaders,
+            config["epochs"],
+            **train_kwargs,
         )
         payload = {
             "dataset": "Peptides-func",
@@ -944,6 +1002,8 @@ def run_lrgb(
         )
         path = output_root / f"{current_name}.json"
         _write_json(path, payload, rerun)
+        if on_model_done is not None:
+            on_model_done(current_name, skipped=False)
         if current_name == model_name:
             selected_path = path
             break

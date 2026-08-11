@@ -17,6 +17,10 @@
 !/scripts/run_h100.sh
 !/scripts/setup_h100.sh
 
+!/notebooks/
+/notebooks/*
+!/notebooks/reproduce_legacy.ipynb
+
 !/tests/
 /tests/*
 !/tests/test_legacy_reproduction.py

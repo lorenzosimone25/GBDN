@@ -24,6 +24,25 @@ Set `GPU_INDEX` only when the H100 is not physical index 0. The setup defaults
 to the pinned CUDA 12.8 PyTorch wheel; override `TORCH_INDEX_URL` only when the
 host driver requires another official wheel index for the same Torch version.
 
+## Jupyter on the H100
+
+After the environment exists, start Jupyter from the repository root and open
+`notebooks/reproduce_legacy.ipynb`. The first cell pins the last physical GPU
+and must run before Torch is imported. If Torch is already loaded, restart the
+kernel and Run All.
+
+```bash
+source .venv/bin/activate
+jupyter lab notebooks/reproduce_legacy.ipynb
+```
+
+The notebook runs the same 62 jobs sequentially, shows nested progress bars
+(remaining experiments and current-run epochs), writes artifacts under
+`results_repro/` and `results_LRGB_repro/`, and displays `reproduction_report.md`
+with original, reproduced, and delta metrics. Re-running the sweep cell resumes
+completed artifacts unless `RERUN = True`. Leave the kernel running overnight;
+do not use extra GPUs from the notebook.
+
 ## Outputs and resumption
 
 - Heterophily results: `results_repro/<dataset>/<model>.json`
