@@ -64,6 +64,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
 | OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | DONE |
 | OPS-GATE-ACCEPTANCE-1 | Implement fail-closed validation of future independent Gate-A acceptance | Engineer | ENG-GATEA-TOLERANCE-3 | Source/report/review-bound token schema and adversarial tests; no token issued | DONE |
+| OPS-VERIFY-NOTEBOOK-1 | Add read-only readiness inventory and thin fail-loud H100 operator notebook | Engineer | OPS-GATE-ACCEPTANCE-1, OPS-CPU-SMOKE-1 | Blocker-separated verifier, notebook interface, and static tests | DONE |
 | REV-OPS-CPU-SMOKE-1 | Independently adversarially review CPU smoke/resume/recompute path | Reviewer | OPS-CPU-SMOKE-1 | Binary operations-safety verdict | BLOCKED |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |

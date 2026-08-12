@@ -159,3 +159,10 @@
 - Bound any future acceptance to a clean reviewed commit/tree, an executed 36-row passing Gate-A report, complete typed evidence/provenance, an independent binary review artifact, canonical tracked files, and SHA-256 identities.
 - Invalidated acceptance on any post-review or uncommitted change to the protected mathematical implementation, evidence generator/reporter, Gate tests, submission runner, or token validator. Rehashed failed reports and partial row verdicts are rejected.
 - Kept a separate scheduler stop after token validation, so even a valid future token cannot currently launch claim-bearing work. The full repository suite passes 610 tests with one platform-specific skip and three known environment warnings.
+
+## 2026-08-12 — Fail-loud verifier and H100 notebook seam
+
+- Added a read-only `run_submission.py verify` inventory that separates pre-execution authorization blockers from missing post-run completion outputs and exits `2` while either category is unresolved.
+- Added the required unexecuted H100 operator notebook as a thin interface: it performs device isolation before PyTorch, requires exactly one H100, fixes the official split/seed grid, contains no scientific implementation, and ends with the fail-loud verifier.
+- Kept authorization false even if placeholder plan/registry files appear; semantic validators and the scheduler are explicitly unimplemented. The current verifier lists the absent independent token, confirmatory plan, baseline registry, run plan, aggregates, and final report.
+- The full repository suite passes 613 tests with one platform-specific skip and three known environment warnings. No notebook cell or H100 process was executed.
