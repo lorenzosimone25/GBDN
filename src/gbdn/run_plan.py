@@ -111,7 +111,7 @@ def validate_run_plan(
     source = None
     environment = None
     baseline_commits = {
-        baseline.name: baseline.upstream_commit for baseline in admitted_baselines
+        baseline.name: baseline.source_commit for baseline in admitted_baselines
     }
     for job in jobs:
         identity = job.identity
@@ -128,7 +128,9 @@ def validate_run_plan(
         run_ids.add(identity.run_id)
         expected_upstream = baseline_commits.get(identity.model_name, NA_ID)
         if identity.baseline_upstream_commit != expected_upstream:
-            raise ArtifactValidationError("run-plan baseline upstream commit is not registry-bound")
+            raise ArtifactValidationError(
+                "run-plan baseline implementation source commit is not registry-bound"
+            )
         try:
             frozen = json.loads(job.frozen_config_json)
         except json.JSONDecodeError as exc:  # guarded by RunConfigRecord; defensive

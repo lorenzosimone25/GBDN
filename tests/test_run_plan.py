@@ -18,7 +18,7 @@ from gbdn.artifacts import (
     canonical_json_sha256,
     sha256_file,
 )
-from gbdn.baseline_contract import PLAN_SCHEMA, REGISTRY_SCHEMA
+from gbdn.baseline_contract import PARITY_EVIDENCE_SCHEMA, PLAN_SCHEMA, REGISTRY_SCHEMA
 from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
 from gbdn.run_plan import RUN_PLAN_SCHEMA, inventory_run_plan, validate_run_plan
 
@@ -39,17 +39,56 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
             f"licenses/{slug}.txt",
             f"src/baselines/{slug}.py",
             f"configs/baselines/{slug}.json",
+            f"docs/baselines/{slug}_provenance.md",
+            f"tests/oracles/{slug}_oracle.py",
+            f"tests/fixtures/baselines/{slug}_parity.json",
         )
         for relative in paths:
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"{method}:{relative}\n", encoding="utf-8")
+        _write(
+            root / paths[5],
+            {
+                "baseline": method,
+                "dataset": "upstream-fixture",
+                "expected": 0.8,
+                "implementation_kind": "UPSTREAM_CODE",
+                "independent_oracle_sha256": sha256_file(root / paths[4]),
+                "metric": "accuracy",
+                "observed": 0.8,
+                "reference_config_sha256": sha256_file(root / paths[2]),
+                "schema_version": PARITY_EVIDENCE_SCHEMA,
+                "source_commit": f"{index + 1:040x}",
+                "status": "PASS",
+                "tolerance": 0.001,
+                "wrapper_sha256": sha256_file(root / paths[1]),
+            },
+        )
         records.append(
             {
-                "license": {"notice_path": paths[0], "spdx": "MIT"},
+                "implementation": {
+                    "equation_locator": "Eq. (3), p. 4",
+                    "independent_oracle_path": paths[4],
+                    "independent_oracle_sha256": sha256_file(root / paths[4]),
+                    "kind": "UPSTREAM_CODE",
+                    "paper_url": f"https://papers.example.org/{slug}",
+                    "provenance_path": paths[3],
+                    "provenance_sha256": sha256_file(root / paths[3]),
+                    "source_commit": f"{index + 1:040x}",
+                    "source_repository_url": f"https://example.org/{slug}",
+                    "upstream_code_used": True,
+                },
+                "license": {
+                    "notice_path": paths[0],
+                    "notice_sha256": sha256_file(root / paths[0]),
+                    "spdx": "MIT",
+                },
                 "name": method,
                 "parity": {
                     "dataset": "upstream-fixture",
+                    "evidence_path": paths[5],
+                    "evidence_sha256": sha256_file(root / paths[5]),
                     "expected": 0.8,
                     "metric": "accuracy",
                     "observed": 0.8,
@@ -57,14 +96,18 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
                     "tolerance": 0.001,
                 },
                 "protocols": ["heterophily"],
-                "repository_url": f"https://example.org/{slug}",
                 "status": "VERIFIED",
-                "upstream_commit": f"{index + 1:040x}",
-                "verification": {"parameter_count": True, "spmv_count": True},
+                "verification": {
+                    "independent_operator_oracle": True,
+                    "official_task_contract": True,
+                    "parameter_count": True,
+                    "spmv_count": True,
+                },
                 "wrapper": {
-                    "local_patch_sha256": sha256_file(root / paths[1]),
                     "path": paths[1],
-                    "upstream_config_path": paths[2],
+                    "reference_config_path": paths[2],
+                    "reference_config_sha256": sha256_file(root / paths[2]),
+                    "source_sha256": sha256_file(root / paths[1]),
                 },
             }
         )
@@ -237,7 +280,7 @@ def test_run_plan_rejects_unbound_baseline_config_and_gpu_environment(tmp_path):
     baseline_job["identity"]["baseline_upstream_commit"] = "f" * 40
     baseline_job["run_id"] = RunIdentity.from_dict(baseline_job["identity"]).run_id
     _write(run_plan, data)
-    with pytest.raises(ArtifactValidationError, match="upstream commit"):
+    with pytest.raises(ArtifactValidationError, match="source commit"):
         validate_run_plan(run_plan, confirmatory_plan_path=confirmatory, baseline_registry_path=registry, repository_root=tmp_path)
 
     run_plan, confirmatory, registry = _inputs(tmp_path / "config")

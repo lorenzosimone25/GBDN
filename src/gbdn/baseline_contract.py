@@ -13,7 +13,8 @@ from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes, sha256
 from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
 
 
-REGISTRY_SCHEMA = "gbdn-baseline-registry-v1"
+REGISTRY_SCHEMA = "gbdn-baseline-registry-v2"
+PARITY_EVIDENCE_SCHEMA = "gbdn-baseline-parity-evidence-v1"
 PLAN_SCHEMA = "gbdn-confirmatory-plan-v1"
 _SHA = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -38,6 +39,21 @@ def _relative(value: Any, field: str) -> str:
     if path.is_absolute() or ".." in path.parts or "\\" in text or ":" in text:
         raise ArtifactValidationError(f"{field} must be a safe repository-relative path")
     return path.as_posix()
+
+
+def _regular_repository_file(root: Path, relative: str, field: str) -> Path:
+    """Resolve one evidence file without permitting parent-link escapes."""
+
+    lexical = root / relative
+    if lexical.is_symlink() or not lexical.is_file():
+        raise ArtifactValidationError(f"missing regular {field}: {relative}")
+    try:
+        resolved = lexical.resolve(strict=True)
+    except OSError as exc:
+        raise ArtifactValidationError(f"cannot resolve {field}: {relative}") from exc
+    if not resolved.is_relative_to(root):
+        raise ArtifactValidationError(f"{field} escapes repository root: {relative}")
+    return resolved
 
 
 def _load_json(path: str | Path) -> Mapping[str, Any]:
@@ -70,21 +86,34 @@ def _load_json(path: str | Path) -> Mapping[str, Any]:
 @dataclass(frozen=True)
 class VerifiedBaseline:
     name: str
-    repository_url: str
-    upstream_commit: str
+    implementation_kind: str
+    source_repository_url: str
+    source_commit: str
+    paper_url: str
+    equation_locator: str
+    upstream_code_used: bool
+    provenance_path: str
+    provenance_sha256: str
+    independent_oracle_path: str
+    independent_oracle_sha256: str
     spdx_license: str
     license_notice_path: str
+    license_notice_sha256: str
     wrapper_path: str
-    upstream_config_path: str
-    local_patch_sha256: str
+    reference_config_path: str
+    reference_config_sha256: str
+    source_sha256: str
     protocols: tuple[str, ...]
     parity_dataset: str
     parity_metric: str
     parity_expected: float
     parity_observed: float
     parity_tolerance: float
+    parity_evidence_path: str
     parameter_count_verified: bool
     spmv_count_verified: bool
+    independent_operator_oracle_verified: bool
+    official_task_contract_verified: bool
 
 
 def validate_baseline_registry(
@@ -93,7 +122,7 @@ def validate_baseline_registry(
     repository_root: str | Path,
     required_methods: Sequence[str],
 ) -> tuple[VerifiedBaseline, ...]:
-    """Admit only complete, verified, tracked upstream baseline records."""
+    """Admit only complete, hash-bound, independently checked baseline records."""
 
     root = Path(repository_root).resolve(strict=True)
     data = _load_json(path)
@@ -107,13 +136,12 @@ def validate_baseline_registry(
         _exact_keys(
             raw,
             {
+                "implementation",
                 "license",
                 "name",
                 "parity",
                 "protocols",
-                "repository_url",
                 "status",
-                "upstream_commit",
                 "verification",
                 "wrapper",
             },
@@ -124,47 +152,134 @@ def validate_baseline_registry(
             raise ArtifactValidationError(f"duplicate baseline name: {name}")
         if raw["status"] != "VERIFIED":
             raise ArtifactValidationError(f"baseline {name} is not VERIFIED")
-        url = _label(raw["repository_url"], "repository_url")
-        if not url.startswith("https://"):
-            raise ArtifactValidationError(f"baseline {name} repository must use HTTPS")
-        commit = raw["upstream_commit"]
-        if not isinstance(commit, str) or _SHA.fullmatch(commit) is None:
-            raise ArtifactValidationError(f"baseline {name} needs a full 40-hex upstream commit")
+        implementation = raw["implementation"]
         license_record = raw["license"]
         wrapper = raw["wrapper"]
         parity = raw["parity"]
         verification = raw["verification"]
         for value, keys, label in (
-            (license_record, {"notice_path", "spdx"}, "license"),
-            (wrapper, {"local_patch_sha256", "path", "upstream_config_path"}, "wrapper"),
-            (parity, {"dataset", "expected", "metric", "observed", "status", "tolerance"}, "parity"),
-            (verification, {"parameter_count", "spmv_count"}, "verification"),
+            (
+                implementation,
+                {
+                    "equation_locator",
+                    "independent_oracle_path",
+                    "independent_oracle_sha256",
+                    "kind",
+                    "paper_url",
+                    "provenance_path",
+                    "provenance_sha256",
+                    "source_commit",
+                    "source_repository_url",
+                    "upstream_code_used",
+                },
+                "implementation",
+            ),
+            (license_record, {"notice_path", "notice_sha256", "spdx"}, "license"),
+            (
+                wrapper,
+                {
+                    "path",
+                    "reference_config_path",
+                    "reference_config_sha256",
+                    "source_sha256",
+                },
+                "wrapper",
+            ),
+            (
+                parity,
+                {
+                    "dataset",
+                    "evidence_path",
+                    "evidence_sha256",
+                    "expected",
+                    "metric",
+                    "observed",
+                    "status",
+                    "tolerance",
+                },
+                "parity",
+            ),
+            (
+                verification,
+                {
+                    "independent_operator_oracle",
+                    "official_task_contract",
+                    "parameter_count",
+                    "spmv_count",
+                },
+                "verification",
+            ),
         ):
             if not isinstance(value, dict):
                 raise ArtifactValidationError(f"baseline {name} {label} must be an object")
             _exact_keys(value, keys, f"baseline {name} {label}")
+        kind = implementation["kind"]
+        if kind not in {"UPSTREAM_CODE", "CLEAN_ROOM_EQUATIONS"}:
+            raise ArtifactValidationError(f"baseline {name} implementation kind is invalid")
+        source_url = _label(
+            implementation["source_repository_url"], "source_repository_url"
+        )
+        paper_url = _label(implementation["paper_url"], "paper_url")
+        if not source_url.startswith("https://") or not paper_url.startswith("https://"):
+            raise ArtifactValidationError(f"baseline {name} source and paper must use HTTPS")
+        commit = implementation["source_commit"]
+        if not isinstance(commit, str) or _SHA.fullmatch(commit) is None:
+            raise ArtifactValidationError(
+                f"baseline {name} needs a full 40-hex implementation source commit"
+            )
+        equation_locator = _label(
+            implementation["equation_locator"], "equation_locator"
+        )
+        upstream_used = implementation["upstream_code_used"]
+        if type(upstream_used) is not bool:
+            raise ArtifactValidationError(f"baseline {name} upstream_code_used must be boolean")
+        if (kind == "UPSTREAM_CODE") != upstream_used:
+            raise ArtifactValidationError(
+                f"baseline {name} implementation kind contradicts upstream-code attestation"
+            )
         spdx = _label(license_record["spdx"], "license SPDX")
         if _SPDX.fullmatch(spdx) is None or spdx == "NOASSERTION":
             raise ArtifactValidationError(f"baseline {name} license is unresolved")
-        paths = tuple(
-            _relative(value, field)
-            for value, field in (
-                (license_record["notice_path"], "license notice"),
-                (wrapper["path"], "wrapper path"),
-                (wrapper["upstream_config_path"], "upstream config path"),
-            )
+        evidence_specs = (
+            (license_record["notice_path"], license_record["notice_sha256"], "license notice"),
+            (wrapper["path"], wrapper["source_sha256"], "wrapper source"),
+            (
+                wrapper["reference_config_path"],
+                wrapper["reference_config_sha256"],
+                "reference config",
+            ),
+            (
+                implementation["provenance_path"],
+                implementation["provenance_sha256"],
+                "implementation provenance",
+            ),
+            (
+                implementation["independent_oracle_path"],
+                implementation["independent_oracle_sha256"],
+                "independent oracle",
+            ),
+            (parity["evidence_path"], parity["evidence_sha256"], "parity evidence"),
         )
-        for relative in paths:
-            artifact = root / relative
-            if artifact.is_symlink() or not artifact.is_file():
-                raise ArtifactValidationError(f"baseline {name} missing regular evidence: {relative}")
-        patch_hash = wrapper["local_patch_sha256"]
-        if not isinstance(patch_hash, str) or _SHA256.fullmatch(patch_hash) is None:
-            raise ArtifactValidationError(f"baseline {name} local patch hash is invalid")
-        if sha256_file(root / paths[1]) != patch_hash:
-            raise ArtifactValidationError(f"baseline {name} local patch hash does not match wrapper")
+        paths: list[str] = []
+        hashes: list[str] = []
+        for raw_path, raw_hash, field in evidence_specs:
+            relative = _relative(raw_path, f"baseline {name} {field} path")
+            if not isinstance(raw_hash, str) or _SHA256.fullmatch(raw_hash) is None:
+                raise ArtifactValidationError(f"baseline {name} {field} hash is invalid")
+            artifact = _regular_repository_file(root, relative, f"baseline {name} {field}")
+            if sha256_file(artifact) != raw_hash:
+                raise ArtifactValidationError(
+                    f"baseline {name} {field} hash does not match artifact"
+                )
+            paths.append(relative)
+            hashes.append(raw_hash)
         protocols = raw["protocols"]
-        if not isinstance(protocols, list) or not protocols or len(set(protocols)) != len(protocols):
+        if (
+            not isinstance(protocols, list)
+            or not protocols
+            or any(not isinstance(protocol, str) or not protocol for protocol in protocols)
+            or len(set(protocols)) != len(protocols)
+        ):
             raise ArtifactValidationError(f"baseline {name} protocols must be unique and nonempty")
         if "heterophily" not in protocols:
             raise ArtifactValidationError(f"baseline {name} lacks heterophily protocol verification")
@@ -175,25 +290,63 @@ def validate_baseline_registry(
             raise ArtifactValidationError(f"baseline {name} parity numbers must be finite")
         if float(parity["tolerance"]) < 0 or abs(float(parity["observed"]) - float(parity["expected"])) > float(parity["tolerance"]):
             raise ArtifactValidationError(f"baseline {name} parity exceeds tolerance")
-        if verification != {"parameter_count": True, "spmv_count": True}:
+        if verification != {
+            "independent_operator_oracle": True,
+            "official_task_contract": True,
+            "parameter_count": True,
+            "spmv_count": True,
+        }:
             raise ArtifactValidationError(f"baseline {name} resource counts are unverified")
+        parity_evidence = _load_json(root / paths[5])
+        expected_evidence = {
+            "baseline": name,
+            "dataset": parity["dataset"],
+            "expected": parity["expected"],
+            "implementation_kind": kind,
+            "independent_oracle_sha256": hashes[4],
+            "metric": parity["metric"],
+            "observed": parity["observed"],
+            "reference_config_sha256": hashes[2],
+            "schema_version": PARITY_EVIDENCE_SCHEMA,
+            "source_commit": commit,
+            "status": parity["status"],
+            "tolerance": parity["tolerance"],
+            "wrapper_sha256": hashes[1],
+        }
+        if parity_evidence != expected_evidence:
+            raise ArtifactValidationError(
+                f"baseline {name} parity evidence is not registry- and implementation-bound"
+            )
         records[name] = VerifiedBaseline(
-            name,
-            url,
-            commit,
-            spdx,
-            paths[0],
-            paths[1],
-            paths[2],
-            patch_hash,
-            tuple(protocols),
-            _label(parity["dataset"], "parity dataset"),
-            _label(parity["metric"], "parity metric"),
-            float(parity["expected"]),
-            float(parity["observed"]),
-            float(parity["tolerance"]),
-            True,
-            True,
+            name=name,
+            implementation_kind=kind,
+            source_repository_url=source_url,
+            source_commit=commit,
+            paper_url=paper_url,
+            equation_locator=equation_locator,
+            upstream_code_used=upstream_used,
+            provenance_path=paths[3],
+            provenance_sha256=hashes[3],
+            independent_oracle_path=paths[4],
+            independent_oracle_sha256=hashes[4],
+            spdx_license=spdx,
+            license_notice_path=paths[0],
+            license_notice_sha256=hashes[0],
+            wrapper_path=paths[1],
+            reference_config_path=paths[2],
+            reference_config_sha256=hashes[2],
+            source_sha256=hashes[1],
+            protocols=tuple(protocols),
+            parity_dataset=_label(parity["dataset"], "parity dataset"),
+            parity_metric=_label(parity["metric"], "parity metric"),
+            parity_expected=float(parity["expected"]),
+            parity_observed=float(parity["observed"]),
+            parity_tolerance=float(parity["tolerance"]),
+            parity_evidence_path=paths[5],
+            parameter_count_verified=True,
+            spmv_count_verified=True,
+            independent_operator_oracle_verified=True,
+            official_task_contract_verified=True,
         )
     missing = sorted(set(required_methods) - set(records))
     extra = sorted(set(records) - set(required_methods))
@@ -286,6 +439,7 @@ def validate_plan_registry_binding(
 
 __all__ = [
     "ConfirmatoryPlan",
+    "PARITY_EVIDENCE_SCHEMA",
     "PLAN_SCHEMA",
     "REGISTRY_SCHEMA",
     "VerifiedBaseline",
