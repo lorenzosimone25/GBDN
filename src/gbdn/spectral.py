@@ -18,6 +18,10 @@ from typing import Literal, Sequence
 import torch
 
 Convention = Literal["forward", "inverse"]
+_REAL_TO_COMPLEX_DTYPE = {
+    torch.float32: torch.complex64,
+    torch.float64: torch.complex128,
+}
 
 
 def _check_convention(convention: Convention) -> Convention:
@@ -33,36 +37,148 @@ def _apply_convention(values: torch.Tensor, convention: Convention) -> torch.Ten
     return torch.conj(values) if convention == "inverse" else values
 
 
+def _validate_degree(K: int) -> int:
+    if isinstance(K, bool) or not isinstance(K, int) or K < 0:
+        raise ValueError(f"K must be a nonnegative integer, got {K!r}")
+    return K
+
+
+def _validate_real_values(
+    values: torch.Tensor,
+    *,
+    name: str,
+    normalized_laplacian_spectrum: bool = False,
+) -> torch.Tensor:
+    if not isinstance(values, torch.Tensor):
+        raise TypeError(f"{name} must be a torch.Tensor")
+    if values.is_complex() or not values.is_floating_point():
+        raise TypeError(f"{name} must use a real floating dtype")
+    if values.dtype not in _REAL_TO_COMPLEX_DTYPE:
+        raise TypeError(f"{name} must use float32 or float64")
+    if values.numel() == 0:
+        raise ValueError(f"{name} must be nonempty")
+    if not torch.isfinite(values).all():
+        raise ValueError(f"{name} must be finite")
+    if normalized_laplacian_spectrum:
+        tolerance = max(1e-12, 32.0 * torch.finfo(values.dtype).eps)
+        lower = float(values.min().item())
+        upper = float(values.max().item())
+        if lower < -tolerance or upper > 2.0 + tolerance:
+            raise ValueError(
+                f"{name} must lie in [0, 2], got [{lower}, {upper}]"
+            )
+    return values
+
+
+def _validate_admissible_roots(
+    roots: torch.Tensor,
+    *,
+    reference: torch.Tensor | None = None,
+    name: str = "roots",
+    allow_empty: bool = True,
+) -> torch.Tensor:
+    if not isinstance(roots, torch.Tensor):
+        raise TypeError(f"{name} must be a torch.Tensor")
+    if not roots.is_complex():
+        raise TypeError(f"{name} must use a complex dtype")
+    roots = roots.reshape(-1)
+    if roots.numel() == 0 and not allow_empty:
+        raise ValueError(f"{name} must be nonempty")
+    if roots.dtype not in {torch.complex64, torch.complex128}:
+        raise TypeError(f"{name} must use complex64 or complex128")
+    if reference is not None:
+        expected_dtype = _REAL_TO_COMPLEX_DTYPE[reference.dtype]
+        if roots.dtype != expected_dtype:
+            raise TypeError(
+                f"{name} dtype must match spectral precision: expected "
+                f"{expected_dtype}, got {roots.dtype}"
+            )
+        if roots.device != reference.device:
+            raise ValueError(f"{name} and spectral values must share a device")
+    if not torch.isfinite(roots).all():
+        raise ValueError(f"{name} must be finite")
+    if torch.any(roots.abs() >= 1.0):
+        singular_name = name[:-1] if name.endswith("s") else name
+        raise ValueError(
+            f"every {singular_name} must lie strictly inside the unit disk"
+        )
+    return roots
+
+
 def chebyshev_nodes(
     K: int,
     device: torch.device,
     dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:
     """Return Chebyshev nodes on ``[-1, 1]`` mapped to ``[0, 2]``."""
-    if K < 0:
-        raise ValueError(f"K must be nonnegative, got {K}")
+    _validate_degree(K)
+    if not isinstance(device, torch.device):
+        raise TypeError("device must be a torch.device")
+    if dtype not in _REAL_TO_COMPLEX_DTYPE:
+        raise TypeError("Chebyshev nodes require float32 or float64")
     k_indices = torch.arange(K + 1, device=device, dtype=dtype)
     nodes = torch.cos(math.pi * (k_indices + 0.5) / (K + 1))
     return nodes + 1.0
 
 
 def cayley_map(lambdas: torch.Tensor) -> torch.Tensor:
-    """Map real Laplacian eigenvalues to the unit circle."""
-    if not lambdas.is_floating_point():
-        lambdas = lambdas.to(torch.get_default_dtype())
+    """Map finite real values to the unit circle.
+
+    This scalar analytic map intentionally accepts values outside ``[0, 2]``;
+    normalized-Laplacian range validation belongs to operator constructors.
+    """
+    lambdas = _validate_real_values(lambdas, name="lambdas")
     one = torch.ones_like(lambdas)
     return torch.complex(lambdas, -one) / torch.complex(lambdas, one)
 
 
 def blaschke_factor(zeta: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
-    """Evaluate ``B_alpha(zeta)=(zeta-alpha)/(1-conj(alpha) zeta)``."""
-    return (zeta - alpha) / (1.0 - torch.conj(alpha) * zeta)
+    """Evaluate one low-level analytic factor after domain validation.
+
+    This helper does not construct a graph operator. ``zeta`` may be any
+    finite complex evaluation tensor, while ``alpha`` must be one admissible
+    disk root. Use :func:`blaschke_cayley_exact` for a validated graph
+    spectral operator.
+    """
+    if not isinstance(zeta, torch.Tensor) or not zeta.is_complex():
+        raise TypeError("zeta must be a complex torch.Tensor")
+    if zeta.numel() == 0 or not torch.isfinite(zeta).all():
+        raise ValueError("zeta must be nonempty and finite")
+    roots = _validate_admissible_roots(
+        alpha,
+        name="alpha",
+        allow_empty=False,
+    )
+    if roots.numel() != 1:
+        raise ValueError("alpha must contain exactly one root")
+    root = roots[0]
+    if root.dtype != zeta.dtype:
+        raise TypeError("alpha and zeta must have the same complex dtype")
+    if root.device != zeta.device:
+        raise ValueError("alpha and zeta must be on the same device")
+    result = (zeta - root) / (1.0 - torch.conj(root) * zeta)
+    if not torch.isfinite(result).all():
+        raise ValueError("Blaschke factor is singular or nonfinite at zeta")
+    return result
 
 
 def blaschke_product(zeta: torch.Tensor, alphas: torch.Tensor) -> torch.Tensor:
-    """Evaluate a finite Blaschke product for roots strictly inside the disk."""
+    """Evaluate a low-level finite product for validated disk roots.
+
+    This is an analytic scalar/tensor evaluator, not an eigendecomposition or
+    graph-operator validation boundary.
+    """
+    if not isinstance(zeta, torch.Tensor) or not zeta.is_complex():
+        raise TypeError("zeta must be a complex torch.Tensor")
+    if zeta.numel() == 0 or not torch.isfinite(zeta).all():
+        raise ValueError("zeta must be nonempty and finite")
+    alphas = _validate_admissible_roots(alphas)
+    if alphas.dtype != zeta.dtype:
+        raise TypeError("roots and zeta must have the same complex dtype")
+    if alphas.device != zeta.device:
+        raise ValueError("roots and zeta must be on the same device")
     out = torch.ones_like(zeta)
-    for alpha in alphas.reshape(-1):
+    for alpha in alphas:
         out = out * blaschke_factor(zeta, alpha)
     return out
 
@@ -158,16 +274,31 @@ def constrain_alpha(
 
 
 def mapped_zero_pole(alpha: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return the zero and pole of ``B_alpha(phi(lambda))`` in the lambda plane."""
+    """Return exact mapped zero/pole geometry for admissible disk roots."""
+    if not isinstance(alpha, torch.Tensor):
+        raise TypeError("alpha must be a torch.Tensor")
+    original_shape = alpha.shape
+    alpha = _validate_admissible_roots(alpha, name="alpha")
     one = torch.ones_like(alpha)
     imag = torch.complex(torch.zeros_like(alpha.real), torch.ones_like(alpha.real))
     zero = imag * (one + alpha) / (one - alpha)
     pole = torch.conj(zero)
-    return zero, pole
+    return zero.reshape(original_shape), pole.reshape(original_shape)
 
 
 def dct_synthesis(f_nodes: torch.Tensor, K: int) -> torch.Tensor:
     """Map Chebyshev-node samples to interpolation coefficients."""
+    _validate_degree(K)
+    if not isinstance(f_nodes, torch.Tensor):
+        raise TypeError("f_nodes must be a torch.Tensor")
+    if f_nodes.ndim == 0:
+        raise ValueError("f_nodes must have a node-sample dimension")
+    if not (f_nodes.is_floating_point() or f_nodes.is_complex()):
+        raise TypeError("f_nodes must use a floating or complex dtype")
+    if f_nodes.shape[-1] != K + 1:
+        raise ValueError("f_nodes must contain exactly K+1 node samples")
+    if not torch.isfinite(f_nodes).all():
+        raise ValueError("f_nodes must be finite")
     dtype = f_nodes.real.dtype
     device = f_nodes.device
     k_indices = torch.arange(K + 1, device=device, dtype=dtype)
@@ -189,6 +320,11 @@ def blaschke_product_cheb_coeffs(
     convention: Convention = "forward",
 ) -> torch.Tensor:
     """Chebyshev coefficients for a finite Blaschke--Cayley product."""
+    _validate_degree(K)
+    _check_convention(convention)
+    if not isinstance(device, torch.device):
+        raise TypeError("device must be a torch.device")
+    alphas = _validate_admissible_roots(alphas)
     real_dtype = alphas.real.dtype
     lambdas = chebyshev_nodes(K, device, dtype=real_dtype)
     nodes = cayley_map(lambdas)
@@ -205,6 +341,20 @@ def blaschke_cheb_coeffs(
     convention: Convention = "forward",
 ) -> torch.Tensor:
     """Chebyshev coefficients for one Blaschke--Cayley factor."""
+    if not isinstance(alpha_real, torch.Tensor) or not isinstance(
+        alpha_imag, torch.Tensor
+    ):
+        raise TypeError("alpha_real and alpha_imag must be torch.Tensor values")
+    if alpha_real.shape != alpha_imag.shape:
+        raise ValueError("alpha_real and alpha_imag must have the same shape")
+    if (
+        not alpha_real.is_floating_point()
+        or not alpha_imag.is_floating_point()
+        or alpha_real.dtype != alpha_imag.dtype
+    ):
+        raise TypeError("alpha_real and alpha_imag must share a real floating dtype")
+    if alpha_real.device != alpha_imag.device:
+        raise ValueError("alpha_real and alpha_imag must share a device")
     alpha = torch.complex(alpha_real, alpha_imag).reshape(-1)
     return blaschke_product_cheb_coeffs(alpha, K, device, convention=convention)
 
@@ -214,7 +364,22 @@ def evaluate_chebyshev(
     evals: torch.Tensor,
 ) -> torch.Tensor:
     """Evaluate ``sum_k c_k T_k(lambda-1)`` on real eigenvalues."""
-    x = evals.to(dtype=coeffs.real.dtype, device=coeffs.device) - 1.0
+    if not isinstance(coeffs, torch.Tensor):
+        raise TypeError("coeffs must be a torch.Tensor")
+    if coeffs.ndim != 1 or coeffs.numel() == 0:
+        raise ValueError("coeffs must be a nonempty one-dimensional tensor")
+    if not (coeffs.is_floating_point() or coeffs.is_complex()):
+        raise TypeError("coeffs must use a floating or complex dtype")
+    if coeffs.real.dtype not in _REAL_TO_COMPLEX_DTYPE:
+        raise TypeError("coeffs must use float32/complex64 or float64/complex128")
+    if not torch.isfinite(coeffs).all():
+        raise ValueError("coeffs must be finite")
+    evals = _validate_real_values(evals, name="evals")
+    if evals.dtype != coeffs.real.dtype:
+        raise TypeError("evals and coeffs must use matching real precision")
+    if evals.device != coeffs.device:
+        raise ValueError("evals and coeffs must share a device")
+    x = evals - 1.0
     degree = coeffs.shape[0] - 1
     t_prev2 = torch.ones_like(x)
     values = coeffs[0] * t_prev2
@@ -238,8 +403,13 @@ def spectral_response(
     convention: Convention = "forward",
 ) -> torch.Tensor:
     """Approximate the magnitude response of one factor on eigenvalues."""
+    evals = _validate_real_values(evals, name="evals")
     if device is None:
         device = evals.device
+    if not isinstance(device, torch.device):
+        raise TypeError("device must be a torch.device")
+    if device != evals.device:
+        raise ValueError("device must match evals.device")
     dtype = evals.dtype if evals.is_floating_point() else torch.get_default_dtype()
     alpha_real_t = torch.tensor(alpha_real, device=device, dtype=dtype)
     alpha_imag_t = torch.tensor(alpha_imag, device=device, dtype=dtype)
@@ -258,10 +428,21 @@ def blaschke_cayley_symbol(
     alphas: torch.Tensor,
     convention: Convention = "forward",
 ) -> torch.Tensor:
-    """Evaluate the exact spectral symbol on real Laplacian eigenvalues."""
+    """Evaluate the exact scalar symbol on finite real spectral values.
+
+    Values outside ``[0, 2]`` are intentionally supported for analytic
+    pointwise identities. This function does not certify that its inputs are
+    an eigendecomposition; use :func:`blaschke_cayley_exact` for that public
+    operator boundary.
+    """
+    lambdas = _validate_real_values(lambdas, name="lambdas")
+    alphas = _validate_admissible_roots(
+        alphas,
+        reference=lambdas,
+    )
+    _check_convention(convention)
     zeta = cayley_map(lambdas)
-    roots = alphas.to(device=zeta.device, dtype=zeta.dtype)
-    return _apply_convention(blaschke_product(zeta, roots), convention)
+    return _apply_convention(blaschke_product(zeta, alphas), convention)
 
 
 def blaschke_cayley_exact(
@@ -269,11 +450,28 @@ def blaschke_cayley_exact(
     evecs: torch.Tensor,
     alphas: torch.Tensor,
     convention: Convention = "forward",
+    *,
+    orthogonality_atol: float | None = None,
 ) -> torch.Tensor:
-    """Construct the exact dense operator ``U diag(B_A(phi(lambda))) U*``."""
+    """Construct a validated exact normalized-Laplacian spectral operator.
+
+    The public boundary rejects malformed, nonorthonormal, out-of-range, or
+    precision/device-inconsistent spectral data before assembly. Validation is
+    shared with the dense oracle, while scalar evaluation and matrix assembly
+    remain separate production arithmetic.
+    """
+    from gbdn.oracle import validate_exact_blaschke_eigendecomposition
+
+    validate_exact_blaschke_eigendecomposition(
+        evals,
+        evecs,
+        alphas,
+        convention=convention,
+        orthogonality_atol=orthogonality_atol,
+    )
     symbol = blaschke_cayley_symbol(evals, alphas, convention=convention)
-    vectors = evecs.to(device=symbol.device, dtype=symbol.dtype)
-    return (vectors * symbol.unsqueeze(0)) @ vectors.conj().transpose(-1, -2)
+    vectors = evecs.to(dtype=symbol.dtype)
+    return (vectors * symbol.unsqueeze(0)) @ vectors.mH
 
 
 def tight_split_responses(
@@ -282,6 +480,9 @@ def tight_split_responses(
     convention: Convention = "forward",
 ) -> dict[str, torch.Tensor]:
     """Return phase, phase derivative, and complementary channel responses."""
+    lambdas = _validate_real_values(lambdas, name="lambdas")
+    alphas = _validate_admissible_roots(alphas, reference=lambdas)
+    _check_convention(convention)
     symbol = blaschke_cayley_symbol(lambdas, alphas, convention=convention)
     phase = torch.angle(symbol)
     p_plus = 0.5 * (1.0 + symbol)

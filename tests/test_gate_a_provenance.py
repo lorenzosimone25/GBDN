@@ -18,7 +18,16 @@ from gbdn.gate_a_evidence import (
     evidence_field_counts,
     validate_evidence_catalog,
 )
-from gbdn.gate_a_report import collect_and_report, validate_report_provenance
+from gbdn.gate_a_report import (
+    ID_DEGREES,
+    ID_FIXTURES,
+    ID_ROOTS,
+    PytestInventory,
+    build_report,
+    collect_and_report,
+    cross_validate_coverage_declarations,
+    validate_report_provenance,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -198,9 +207,12 @@ def test_gate_a_collect_only_links_every_node_to_source_environment_and_evidence
     assert report["environment"]["python_version"]
     assert report["environment"]["torch_version"]
     assert report["gate_a_acceptance"]["accepted"] is False
+    assert report["coverage_evidence_cross_validation"]["status"] == "PASS"
+    assert report["coverage_evidence_cross_validation"]["mismatches"] == []
 
     for gate_id in REQUIRED_IDS:
         row = report["ids"][gate_id]
+        assert row["status"] in {"PASS", "FAIL", "NOT_RUN"}
         assert row["computed_evidence_available"] is True
         assert row["computed_evidence_reference"] == f"gate_a_evidence.rows.{gate_id}"
         assert row["node_records"]
@@ -223,6 +235,87 @@ def test_gate_a_collect_only_links_every_node_to_source_environment_and_evidence
     assert any(
         "GA-03.node_records[0].evidence_reference" in error
         for error in validate_report_provenance(tampered_link)
+    )
+
+    invalid_status = copy.deepcopy(report)
+    invalid_status["ids"]["GA-00"]["status"] = "DUPLICATE"
+    assert any(
+        "GA-00.status: invalid value" in error
+        for error in validate_report_provenance(invalid_status)
+    )
+
+
+def test_coverage_cross_validation_detects_evidence_and_declaration_drift(monkeypatch):
+    catalog = evaluate_gate_a_evidence()
+    assert cross_validate_coverage_declarations(catalog)["status"] == "PASS"
+
+    missing_fixture = copy.deepcopy(catalog)
+    fixtures = missing_fixture["rows"]["GA-19"]["graph_semantic_hashes"]["value"]
+    missing_fixture["rows"]["GA-19"]["graph_semantic_hashes"]["value"] = [
+        item for item in fixtures if item["fixture"] != "grid_2x4"
+    ]
+    result = cross_validate_coverage_declarations(missing_fixture)
+    assert result["status"] == "FAIL"
+    assert result["rows"]["GA-19"]["fixtures"]["missing_from_evidence"] == [
+        "grid_2x4"
+    ]
+
+    changed_degree = copy.deepcopy(catalog)
+    for case in changed_degree["rows"]["GA-20"]["configuration"]["value"][
+        "cases"
+    ]:
+        if case["degree"] == 4:
+            case["degree"] = 64
+    result = cross_validate_coverage_declarations(changed_degree)
+    assert result["status"] == "FAIL"
+    degree_record = result["rows"]["GA-20"]["degrees"]
+    assert degree_record["missing_from_evidence"] == [4]
+    assert degree_record["undeclared_in_static_contract"] == [64]
+
+    changed_root = copy.deepcopy(catalog)
+    changed_root["rows"]["GA-13"]["root_fixtures_and_values"]["value"][0][
+        "fixture"
+    ] = "arbitrary-prescribed-multiplier"
+    result = cross_validate_coverage_declarations(changed_root)
+    assert result["status"] == "FAIL"
+    assert result["rows"]["GA-13"]["root_fixtures"]["matches"] is False
+
+    monkeypatch.setitem(
+        ID_FIXTURES,
+        "GA-13",
+        (*ID_FIXTURES["GA-13"], "stale-static-fixture"),
+    )
+    result = cross_validate_coverage_declarations(catalog)
+    assert result["status"] == "FAIL"
+    assert result["rows"]["GA-13"]["fixtures"]["missing_from_evidence"] == [
+        "stale-static-fixture"
+    ]
+
+    monkeypatch.setitem(ID_DEGREES, "GA-24", (12, 16))
+    assert cross_validate_coverage_declarations(catalog)["status"] == "FAIL"
+    monkeypatch.setitem(ID_ROOTS, "GA-24", ("wrong_root",))
+    assert cross_validate_coverage_declarations(catalog)["status"] == "FAIL"
+
+
+def test_coverage_metadata_tampering_is_an_explicit_acceptance_blocker():
+    tampered = evaluate_gate_a_evidence()
+    tampered["rows"]["GA-13"]["root_fixtures_and_values"]["value"][0][
+        "fixture"
+    ] = "arbitrary-prescribed-multiplier"
+    report = build_report(
+        PytestInventory(),
+        repository_root=ROOT,
+        tests_executed=False,
+        pytest_exit_code=0,
+        evidence_catalog_override=tampered,
+    )
+    assert report["coverage_evidence_cross_validation"]["status"] == "FAIL"
+    assert report["gate_a_acceptance"]["accepted"] is False
+    assert any(
+        blocker.startswith(
+            "static coverage declarations disagree with computed typed evidence"
+        )
+        for blocker in report["gate_a_acceptance"]["blockers"]
     )
 
 

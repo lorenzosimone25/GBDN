@@ -1,4 +1,9 @@
-"""Gate A: numerical checks for the revised GBDN mathematical contract."""
+"""Historical diagnostic subset; this file cannot establish Gate-A acceptance.
+
+The mandatory scientific gate is the complete theorem-to-test suite and its
+machine-readable reporter. These compact checks remain only as fast regression
+diagnostics for early implementation behavior.
+"""
 
 from __future__ import annotations
 
@@ -173,7 +178,8 @@ def test_energy_separation_and_complex_recovery_inequalities():
     assert (recovered - truth).abs().square().sum() <= bound + 1e-14
 
 
-def test_chebyshev_sparse_operator_matches_exact_and_frame_bound():
+def test_diagnostic_sparse_response_and_single_signal_energy_ratio():
+    """Diagnostic only: this is not the mandatory full-operator frame test."""
     n = 20
     edge_index, edge_weight = _path_edges(n)
     evals, evecs = _spectrum(edge_index, edge_weight, n)
@@ -256,4 +262,8 @@ if __name__ == "__main__":
     for test in tests:
         test()
         print(f"{test.__name__}: PASS")
-    print(f"Gate A passed: {len(tests)} checks")
+    print(
+        f"Diagnostic subset passed: {len(tests)} checks. "
+        "This does not establish Gate A; run scripts/report_gate_a.py and "
+        "obtain independent review."
+    )

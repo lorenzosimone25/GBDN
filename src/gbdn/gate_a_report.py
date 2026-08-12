@@ -2,9 +2,9 @@
 
 The report distinguishes an executed test ID from scientific Gate-A
 acceptance. It never edits tests or result trees and emits deterministic JSON
-without timestamps. Fixture declarations are explicit rather than inferred
-from test names, so known matrix gaps remain visible even when every ID has a
-passing pytest node.
+without timestamps. Frozen fixture declarations are cross-validated against
+typed computed evidence rather than inferred from test names, so provenance
+drift remains visible even when every ID has a passing pytest node.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from gbdn.gate_a_evidence import (
 )
 
 
-REPORT_SCHEMA: Final[str] = "gbdn-gate-a-coverage-v2"
+REPORT_SCHEMA: Final[str] = "gbdn-gate-a-coverage-v3"
 REQUIRED_IDS: Final[tuple[str, ...]] = tuple(f"GA-{index:02d}" for index in range(36))
 
 NUMERICAL_TOLERANCES: Final[dict[str, float]] = {
@@ -313,46 +313,43 @@ REALIZATION_TAGS: Final[dict[str, tuple[str, ...]]] = {
 
 ID_FIXTURES: Final[dict[str, tuple[str, ...]]] = {
     "GA-00": (
-        "invalid-graph-cases",
-        "reciprocal-mean-with-isolates",
-        "sphere-directed-knn-preprocessed",
-        "validated-peel-diagnostics",
+        "directed-knn-rejection-input",
+        "negative-weight-rejection-input",
+        "reciprocal-mean-laplacian",
+        "reciprocal-mean-output",
+        "reciprocal-mean-policy-input",
+        "sphere-directed-knn-preprocessed-output",
+        "sphere-validated-laplacian",
     ),
-    "GA-01": ("scalar-parameter-extremes",),
-    "GA-02": ("scalar-real-frequency-grids",),
-    "GA-03": ("path-9",),
-    "GA-04": ("path-9",),
-    "GA-05": ("real-grid", "path-6", "cycle-7"),
-    "GA-06": ("path-6", "cycle-7", "complete-5", "disconnected-6", "weighted-6"),
-    "GA-07": ("path-6", "cycle-7", "complete-5", "disconnected-6", "weighted-6"),
-    "GA-08": ("path-7", "deliberately-nonunitary-matrix"),
-    "GA-09": ("path-6", "cycle-7", "complete-5", "disconnected-6", "weighted-6"),
-    "GA-10": ("weighted-6-public-model-dense-oracle",),
-    "GA-11": ("complete-5-repeated-eigenspace",),
-    "GA-12": ("path-2-node-projector",),
-    "GA-13": ("complete-5-whole-eigenspace",),
-    "GA-14": ("weighted-6-actual-blaschke-chebyshev",),
-    "GA-15": ("weighted-6",),
-    "GA-16": ("complete-6",),
-    "GA-17": ("path-10", "cycle-10"),
-    "GA-18": ("path-7", "first-kind-nodes"),
-    "GA-19": ("path-8", "cycle-9"),
-    "GA-20": ("path-9", "interval-grid"),
-    "GA-21": ("path-8", "complete-5-repeated-spectrum", "weighted-6"),
-    "GA-22": ("path-8", "complete-5-repeated-spectrum", "weighted-6"),
-    "GA-23": ("scalar-center-width", "angular-anchor-counterexample"),
-    "GA-24": ("scalar-root-bank",),
-    "GA-25": ("five-point-distinct-spectrum", "clustered-distinct-spectrum"),
-    "GA-26": ("synthetic-repeated-eigenvalue",),
-    "GA-27": ("frozen-cayleynet-real-response", "exact-gbdn-reduced-pole"),
-    "GA-28": ("weighted-path-8",),
-    "GA-29": ("path-14",),
-    "GA-30": ("path-7",),
-    "GA-31": ("weighted-6",),
-    "GA-32": ("cycle-7-zero-mode",),
-    "GA-33": ("path-6",),
-    "GA-34": ("path-20", "disconnected-6", "path-8"),
-    "GA-35": ("path-6", "three-canonical-model-variants"),
+    "GA-03": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-04": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-05": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-06": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-07": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-08": ("path_8",),
+    "GA-09": ("complete_5", "cycle_even_6", "cycle_odd_7", "disconnected_7", "grid_2x4", "path_5", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-10": ("weighted_6",),
+    "GA-11": ("complete_5",),
+    "GA-12": ("path_2",),
+    "GA-13": ("weighted_6",),
+    "GA-14": ("weighted_6",),
+    "GA-15": ("weighted_6", "weighted_6_permuted"),
+    "GA-16": ("complete_6",),
+    "GA-17": ("cycle_even_10", "path_10"),
+    "GA-18": ("path_8",),
+    "GA-19": ("cycle_odd_9", "grid_2x4", "path_8", "random_weighted_seed_1701", "star_7"),
+    "GA-20": ("path_9",),
+    "GA-21": ("complete_5", "path_8", "weighted_6"),
+    "GA-22": ("complete_5", "path_8", "weighted_6"),
+    "GA-24": ("path_9",),
+    "GA-28": ("weighted_path_8_base", "weighted_path_8_scale_0.0001", "weighted_path_8_scale_0.001", "weighted_path_8_scale_0.01"),
+    "GA-29": ("path_14",),
+    "GA-30": ("path_8",),
+    "GA-31": ("weighted_6",),
+    "GA-32": ("cycle_odd_7",),
+    "GA-33": ("path_6",),
+    "GA-34": ("disconnected_6", "path_20", "path_8"),
+    "GA-35": ("path_6",),
 }
 
 ID_DEPTHS: Final[dict[str, tuple[int, ...]]] = {
@@ -360,35 +357,69 @@ ID_DEPTHS: Final[dict[str, tuple[int, ...]]] = {
     "GA-06": (1, 2, 4, 8, 16),
     "GA-07": (1, 2, 4, 8, 16),
     "GA-09": (1, 2, 4, 8, 16),
+    "GA-08": (3,),
+    "GA-10": (2,),
+    "GA-11": (8,),
+    "GA-12": (1,),
+    "GA-15": (4,),
     "GA-22": (1, 2, 4, 8, 16),
+    "GA-30": (1, 2, 4),
+    "GA-31": (4,),
+    "GA-32": (1,),
+    "GA-33": (8,),
+    "GA-34": (1, 4),
 }
 
 ID_DEGREES: Final[dict[str, tuple[int, ...]]] = {
+    "GA-10": (4,),
+    "GA-14": (8,),
+    "GA-15": (12,),
+    "GA-17": (3,),
     "GA-18": (12,),
     "GA-19": (4, 8, 16, 32, 128),
     "GA-20": (4, 8, 16, 32),
     "GA-21": (8, 16),
     "GA-22": (8, 12, 16),
+    "GA-24": (12,),
     "GA-29": (3,),
-    "GA-30": (5,),
+    "GA-30": (0, 3, 4, 5),
+    "GA-31": (8,),
     "GA-34": (1,),
 }
 
 ID_ROOTS: Final[dict[str, tuple[str, ...]]] = {
-    "GA-01": ("radial-polar", "exact-center-width", "near-cap"),
-    "GA-02": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-03": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-04": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-05": ("multi-root",),
-    "GA-06": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-07": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-09": ("real-interior", "generic-complex", "near-cap", "multi-root", "conjugate-pair"),
-    "GA-23": ("exact-center-width", "angular-anchor"),
-    "GA-24": ("generic-complex", "multi-root"),
+    "GA-00": ("public_exact_control",),
+    "GA-01": ("exact-center-width-extremes", "radial-polar-extremes"),
+    "GA-02": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-03": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-04": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-05": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-06": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-07": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-08": ("generic_complex",),
+    "GA-09": ("conjugate_pair", "generic_complex", "multi_root", "near_radius_cap", "real_interior"),
+    "GA-10": ("public_model_layer_0", "public_model_layer_1"),
+    "GA-11": ("multi_root",),
+    "GA-12": ("generic_complex",),
+    "GA-13": ("spectral_selection",),
+    "GA-14": ("multi-root-first-two",),
+    "GA-15": ("conjugate_pair", "generic_complex", "multi_root", "real_interior"),
+    "GA-16": ("multi_root",),
+    "GA-19": ("conjugate_pair", "generic_complex", "multi_root"),
+    "GA-20": ("generic_complex", "multi_root", "near_radius_cap"),
+    "GA-21": ("generic_complex",),
+    "GA-22": ("generic_complex", "multi_root", "real_interior"),
+    "GA-23": ("angular_anchor_counterexample", "exact_center_width"),
+    "GA-24": ("multi_root",),
     "GA-25": ("nonzero-small-radius",),
-    "GA-28": ("generic-complex", "multi-root"),
-    "GA-32": ("real-interior",),
-    "GA-34": ("real-interior",),
+    "GA-27": ("generic_complex",),
+    "GA-28": ("generic_complex", "multi_root"),
+    "GA-29": ("generic_complex",),
+    "GA-30": ("model_depth_1_degree_0_level_0", "model_depth_1_degree_3_level_0", "model_depth_2_degree_4_level_0", "model_depth_2_degree_4_level_1", "model_depth_4_degree_5_level_0", "model_depth_4_degree_5_level_1", "model_depth_4_degree_5_level_2", "model_depth_4_degree_5_level_3"),
+    "GA-31": ("conjugate_pair", "generic_complex", "multi_root", "real_interior"),
+    "GA-32": ("real-interior-zero-mode-witness",),
+    "GA-33": ("multi_root",),
+    "GA-34": ("real-interior-connected-endpoint", "real-interior-disconnected"),
 }
 
 ID_TOLERANCE_KEYS: Final[dict[str, tuple[str, ...]]] = {
@@ -582,6 +613,145 @@ def _declaration(gate_id: str) -> dict[str, Any]:
     }
 
 
+def _typed_value(field: Any) -> Any | None:
+    if isinstance(field, dict) and field.get("status") == "VALUE":
+        return field.get("value")
+    return None
+
+
+def _evidence_fixture_names(row: dict[str, Any]) -> tuple[str, ...]:
+    values = _typed_value(row.get("graph_semantic_hashes"))
+    if not isinstance(values, list):
+        return ()
+    return tuple(
+        sorted(
+            {
+                str(item["fixture"])
+                for item in values
+                if isinstance(item, dict) and isinstance(item.get("fixture"), str)
+            }
+        )
+    )
+
+
+def _evidence_root_names(row: dict[str, Any]) -> tuple[str, ...]:
+    values = _typed_value(row.get("root_fixtures_and_values"))
+    if not isinstance(values, list):
+        return ()
+    return tuple(
+        sorted(
+            {
+                str(item["fixture"])
+                for item in values
+                if isinstance(item, dict) and isinstance(item.get("fixture"), str)
+            }
+        )
+    )
+
+
+def _collect_configuration_integers(value: Any, dimension: str) -> tuple[int, ...]:
+    observed: set[int] = set()
+
+    def visit(current: Any) -> None:
+        if isinstance(current, dict):
+            for key, child in current.items():
+                if key == dimension or key == f"{dimension}s" or key.endswith(
+                    f"_{dimension}"
+                ):
+                    if type(child) is int:
+                        observed.add(child)
+                    elif isinstance(child, list):
+                        observed.update(item for item in child if type(item) is int)
+                visit(child)
+        elif isinstance(current, list):
+            for child in current:
+                visit(child)
+
+    visit(value)
+    return tuple(sorted(observed))
+
+
+def _evidence_configuration_values(
+    row: dict[str, Any],
+    dimension: str,
+) -> tuple[int, ...]:
+    configuration = _typed_value(row.get("configuration"))
+    return _collect_configuration_integers(configuration, dimension)
+
+
+def cross_validate_coverage_declarations(
+    evidence_catalog: dict[str, Any],
+) -> dict[str, Any]:
+    """Cross-check every static row declaration against computed evidence.
+
+    Static declarations remain the frozen acceptance requirements. Computed
+    evidence is authoritative for what was actually exercised. Exact set
+    equality is deliberate: both missing coverage and stale/undeclared scope
+    are provenance drift and must block the reporter.
+    """
+
+    rows = evidence_catalog.get("rows")
+    if not isinstance(rows, dict):
+        return {
+            "status": "FAIL",
+            "rows": {},
+            "mismatches": ["evidence catalog has no typed rows mapping"],
+        }
+    records: dict[str, dict[str, Any]] = {}
+    mismatches: list[str] = []
+    extractors = {
+        "fixtures": _evidence_fixture_names,
+        "root_fixtures": _evidence_root_names,
+        "depths": lambda row: _evidence_configuration_values(row, "depth"),
+        "degrees": lambda row: _evidence_configuration_values(row, "degree"),
+    }
+    declaration_maps: dict[str, dict[str, tuple[Any, ...]]] = {
+        "fixtures": ID_FIXTURES,
+        "root_fixtures": ID_ROOTS,
+        "depths": ID_DEPTHS,
+        "degrees": ID_DEGREES,
+    }
+    for gate_id in REQUIRED_IDS:
+        row = rows.get(gate_id)
+        row_record: dict[str, Any] = {}
+        if not isinstance(row, dict):
+            message = f"{gate_id}: missing computed evidence row"
+            mismatches.append(message)
+            records[gate_id] = {
+                "status": "FAIL",
+                "mismatches": [message],
+            }
+            continue
+        row_mismatches: list[str] = []
+        for dimension, extractor in extractors.items():
+            expected = tuple(sorted(declaration_maps[dimension].get(gate_id, ())))
+            observed = tuple(extractor(row))
+            missing = tuple(value for value in expected if value not in observed)
+            undeclared = tuple(value for value in observed if value not in expected)
+            row_record[dimension] = {
+                "declared": list(expected),
+                "computed_from_evidence": list(observed),
+                "missing_from_evidence": list(missing),
+                "undeclared_in_static_contract": list(undeclared),
+                "matches": not missing and not undeclared,
+            }
+            if missing or undeclared:
+                message = (
+                    f"{gate_id} {dimension}: missing={list(missing)}, "
+                    f"undeclared={list(undeclared)}"
+                )
+                row_mismatches.append(message)
+                mismatches.append(message)
+        row_record["status"] = "PASS" if not row_mismatches else "FAIL"
+        row_record["mismatches"] = row_mismatches
+        records[gate_id] = row_record
+    return {
+        "status": "PASS" if not mismatches else "FAIL",
+        "rows": records,
+        "mismatches": mismatches,
+    }
+
+
 def validate_report_provenance(report: Any) -> list[str]:
     """Validate source/environment and pytest-node-to-evidence links."""
 
@@ -629,6 +799,12 @@ def validate_report_provenance(report: Any) -> list[str]:
         if not isinstance(row, dict):
             errors.append(f"{path}: missing row")
             continue
+        if row.get("status") not in {"PASS", "FAIL", "NOT_RUN"}:
+            errors.append(f"{path}.status: invalid value")
+        if row.get("execution_status") not in {"PASS", "FAIL", "NOT_RUN"}:
+            errors.append(f"{path}.execution_status: invalid value")
+        if row.get("mapping_status") not in {"UNIQUE", "DUPLICATE", "MISSING"}:
+            errors.append(f"{path}.mapping_status: invalid value")
         reference = row.get("computed_evidence_reference")
         expected_reference = f"gate_a_evidence.rows.{gate_id}"
         if reference != expected_reference:
@@ -670,6 +846,7 @@ def build_report(
     repository_root: Path,
     tests_executed: bool,
     pytest_exit_code: int,
+    evidence_catalog_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the deterministic report from collected nodes and outcomes."""
 
@@ -681,10 +858,17 @@ def build_report(
                 nodes_by_id[gate_id].append(node.node_id)
                 definitions_by_id[gate_id].add(node.definition_id)
 
-    evidence_catalog = evaluate_gate_a_evidence()
+    evidence_catalog = (
+        evaluate_gate_a_evidence()
+        if evidence_catalog_override is None
+        else evidence_catalog_override
+    )
     evidence_schema_errors = validate_evidence_catalog(evidence_catalog)
     evidence_failures = evidence_decision_failures(evidence_catalog)
     evidence_counts = evidence_field_counts(evidence_catalog)
+    coverage_evidence_cross_validation = cross_validate_coverage_declarations(
+        evidence_catalog
+    )
     source_state = _source_state(repository_root)
     environment_state = _environment_state()
 
@@ -701,7 +885,7 @@ def build_report(
             for node_id in node_ids
         ]
         if not node_ids:
-            execution_status = "MISSING"
+            execution_status = "NOT_RUN"
         elif "FAIL" in outcomes:
             execution_status = "FAIL"
         elif outcomes and all(outcome == "PASS" for outcome in outcomes):
@@ -715,12 +899,7 @@ def build_report(
             if len(definitions) > 1
             else "UNIQUE"
         )
-        if execution_status in {"MISSING", "FAIL", "NOT_RUN"}:
-            status = execution_status
-        elif mapping_status == "DUPLICATE":
-            status = "DUPLICATE"
-        else:
-            status = "PASS"
+        status = execution_status
 
         pytest_properties = [
             metric
@@ -755,7 +934,7 @@ def build_report(
     missing_ids = [
         gate_id
         for gate_id, record in records.items()
-        if record["execution_status"] == "MISSING"
+        if record["mapping_status"] == "MISSING"
     ]
     failed_ids = [
         gate_id
@@ -851,6 +1030,11 @@ def build_report(
         blockers.append(
             "missing computed evidence rows: " + ", ".join(missing_evidence_ids)
         )
+    if coverage_evidence_cross_validation["status"] != "PASS":
+        blockers.append(
+            "static coverage declarations disagree with computed typed evidence: "
+            + "; ".join(coverage_evidence_cross_validation["mismatches"])
+        )
     if source_state["tested_source_commit"] == "UNKNOWN":
         blockers.append("tested source commit could not be resolved")
     if source_state["source_tree_dirty"]:
@@ -901,6 +1085,7 @@ def build_report(
             "rows": row_matrix,
             "gaps": row_matrix_gaps,
         },
+        "coverage_evidence_cross_validation": coverage_evidence_cross_validation,
         "ids": records,
         "gate_a_evidence": {
             "schema": EVIDENCE_SCHEMA,

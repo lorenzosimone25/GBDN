@@ -355,27 +355,125 @@ def test_ga12_noncommuting_node_projector_breaks_weighted_parseval():
     assert float((output_energy - input_energy).abs().item()) > 1e-6
 
 
-def test_ga13_spectral_energy_selection_with_matrix_features_and_eigenspace():
-    """GA-13: target/complement norm bounds hold for whole eigenspaces."""
+def test_ga13_actual_blaschke_channel_separation_and_recovery_bounds():
+    """GA-13: an actual q=(1-B(phi))/2 obeys both spectral bounds."""
 
-    # The four-dimensional nonzero eigenspace of K5 is selected as a whole.
-    eigenvalues = torch.linalg.eigvalsh(_laplacian("complete")[0])
-    assert float((eigenvalues[1:] - eigenvalues[1]).abs().max().item()) < EXACT_TOL
+    laplacian, token, _, _ = _laplacian("weighted")
+    assert token.validation_method == "normalized-laplacian-construction"
+    eigenvalues, eigenvectors = torch.linalg.eigh(laplacian)
+    # The repeated lambda=1 eigenspace is kept wholly in S^c.
+    assert float((eigenvalues[2] - eigenvalues[3]).abs().item()) < EXACT_TOL
+    target_mask = torch.tensor([True, True, False, False, False, False])
+    complement_mask = ~target_mask
+
+    roots = torch.tensor(
+        [-0.43133513652379385 - 0.4313351365237939j],
+        dtype=torch.complex128,
+    )
+    assert float(roots.abs().max().item()) < 1.0
+    one = torch.ones_like(eigenvalues)
+    zeta = torch.complex(eigenvalues, -one) / torch.complex(eigenvalues, one)
+    # Independent scalar construction: do not ask the production symbol to
+    # certify the very channel premise under test.
+    exact_symbol = torch.ones_like(zeta)
+    for root in roots:
+        exact_symbol *= (zeta - root) / (1.0 - root.conj() * zeta)
+    q_symbol = 0.5 * (1.0 - exact_symbol)
+    assert float((exact_symbol.abs() - 1.0).abs().max().item()) < 5e-12
+
+    exact_factor = dense_exact_blaschke_operator(laplacian, roots)
+    independent_factor = (
+        eigenvectors.to(torch.complex128) * exact_symbol.unsqueeze(0)
+    ) @ eigenvectors.to(torch.complex128).mH
+    assert torch.allclose(exact_factor, independent_factor, atol=1e-12, rtol=0.0)
+
     generator = torch.Generator().manual_seed(1300)
-    coefficients = torch.randn(5, 3, dtype=torch.complex128, generator=generator)
-    target = torch.tensor([1, 2, 3, 4])
-    complement = torch.tensor([0])
-    delta, eta = 0.08, 0.05
-    response = torch.zeros(5, dtype=torch.complex128)
-    response[target] = (1.0 - delta / 2.0) * torch.exp(
+    coefficients = torch.randn(
+        6,
+        3,
+        dtype=torch.complex128,
+        generator=generator,
+    )
+    assert float(coefficients[target_mask].norm().item()) > 1.0
+    assert float(coefficients[complement_mask].norm().item()) > 1.0
+    vectors = eigenvectors.to(torch.complex128)
+    signal = vectors @ coefficients
+    q_operator = 0.5 * (
+        torch.eye(6, dtype=torch.complex128) - exact_factor
+    )
+    selected_signal = q_operator @ signal
+    selected_coefficients = vectors.mH @ selected_signal
+    expected_selected = q_symbol.unsqueeze(1) * coefficients
+    assert torch.allclose(
+        selected_coefficients,
+        expected_selected,
+        atol=1e-12,
+        rtol=0.0,
+    )
+
+    magnitude_delta = float(
+        (q_symbol[target_mask].abs() - 1.0).abs().max().item()
+    )
+    eta = float(q_symbol[complement_mask].abs().max().item())
+    target_output_norm = selected_coefficients[target_mask].norm()
+    complement_output_norm = selected_coefficients[complement_mask].norm()
+    target_lower_bound = (
+        (1.0 - magnitude_delta) * coefficients[target_mask].norm()
+    )
+    complement_upper_bound = eta * coefficients[complement_mask].norm()
+    assert target_output_norm + 1e-12 >= target_lower_bound
+    assert complement_output_norm <= complement_upper_bound + 1e-12
+    assert float(
+        target_output_norm / coefficients[target_mask].norm()
+        - complement_output_norm / coefficients[complement_mask].norm()
+    ) > 0.5
+
+    target_signal = vectors[:, target_mask] @ coefficients[target_mask]
+    complement_signal = vectors[:, complement_mask] @ coefficients[complement_mask]
+    recovery_delta = float(
+        (q_symbol[target_mask] - 1.0).abs().max().item()
+    )
+    recovery_error = (selected_signal - target_signal).norm()
+    recovery_bound = torch.sqrt(
+        recovery_delta**2 * target_signal.norm().square()
+        + eta**2 * complement_signal.norm().square()
+    )
+    exact_squared_error = (
+        (
+            (q_symbol[target_mask] - 1.0).unsqueeze(1)
+            * coefficients[target_mask]
+        ).abs().square().sum()
+        + (
+            q_symbol[complement_mask].unsqueeze(1)
+            * coefficients[complement_mask]
+        ).abs().square().sum()
+    )
+    assert torch.allclose(
+        recovery_error.square(),
+        exact_squared_error,
+        atol=1e-12,
+        rtol=0.0,
+    )
+    assert recovery_error <= recovery_bound + 1e-12
+
+    # Frozen negative control from the rejected row: these attractive-looking
+    # prescribed values are not complementary channels of any all-pass factor.
+    arbitrary_q = torch.zeros(5, dtype=torch.complex128)
+    arbitrary_q[1:] = 0.96 * torch.exp(
         torch.tensor(0.4j, dtype=torch.complex128)
     )
-    response[complement] = (eta / 2.0) * torch.exp(
+    arbitrary_q[0] = 0.025 * torch.exp(
         torch.tensor(-0.7j, dtype=torch.complex128)
     )
-    selected = response.unsqueeze(1) * coefficients
-    assert selected[target].norm() + 1e-12 >= (1.0 - delta) * coefficients[target].norm()
-    assert selected[complement].norm() <= eta * coefficients[complement].norm() + 1e-12
+    arbitrary_factor_defect = (torch.abs(1.0 - 2.0 * arbitrary_q) - 1.0).abs()
+    assert arbitrary_factor_defect[1].item() == pytest.approx(
+        0.07215940187498293,
+        abs=1e-14,
+    )
+    assert arbitrary_factor_defect[0].item() == pytest.approx(
+        0.037702862276130955,
+        abs=1e-14,
+    )
 
 
 def test_ga14_actual_blaschke_chebyshev_complex_recovery_bound(record_property):

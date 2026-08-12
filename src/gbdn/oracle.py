@@ -9,6 +9,7 @@ themselves.
 from __future__ import annotations
 
 from collections.abc import Sequence
+import math
 from typing import Literal
 
 import torch
@@ -17,14 +18,17 @@ from gbdn.core import validate_self_adjoint_operator
 
 
 Convention = Literal["forward", "inverse"]
+_REAL_TO_COMPLEX_DTYPE = {
+    torch.float32: torch.complex64,
+    torch.float64: torch.complex128,
+}
 
 
 def _complex_dtype(real_dtype: torch.dtype) -> torch.dtype:
-    if real_dtype == torch.float64:
-        return torch.complex128
-    if real_dtype == torch.float32:
-        return torch.complex64
-    raise TypeError(f"unsupported real dtype for spectral oracle: {real_dtype}")
+    try:
+        return _REAL_TO_COMPLEX_DTYPE[real_dtype]
+    except KeyError as exc:
+        raise TypeError(f"unsupported real dtype for spectral oracle: {real_dtype}") from exc
 
 
 def _validate_convention(convention: Convention) -> None:
@@ -34,15 +38,52 @@ def _validate_convention(convention: Convention) -> None:
         )
 
 
-def _validate_roots(roots: torch.Tensor) -> torch.Tensor:
+def _validate_roots(
+    roots: torch.Tensor,
+    *,
+    reference: torch.Tensor | None = None,
+    allow_empty: bool = True,
+) -> torch.Tensor:
+    if not isinstance(roots, torch.Tensor):
+        raise TypeError("roots must be a torch.Tensor")
     if not roots.is_complex():
         raise TypeError("roots must use a complex dtype")
     roots = roots.reshape(-1)
+    if roots.numel() == 0 and not allow_empty:
+        raise ValueError("at least one root is required")
+    if reference is not None:
+        expected_dtype = _complex_dtype(reference.dtype)
+        if roots.dtype != expected_dtype:
+            raise TypeError(
+                "root dtype must match eigenvalue precision: "
+                f"expected {expected_dtype}, got {roots.dtype}"
+            )
+        if roots.device != reference.device:
+            raise ValueError("roots and eigenvalues must be on the same device")
     if not torch.isfinite(roots).all():
         raise ValueError("roots must be finite")
     if torch.any(roots.abs() >= 1.0):
         raise ValueError("every root must lie strictly inside the unit disk")
     return roots
+
+
+def _validate_real_spectral_values(
+    values: torch.Tensor,
+    *,
+    require_vector: bool,
+) -> torch.Tensor:
+    if not isinstance(values, torch.Tensor):
+        raise TypeError("eigenvalues must be a torch.Tensor")
+    if values.is_complex() or not values.is_floating_point():
+        raise TypeError("eigenvalues must use a real floating dtype")
+    _complex_dtype(values.dtype)
+    if require_vector and values.ndim != 1:
+        raise ValueError("eigenvalues must be one-dimensional")
+    if values.numel() == 0:
+        raise ValueError("eigenvalues must be nonempty")
+    if not torch.isfinite(values).all():
+        raise ValueError("eigenvalues must be finite")
+    return values
 
 
 def exact_blaschke_symbol(
@@ -54,15 +95,15 @@ def exact_blaschke_symbol(
     """Evaluate the canonical exact symbol without sparse-layer utilities."""
 
     _validate_convention(convention)
-    if eigenvalues.is_complex() or not eigenvalues.is_floating_point():
-        raise TypeError("eigenvalues must use a real floating dtype")
-    if not torch.isfinite(eigenvalues).all():
-        raise ValueError("eigenvalues must be finite")
+    eigenvalues = _validate_real_spectral_values(
+        eigenvalues,
+        require_vector=False,
+    )
     complex_dtype = _complex_dtype(eigenvalues.dtype)
-    eigenvalues = eigenvalues.to(dtype=eigenvalues.dtype)
     one = torch.ones_like(eigenvalues)
     zeta = torch.complex(eigenvalues, -one) / torch.complex(eigenvalues, one)
-    roots = _validate_roots(roots).to(device=zeta.device, dtype=complex_dtype)
+    roots = _validate_roots(roots, reference=eigenvalues)
+    assert roots.dtype == complex_dtype
     symbol = torch.ones_like(zeta)
     for root in roots:
         symbol = symbol * (zeta - root) / (1.0 - torch.conj(root) * zeta)
@@ -75,36 +116,87 @@ def exact_blaschke_operator_from_eigendecomposition(
     roots: torch.Tensor,
     *,
     convention: Convention = "forward",
-    orthogonality_atol: float = 1e-10,
+    orthogonality_atol: float | None = None,
 ) -> torch.Tensor:
     """Construct ``U diag(g(lambda)) U*`` from an explicit eigendecomposition."""
 
-    if eigenvalues.ndim != 1:
-        raise ValueError("eigenvalues must be one-dimensional")
-    if eigenvectors.ndim != 2 or eigenvectors.shape != (
-        eigenvalues.numel(),
-        eigenvalues.numel(),
-    ):
-        raise ValueError("eigenvectors must be a square basis matching eigenvalues")
-    if not torch.isfinite(eigenvectors).all():
-        raise ValueError("eigenvectors must be finite")
-    lower = float(eigenvalues.min().item())
-    upper = float(eigenvalues.max().item())
-    if lower < -1e-12 or upper > 2.0 + 1e-12:
-        raise ValueError(
-            f"normalized-Laplacian eigenvalues must lie in [0, 2], got [{lower}, {upper}]"
-        )
+    validate_exact_blaschke_eigendecomposition(
+        eigenvalues,
+        eigenvectors,
+        roots,
+        convention=convention,
+        orthogonality_atol=orthogonality_atol,
+    )
     symbol = exact_blaschke_symbol(
         eigenvalues,
         roots,
         convention=convention,
     )
-    vectors = eigenvectors.to(device=symbol.device, dtype=symbol.dtype)
+    vectors = eigenvectors.to(dtype=symbol.dtype)
+    return (vectors * symbol.unsqueeze(0)) @ vectors.mH
+
+
+def validate_exact_blaschke_eigendecomposition(
+    eigenvalues: torch.Tensor,
+    eigenvectors: torch.Tensor,
+    roots: torch.Tensor,
+    *,
+    convention: Convention = "forward",
+    orthogonality_atol: float | None = None,
+) -> None:
+    """Validate exact-operator inputs without performing operator arithmetic.
+
+    The production public constructor shares this fail-closed boundary with
+    the oracle but retains a separate scalar/assembly implementation. An empty
+    root sequence is the mathematically valid identity Blaschke product.
+    """
+
+    _validate_convention(convention)
+    eigenvalues = _validate_real_spectral_values(
+        eigenvalues,
+        require_vector=True,
+    )
+    if not isinstance(eigenvectors, torch.Tensor):
+        raise TypeError("eigenvectors must be a torch.Tensor")
+    if eigenvectors.ndim != 2 or eigenvectors.shape != (
+        eigenvalues.numel(),
+        eigenvalues.numel(),
+    ):
+        raise ValueError("eigenvectors must be a square basis matching eigenvalues")
+    expected_complex = _complex_dtype(eigenvalues.dtype)
+    if eigenvectors.dtype not in {eigenvalues.dtype, expected_complex}:
+        raise TypeError(
+            "eigenvector dtype must match eigenvalue precision as a real or "
+            f"complex tensor; got {eigenvectors.dtype} for {eigenvalues.dtype}"
+        )
+    if eigenvectors.device != eigenvalues.device:
+        raise ValueError("eigenvectors and eigenvalues must be on the same device")
+    if not torch.isfinite(eigenvectors).all():
+        raise ValueError("eigenvectors must be finite")
+    _validate_roots(roots, reference=eigenvalues)
+    if orthogonality_atol is None:
+        orthogonality_atol = 100.0 * torch.finfo(eigenvalues.dtype).eps
+    if (
+        isinstance(orthogonality_atol, bool)
+        or not isinstance(orthogonality_atol, (int, float))
+        or not math.isfinite(float(orthogonality_atol))
+        or float(orthogonality_atol) < 0.0
+    ):
+        raise ValueError("orthogonality_atol must be finite and nonnegative")
+    orthogonality_atol = float(orthogonality_atol)
+    lower = float(eigenvalues.min().item())
+    upper = float(eigenvalues.max().item())
+    spectral_atol = max(1e-12, 32.0 * torch.finfo(eigenvalues.dtype).eps)
+    if lower < -spectral_atol or upper > 2.0 + spectral_atol:
+        raise ValueError(
+            f"normalized-Laplacian eigenvalues must lie in [0, 2], got [{lower}, {upper}]"
+        )
+    complex_dtype = _complex_dtype(eigenvalues.dtype)
+    vectors = eigenvectors.to(dtype=complex_dtype)
     identity = torch.eye(vectors.shape[0], dtype=vectors.dtype, device=vectors.device)
     residual = torch.linalg.matrix_norm(vectors.mH @ vectors - identity, ord=2)
     if float(residual.item()) > orthogonality_atol:
         raise ValueError(f"eigenvectors are not orthonormal (residual={residual.item()})")
-    return (vectors * symbol.unsqueeze(0)) @ vectors.mH
 
 
 def exact_blaschke_operator(

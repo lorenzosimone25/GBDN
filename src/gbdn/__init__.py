@@ -32,6 +32,7 @@ from gbdn.oracle import (
     exact_blaschke_operator_from_eigendecomposition,
     exact_blaschke_symbol as dense_exact_blaschke_symbol,
     tight_analysis_matrix as dense_tight_analysis_matrix,
+    validate_exact_blaschke_eigendecomposition,
 )
 from gbdn.model import (
     GBDNProductSum,
@@ -94,6 +95,7 @@ __all__ = [
     "dense_tight_analysis_matrix",
     "dense_apply_tight_analysis",
     "dense_adjoint_tight_synthesis",
+    "validate_exact_blaschke_eigendecomposition",
     "blaschke_cayley_exact",
     "blaschke_cayley_symbol",
     "blaschke_cheb_coeffs",

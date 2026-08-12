@@ -183,11 +183,13 @@ def test_gate_a_report_distinguishes_execution_mapping_and_acceptance():
         pytest_exit_code=1,
     )
 
-    assert report["ids"]["GA-00"]["status"] == "DUPLICATE"
+    assert report["ids"]["GA-00"]["status"] == "PASS"
     assert report["ids"]["GA-00"]["execution_status"] == "PASS"
+    assert report["ids"]["GA-00"]["mapping_status"] == "DUPLICATE"
     assert report["ids"]["GA-01"]["status"] == "PASS"
     assert report["ids"]["GA-02"]["status"] == "FAIL"
-    assert report["ids"]["GA-03"]["status"] == "MISSING"
+    assert report["ids"]["GA-03"]["status"] == "NOT_RUN"
+    assert report["ids"]["GA-03"]["mapping_status"] == "MISSING"
     assert report["gate_a_acceptance"]["accepted"] is False
     assert report["required_depths"]["gaps"] == []
     assert report["required_degrees"]["GA-19_acceptance"]["missing"] == []
@@ -218,7 +220,7 @@ def test_gate_a_report_cli_collect_only_is_deterministic_machine_readable_json()
     assert second.returncode == 0, second.stderr
     assert first.stdout == second.stdout
     report = json.loads(first.stdout)
-    assert report["schema"] == "gbdn-gate-a-coverage-v2"
+    assert report["schema"] == "gbdn-gate-a-coverage-v3"
     assert len(report["ids"]) == 36
     assert report["ids"]["GA-23"]["collected_node_ids"]
     assert report["ids"]["GA-23"]["execution_status"] == "NOT_RUN"

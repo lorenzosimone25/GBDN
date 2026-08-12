@@ -46,6 +46,7 @@ from gbdn.oracle import (
     tight_analysis_matrix,
 )
 from gbdn.spectral import (
+    blaschke_cayley_exact,
     blaschke_product_cheb_coeffs,
     cayley_map,
     center_width_from_root,
@@ -69,6 +70,10 @@ SPARSE_TOL: Final[float] = 1e-8
 ZERO_TOL: Final[float] = 1e-12
 SLACK: Final[float] = 1e-10
 SHA256_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
+PUBLIC_EXACT_CONTROL_ROOT: Final[complex] = 0.2 + 0.1j
+SPECTRAL_SELECTION_ROOT: Final[complex] = (
+    -0.43133513652379385 - 0.4313351365237939j
+)
 
 
 def evidence_value(value: Any) -> dict[str, Any]:
@@ -509,6 +514,14 @@ def _evaluate_ga00() -> dict[str, Any]:
     except ValueError:
         rejected = True
 
+    negative_edges = torch.tensor([[0, 1], [1, 0]], dtype=torch.long)
+    negative_weights = torch.tensor([1.0, -0.5], dtype=torch.float64)
+    negative_rejected = False
+    try:
+        normalized_laplacian(negative_edges, negative_weights, 2)
+    except ValueError:
+        negative_rejected = True
+
     preprocess_edges = torch.tensor(
         [[0, 0, 1, 1, 0, 3], [1, 1, 0, 2, 0, 3]], dtype=torch.long
     )
@@ -564,12 +577,103 @@ def _evaluate_ga00() -> dict[str, Any]:
         sphere_record["policy"] != "reciprocal-mean"
         or sphere_record["formula"] != "A_sym=(A+A^T)/2"
     )
+    public_eigenvalues = torch.tensor([0.0, 1.0], dtype=torch.float64)
+    public_basis = torch.eye(2, dtype=torch.float64)
+    public_roots = torch.tensor(
+        [PUBLIC_EXACT_CONTROL_ROOT],
+        dtype=torch.complex128,
+    )
+    public_invalid_cases = (
+        (
+            public_eigenvalues,
+            torch.tensor(
+                [[1.0, 1.0], [0.0, 1.0]],
+                dtype=torch.float64,
+            ),
+            public_roots,
+        ),
+        (
+            torch.tensor([-0.1, 1.0], dtype=torch.float64),
+            public_basis,
+            public_roots,
+        ),
+        (
+            torch.tensor([0.0, 2.1], dtype=torch.float64),
+            public_basis,
+            public_roots,
+        ),
+        (
+            public_eigenvalues,
+            public_basis,
+            torch.tensor([1.2 + 0.0j], dtype=torch.complex128),
+        ),
+        (
+            public_eigenvalues,
+            public_basis,
+            torch.tensor(
+                [complex(float("nan"), 0.0)],
+                dtype=torch.complex128,
+            ),
+        ),
+    )
+    public_invalid_acceptance_count = 0
+    for case_eigenvalues, case_basis, case_roots in public_invalid_cases:
+        try:
+            blaschke_cayley_exact(
+                case_eigenvalues,
+                case_basis,
+                case_roots,
+            )
+        except (TypeError, ValueError):
+            continue
+        public_invalid_acceptance_count += 1
+
+    valid_public = blaschke_cayley_exact(
+        public_eigenvalues,
+        public_basis,
+        public_roots,
+    )
+    valid_public_unitarity_residual = float(
+        torch.linalg.matrix_norm(
+            valid_public.mH @ valid_public
+            - torch.eye(2, dtype=torch.complex128),
+            ord=2,
+        ).item()
+    )
+    nonorthogonal = public_invalid_cases[0][1].to(torch.complex128)
+    one = torch.ones_like(public_eigenvalues)
+    zeta = torch.complex(public_eigenvalues, -one) / torch.complex(
+        public_eigenvalues,
+        one,
+    )
+    raw_symbol = (zeta - public_roots[0]) / (
+        1.0 - public_roots[0].conj() * zeta
+    )
+    raw_counterexample = (
+        nonorthogonal * raw_symbol.unsqueeze(0)
+    ) @ nonorthogonal.mH
+    raw_counterexample_defect = float(
+        torch.linalg.matrix_norm(
+            raw_counterexample.mH @ raw_counterexample
+            - torch.eye(2, dtype=torch.complex128),
+            ord=2,
+        ).item()
+    )
     graphs = evidence_value(
         [
             {
                 "fixture": "directed-knn-rejection-input",
                 "semantic_sha256": _semantic_edge_hash(directed, weights, 5),
                 "semantic_role": "ordered-directed-input",
+            },
+            {
+                "fixture": "negative-weight-rejection-input",
+                "semantic_sha256": _semantic_edge_hash(
+                    negative_edges,
+                    negative_weights,
+                    2,
+                ),
+                "semantic_role": "invalid-negative-weight-input",
             },
             {
                 "fixture": "reciprocal-mean-policy-input",
@@ -603,17 +707,44 @@ def _evaluate_ga00() -> dict[str, Any]:
         evaluator="evaluate_graph_contract",
         realization_tags=("exact",),
         graphs=graphs,
-        roots=evidence_na("GA-00 validates graph inputs and has no filter root"),
-        dtype="torch.float64",
+        roots=evidence_value(
+            [
+                {
+                    "fixture": "public_exact_control",
+                    "parameterization": "fixed-explicit-complex",
+                    "values": _serialized_roots(public_roots),
+                }
+            ]
+        ),
+        dtype="torch.float64/torch.complex128",
         device="cpu",
         configuration={
             "policy": preprocessed.record.to_dict(),
             "sphere_policy": sphere_record,
             "peel_contract": "ValidatedLaplacian-required; angular-oracle-quarantined",
+            "public_exact_boundary": {
+                "invalid_case_count": len(public_invalid_cases),
+                "invalid_cases": [
+                    "nonorthogonal-basis",
+                    "below-zero-spectrum",
+                    "above-two-spectrum",
+                    "outside-disk-root",
+                    "nonfinite-root",
+                ],
+                "empty_product_semantics": "identity",
+                "arithmetic_paths": (
+                    "shared validation; separate production and oracle assembly"
+                ),
+            },
         },
         metrics=[
             _upper_bound_metric(
                 "directed_input_rejection_failure_count", int(not rejected), 0.0
+            ),
+            _upper_bound_metric(
+                "negative_input_rejection_failure_count",
+                int(not negative_rejected),
+                0.0,
             ),
             _error_metric("laplacian_self_adjoint_residual", symmetry_error, 1e-14),
             _upper_bound_metric("laplacian_spectral_interval_violation", interval_violation, 1e-12),
@@ -633,6 +764,21 @@ def _evaluate_ga00() -> dict[str, Any]:
                 "sphere_policy_metadata_mismatch_count",
                 sphere_policy_mismatch_count,
                 0.0,
+            ),
+            _upper_bound_metric(
+                "public_exact_invalid_acceptance_count",
+                public_invalid_acceptance_count,
+                0.0,
+            ),
+            _error_metric(
+                "public_exact_valid_unitarity_residual",
+                valid_public_unitarity_residual,
+                EXACT_TOL,
+            ),
+            _lower_bound_metric(
+                "frozen_raw_nonorthogonal_counterexample_defect",
+                raw_counterexample_defect,
+                4.8,
             ),
         ],
     )
@@ -1379,45 +1525,197 @@ def _evaluate_ga12() -> dict[str, Any]:
 
 
 def _evaluate_ga13() -> dict[str, Any]:
-    graph = _graph_registry()["complete_5"]
+    graph = _graph_registry()["weighted_6"]
+    roots = torch.tensor(
+        [SPECTRAL_SELECTION_ROOT],
+        dtype=torch.complex128,
+    )
+    eigenvalues, eigenvectors = torch.linalg.eigh(graph.laplacian)
+    target_mask = torch.tensor([True, True, False, False, False, False])
+    complement_mask = ~target_mask
+    repeated_eigenspace_split_count = int(
+        target_mask[2].item() != target_mask[3].item()
+        or float((eigenvalues[2] - eigenvalues[3]).abs().item()) > EXACT_TOL
+    )
+
+    one = torch.ones_like(eigenvalues)
+    zeta = torch.complex(eigenvalues, -one) / torch.complex(eigenvalues, one)
+    exact_symbol = torch.ones_like(zeta)
+    for root in roots:
+        exact_symbol = exact_symbol * (
+            (zeta - root) / (1.0 - root.conj() * zeta)
+        )
+    q_symbol = 0.5 * (1.0 - exact_symbol)
+    unit_modulus_residual = float(
+        (exact_symbol.abs() - 1.0).abs().max().item()
+    )
+    exact_factor = exact_blaschke_operator(graph.laplacian, roots)
+    independent_factor = (
+        eigenvectors.to(torch.complex128) * exact_symbol.unsqueeze(0)
+    ) @ eigenvectors.to(torch.complex128).mH
+    operator_residual = _relative_operator_error(
+        exact_factor,
+        independent_factor,
+    )
+
     generator = torch.Generator().manual_seed(1300)
     coefficients = torch.randn(
-        5, 3, dtype=torch.complex128, generator=generator
+        6, 3, dtype=torch.complex128, generator=generator
     )
-    target = torch.tensor([1, 2, 3, 4])
-    complement = torch.tensor([0])
-    delta, eta = 0.08, 0.05
-    response = torch.zeros(5, dtype=torch.complex128)
-    response[target] = (1.0 - delta / 2.0) * torch.exp(
-        torch.tensor(0.4j, dtype=torch.complex128)
+    vectors = eigenvectors.to(torch.complex128)
+    signal = vectors @ coefficients
+    q_operator = 0.5 * (
+        torch.eye(graph.num_nodes, dtype=torch.complex128) - exact_factor
     )
-    response[complement] = (eta / 2.0) * torch.exp(
-        torch.tensor(-0.7j, dtype=torch.complex128)
+    selected_signal = q_operator @ signal
+    selected_coefficients = vectors.mH @ selected_signal
+    spectral_action_residual = float(
+        (
+            selected_coefficients - q_symbol.unsqueeze(1) * coefficients
+        ).norm().item()
     )
-    selected = response.unsqueeze(1) * coefficients
+    magnitude_delta = float(
+        (q_symbol[target_mask].abs() - 1.0).abs().max().item()
+    )
+    recovery_delta = float(
+        (q_symbol[target_mask] - 1.0).abs().max().item()
+    )
+    eta = float(q_symbol[complement_mask].abs().max().item())
     target_ratio = float(
-        (selected[target].norm() / coefficients[target].norm()).item()
+        (
+            selected_coefficients[target_mask].norm()
+            / coefficients[target_mask].norm()
+        ).item()
     )
     complement_ratio = float(
         (
-            selected[complement].norm()
-            / coefficients[complement].norm().clamp_min(1e-30)
+            selected_coefficients[complement_mask].norm()
+            / coefficients[complement_mask].norm().clamp_min(1e-30)
         ).item()
     )
+    target_signal = vectors[:, target_mask] @ coefficients[target_mask]
+    complement_signal = (
+        vectors[:, complement_mask] @ coefficients[complement_mask]
+    )
+    recovery_error = float((selected_signal - target_signal).norm().item())
+    recovery_bound = float(
+        torch.sqrt(
+            recovery_delta**2 * target_signal.norm().square()
+            + eta**2 * complement_signal.norm().square()
+        ).item()
+    )
+    decomposed_squared_error = (
+        (
+            (q_symbol[target_mask] - 1.0).unsqueeze(1)
+            * coefficients[target_mask]
+        ).abs().square().sum()
+        + (
+            q_symbol[complement_mask].unsqueeze(1)
+            * coefficients[complement_mask]
+        ).abs().square().sum()
+    )
+    squared_recovery_identity_residual = float(
+        (
+            (selected_signal - target_signal).norm().square()
+            - decomposed_squared_error
+        ).abs().item()
+    )
+    separation_gap = target_ratio - complement_ratio
+
+    rejected_q = torch.zeros(5, dtype=torch.complex128)
+    rejected_q[1:] = 0.96 * torch.exp(
+        torch.tensor(0.4j, dtype=torch.complex128)
+    )
+    rejected_q[0] = 0.025 * torch.exp(
+        torch.tensor(-0.7j, dtype=torch.complex128)
+    )
+    rejected_defect = (torch.abs(1.0 - 2.0 * rejected_q) - 1.0).abs()
     return _row(
         "GA-13",
-        evaluator="evaluate_whole_eigenspace_energy_selection",
+        evaluator="evaluate_actual_blaschke_channel_spectral_selection",
         realization_tags=("exact",),
-        graphs=_graph_context(("complete_5",)),
-        roots=evidence_na(
-            "GA-13 tests a prescribed multiplier envelope, not a fitted Blaschke root"
+        graphs=_graph_context(("weighted_6",)),
+        roots=evidence_value(
+            [
+                {
+                    "fixture": "spectral_selection",
+                    "parameterization": "fixed-explicit-complex",
+                    "values": _serialized_roots(roots),
+                }
+            ]
         ),
-        dtype="torch.complex128",
+        dtype="torch.float64/torch.complex128",
         device="cpu",
-        configuration={"delta": delta, "eta": eta, "feature_dimensions": 3},
+        configuration={
+            "channel_relation": "q=(1-B_R(phi(lambda)))/2",
+            "target_indices": [0, 1],
+            "complement_indices": [2, 3, 4, 5],
+            "whole_repeated_eigenspace_indices": [2, 3],
+            "magnitude_delta": magnitude_delta,
+            "recovery_delta": recovery_delta,
+            "eta": eta,
+            "feature_dimensions": 3,
+            "independent_symbol_construction": "direct Cayley and factor formula",
+            "negative_control": "former prescribed multiplier",
+        },
         metrics=[
-            _lower_bound_metric("target_eigenspace_norm_ratio", target_ratio, 1.0 - delta),
-            _upper_bound_metric("complement_eigenspace_norm_ratio", complement_ratio, eta),
+            _error_metric(
+                "exact_symbol_unit_modulus_residual",
+                unit_modulus_residual,
+                SCALAR_TOL,
+            ),
+            _error_metric(
+                "manual_operator_assembly_relative_residual",
+                operator_residual,
+                EXACT_TOL,
+                relative_error=operator_residual,
+            ),
+            _error_metric(
+                "spectral_action_absolute_residual",
+                spectral_action_residual,
+                ZERO_TOL,
+            ),
+            _upper_bound_metric(
+                "repeated_eigenspace_split_count",
+                repeated_eigenspace_split_count,
+                0.0,
+            ),
+            _lower_bound_metric(
+                "target_eigenspace_norm_ratio",
+                target_ratio,
+                1.0 - magnitude_delta,
+            ),
+            _upper_bound_metric(
+                "complement_eigenspace_norm_ratio",
+                complement_ratio,
+                eta,
+            ),
+            _lower_bound_metric(
+                "nontrivial_target_complement_separation_gap",
+                separation_gap,
+                0.5,
+            ),
+            _error_metric(
+                "squared_recovery_identity_residual",
+                squared_recovery_identity_residual,
+                ZERO_TOL,
+            ),
+            _upper_bound_metric(
+                "complex_recovery_error",
+                recovery_error,
+                recovery_bound + SLACK * max(1.0, recovery_bound),
+                scale=recovery_bound,
+            ),
+            _lower_bound_metric(
+                "rejected_arbitrary_target_factor_defect",
+                float(rejected_defect[1].item()),
+                0.07,
+            ),
+            _lower_bound_metric(
+                "rejected_arbitrary_complement_factor_defect",
+                float(rejected_defect[0].item()),
+                0.03,
+            ),
         ],
     )
 
