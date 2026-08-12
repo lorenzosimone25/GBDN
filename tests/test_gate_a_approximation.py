@@ -367,7 +367,7 @@ def test_ga30_canonical_recurrence_uses_depth_times_degree_spmvs(monkeypatch):
         signal,
         edge_index,
         edge_weight=edge_weight.float(),
-        laplacian=laplacian.float(),
+        laplacian=laplacian,
     )
     assert calls == depth * degree
     assert isinstance(analysis, TightAnalysisOutput)
