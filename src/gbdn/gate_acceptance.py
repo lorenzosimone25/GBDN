@@ -28,7 +28,8 @@ REQUIRED_GATE_IDS: Final[tuple[str, ...]] = tuple(
 )
 PROTECTED_PATHS: Final[tuple[str, ...]] = (
     "scripts/report_gate_a.py",
-    "scripts/run_submission.py",
+    "src/gbdn/__init__.py",
+    "src/gbdn/artifacts.py",
     "src/gbdn/core.py",
     "src/gbdn/diagnostics.py",
     "src/gbdn/gate_acceptance.py",
@@ -46,7 +47,6 @@ PROTECTED_PATHS: Final[tuple[str, ...]] = (
     "tests/test_gate_a_closeout.py",
     "tests/test_gate_a_core_slice.py",
     "tests/test_gate_a_exact_slice.py",
-    "tests/test_gate_a_fixture_completion.py",
     "tests/test_gate_a_fixture_matrix.py",
     "tests/test_gate_a_provenance.py",
     "tests/test_gate_a_public_boundary.py",

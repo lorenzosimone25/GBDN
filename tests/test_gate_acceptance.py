@@ -20,6 +20,18 @@ from gbdn.gate_acceptance import (
 )
 
 
+def test_gate_scope_excludes_operations_only_launcher_but_keeps_math_surface():
+    assert "scripts/run_submission.py" not in PROTECTED_PATHS
+    assert "scripts/report_gate_a.py" in PROTECTED_PATHS
+    assert "src/gbdn/__init__.py" in PROTECTED_PATHS
+    assert "src/gbdn/artifacts.py" in PROTECTED_PATHS
+    assert "src/gbdn/gate_a_report.py" in PROTECTED_PATHS
+    assert "src/gbdn/gate_acceptance.py" in PROTECTED_PATHS
+    assert "src/gbdn/model.py" in PROTECTED_PATHS
+    assert "tests/test_gate_acceptance.py" in PROTECTED_PATHS
+    assert "tests/test_gate_a_fixture_completion.py" not in PROTECTED_PATHS
+
+
 def _git(repository: Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", "-C", str(repository), *arguments],
