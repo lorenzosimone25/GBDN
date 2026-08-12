@@ -9,6 +9,12 @@ recurrence described by Defferrard et al., *Convolutional Neural Networks on
 Graphs with Fast Localized Spectral Filtering*, Eq. (5), with the symmetric
 normalized Laplacian and explicit `lambda_max=2`.
 
+Upstream source: `https://github.com/pyg-team/pytorch_geometric` at
+`cc678a392255a1467872f54582724b8dce434603`. The installed wheel metadata
+declares `License-Expression: MIT` and includes the PyG Team MIT license. This
+pin is an audit input; a preserved repository license notice and parity bundle
+are still required before registry admission.
+
 This adapter is a **ChebNet** comparator. It is not ChebNetII and must never be
 reported under that name. The local two-layer architecture, task head,
 dropout, polynomial order, and resource-count convention are explicit in the
