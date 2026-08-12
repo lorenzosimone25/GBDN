@@ -7,6 +7,7 @@ the current repository has no acceptance token and remains blocked.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -15,7 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any, Final, Mapping
 
-from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes, sha256_file
+from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes
 from gbdn.gate_a_report import REPORT_SCHEMA
 
 
@@ -85,6 +86,14 @@ def _git(root: Path, *arguments: str, check: bool = True) -> subprocess.Complete
         detail = completed.stderr.decode("utf-8", errors="replace").strip()
         raise ArtifactValidationError(f"git {' '.join(arguments)} failed: {detail}")
     return completed
+
+
+def _tracked_blob(root: Path, revision: str, relative: str, label: str) -> bytes:
+    listing = _git(root, "ls-tree", revision, "--", relative).stdout.decode().strip()
+    fields = listing.split(maxsplit=3)
+    if len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+        raise ArtifactValidationError(f"{label} is not a tracked regular blob")
+    return _git(root, "show", f"{revision}:{relative}").stdout
 
 
 def _load_canonical_json(path: Path) -> Mapping[str, Any]:
@@ -319,14 +328,23 @@ def validate_gate_a_acceptance(
             raise ArtifactValidationError(f"{label} lies outside the repository") from exc
         if artifact.is_symlink() or not artifact.is_file():
             raise ArtifactValidationError(f"{label} must be a regular file")
-        if sha256_file(artifact) != expected_hash:
+        if hashlib.sha256(_tracked_blob(root, "HEAD", relative.as_posix(), label)).hexdigest() != expected_hash:
             raise ArtifactValidationError(f"{label} content hash does not match token")
         if _git(root, "ls-files", "--error-unmatch", relative.as_posix(), check=False).returncode != 0:
             raise ArtifactValidationError(f"{label} is not tracked")
         if _git(root, "diff", "--quiet", "HEAD", "--", relative.as_posix(), check=False).returncode != 0:
             raise ArtifactValidationError(f"{label} has uncommitted changes")
         if label == "gate report":
-            _validate_gate_report(_load_gate_report(artifact), commit=commit, tree=tree)
+            blob = _tracked_blob(root, "HEAD", relative.as_posix(), label)
+            try:
+                report_payload = json.loads(
+                    blob.decode("utf-8"),
+                    object_pairs_hook=lambda pairs: _unique_pairs(pairs, "Gate-A report"),
+                    parse_constant=lambda value: _reject_constant(value, "Gate-A report"),
+                )
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ArtifactValidationError("Gate-A report blob is not valid UTF-8 JSON") from exc
+            _validate_gate_report(report_payload, commit=commit, tree=tree)
     if _git(root, "ls-files", "--error-unmatch", relative_token, check=False).returncode != 0:
         raise ArtifactValidationError("Gate-A token is not tracked")
     if _git(root, "diff", "--quiet", "HEAD", "--", relative_token, check=False).returncode != 0:

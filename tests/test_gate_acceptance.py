@@ -52,12 +52,18 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _blob_sha256(repository: Path, relative: str) -> str:
+    payload = _git(repository, "show", f"HEAD:{relative}").stdout.encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _accepted_repository(tmp_path: Path, *, failed_row: str | None = None) -> tuple[Path, str]:
     repository = tmp_path / "repository"
     repository.mkdir(parents=True)
     _git(repository, "init")
     _git(repository, "config", "user.email", "review@example.com")
     _git(repository, "config", "user.name", "Independent Reviewer")
+    _write(repository / ".gitattributes", b"*.json text eol=lf\n*.md text eol=lf\n")
     for relative in PROTECTED_PATHS:
         _write(repository / relative, f"frozen:{relative}\n".encode())
     _git(repository, "add", ".")
@@ -102,7 +108,7 @@ def _accepted_repository(tmp_path: Path, *, failed_row: str | None = None) -> tu
     }
     report_path = repository / "results_submission" / "reports" / "gate_a_report.json"
     review_path = repository / "reviews" / "gate_a_fourth_independent_review.md"
-    _write(report_path, json.dumps(report, sort_keys=True).encode())
+    _write(report_path, json.dumps(report, sort_keys=True).encode() + b"\n")
     _write(review_path, b"# Independent Gate-A review\n\nBinary verdict: ACCEPT.\n")
     token = {
         "decision": "ACCEPT",
@@ -181,13 +187,13 @@ def test_report_or_review_tampering_invalidates_token(tmp_path):
     repository, _ = _accepted_repository(tmp_path)
     report = repository / "results_submission" / "reports" / "gate_a_report.json"
     report.write_text("{}", encoding="utf-8")
-    with pytest.raises(ArtifactValidationError, match="hash"):
+    with pytest.raises(ArtifactValidationError, match="hash|uncommitted"):
         validate_gate_a_acceptance(repository)
 
     repository, _ = _accepted_repository(tmp_path / "second")
     review = repository / "reviews" / "gate_a_fourth_independent_review.md"
     review.write_text("changed", encoding="utf-8")
-    with pytest.raises(ArtifactValidationError, match="hash"):
+    with pytest.raises(ArtifactValidationError, match="hash|uncommitted"):
         validate_gate_a_acceptance(repository)
 
 
@@ -220,3 +226,16 @@ def test_rehashed_forged_report_with_unresolved_failure_is_rejected(tmp_path):
     _git(repository, "commit", "-m", "attempt forged report")
     with pytest.raises(ArtifactValidationError, match="does not pass all 36"):
         validate_gate_a_acceptance(repository)
+
+
+def test_gate_report_hash_binds_tracked_blob_not_checkout_line_endings(tmp_path):
+    repository, _ = _accepted_repository(tmp_path)
+    report_relative = "results_submission/reports/gate_a_report.json"
+    token_path = repository / ACCEPTANCE_RELATIVE_PATH
+    token = json.loads(token_path.read_text(encoding="utf-8"))
+
+    report_path = repository / report_relative
+    report_path.write_bytes(report_path.read_bytes().replace(b"\n", b"\r\n"))
+    assert _sha256(report_path) != token["gate_report"]["sha256"]
+    accepted = validate_gate_a_acceptance(repository)
+    assert accepted.gate_report_sha256 == token["gate_report"]["sha256"]
