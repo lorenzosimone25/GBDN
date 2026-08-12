@@ -54,7 +54,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-GATEA-PROVENANCE-1 | Emit complete deterministic evidence for every Gate-A row | Engineer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Validated row-level evidence schema and report | DONE |
 | REV-GATEA-FINAL-1 | Independently adjudicate the complete Gate-A implementation | Reviewer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Row-by-row verdict and binary gate decision | DONE |
 | ENG-GATEA-SEMANTIC-REPAIR-1 | Repair package graph boundary and rejected GA-10/14/25/27 bindings | Engineer | REV-GATEA-FINAL-1, ENG-GATEA-PROVENANCE-1 | Canonical source/tests/evidence patch | DONE |
-| REV-GATEA-REVIEW-2 | Independently re-adjudicate repaired Gate A | Reviewer | ENG-GATEA-SEMANTIC-REPAIR-1 | Clean-commit binary Gate-A decision | IN_PROGRESS |
+| REV-GATEA-REVIEW-2 | Independently re-adjudicate repaired Gate A | Reviewer | ENG-GATEA-SEMANTIC-REPAIR-1 | Clean-commit binary Gate-A decision | DONE |
 | OPS-RUNID-1 | Implement immutable run identities and artifact bundle validation | Engineer | ENG-001 | Deterministic IDs, non-overwrite/resume classifier, schema tests | DONE |
 | ENG-R3-ARTIFACT-1 | Bind residual-first complex coefficients through immutable artifact serialization | Engineer | OPS-RUNID-1, ENG-GATEA-SEMANTIC-REPAIR-1 | Order/dtype/shape/run/hash-bound codec and adversarial tests | DONE |
 | ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | IN_PROGRESS |
