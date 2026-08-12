@@ -166,3 +166,10 @@
 - Added the required unexecuted H100 operator notebook as a thin interface: it performs device isolation before PyTorch, requires exactly one H100, fixes the official split/seed grid, contains no scientific implementation, and ends with the fail-loud verifier.
 - Kept authorization false even if placeholder plan/registry files appear; semantic validators and the scheduler are explicitly unimplemented. The current verifier lists the absent independent token, confirmatory plan, baseline registry, run plan, aggregates, and final report.
 - The full repository suite passes 613 tests with one platform-specific skip and three known environment warnings. No notebook cell or H100 process was executed.
+
+## 2026-08-12 — Baseline and equal-budget admission contract
+
+- Added fail-closed admission rules for first-party baseline identity, full commits, SPDX/license notices, wrapper/config evidence, content hashes, protocol coverage, upstream parity, and parameter/SpMV accounting.
+- Added a confirmatory-plan schema that binds the admitted registry and freezes the five datasets, exact 10×3 grid, TightGBDN plus primary comparators, one equal validation-only trial budget, isolated post-freeze test evaluation, and dataset-specific practical tie thresholds.
+- Wired semantic plan/registry validation into the readiness inventory when both files exist, while retaining the absent Gate-A token and unimplemented scheduler/run-plan validator as unconditional blockers.
+- The full repository suite passes 628 tests with one platform-specific skip and three known environment warnings. No actual registry, comparator family, trial-budget magnitude, threshold, parity result, or experiment was frozen.

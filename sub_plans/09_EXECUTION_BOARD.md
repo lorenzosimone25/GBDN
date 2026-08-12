@@ -81,6 +81,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-006-PREFLIGHT | Freeze official five-dataset task, split, metric, provenance, and baseline-admission contract | Reviewer | ORCH-001 | Primary-source protocol audit and manifest | DONE |
 | EXP-006-CONTRACT-1 | Implement declarative official dataset/task registry and leakage-safe metadata validation | Engineer | EXP-006-PREFLIGHT | CPU-only registry and contract tests | DONE |
 | EXP-011-STATISTICS-CONTRACT-1 | Implement task-specific metric recomputation and split-first statistical contract | Engineer | EXP-006-CONTRACT-1 | Synthetic-only metric, aggregation, paired-test, and multiplicity tests | DONE |
+| EXP-007-008-ADMISSION-CONTRACT-1 | Implement baseline-admission and equal-budget confirmatory-plan schemas | Engineer | EXP-006-PREFLIGHT | Synthetic-only provenance/parity/resource/budget/grid validators; no baseline admitted | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |

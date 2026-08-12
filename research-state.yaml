@@ -44,6 +44,7 @@ completed_tasks:
   - EXP-011-STATISTICS-CONTRACT-1
   - OPS-GATE-ACCEPTANCE-1
   - OPS-VERIFY-NOTEBOOK-1
+  - EXP-007-008-ADMISSION-CONTRACT-1
 active_tasks:
   - ENG-002
   - ENG-008
@@ -57,10 +58,10 @@ stop_line:
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
     - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, synthetic split-first statistics contract, fail-closed acceptance-token validator, thin H100 notebook, and read-only readiness inventory exist; no independent token has been issued, and the full scheduler, plan/registry semantics, official test evaluator, immutable aggregate renderer, and artifact-complete verifier are not yet implemented.
-    - The official five-dataset protocol and metadata contract are frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
+    - The official five-dataset protocol, metadata, baseline-admission, and equal-budget plan contracts are frozen, but dataset/array checksums, redistribution terms, adapter parity, actual upstream baseline version/license/wrapper/parity evidence, comparator family, and tie thresholds remain unresolved.
 current_evidence:
-  automated_tests: 613
-  automated_tests_passing: 613
+  automated_tests: 628
+  automated_tests_passing: 628
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817
