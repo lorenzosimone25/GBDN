@@ -39,6 +39,8 @@ PROTECTED_PATHS: Final[tuple[str, ...]] = (
     "src/gbdn/model.py",
     "src/gbdn/oracle.py",
     "src/gbdn/peel.py",
+    "src/gbdn/provenance.py",
+    "src/gbdn/seed.py",
     "src/gbdn/spectral.py",
     "src/gbdn/synthetic.py",
     "src/gbdn/submission.py",

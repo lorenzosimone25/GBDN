@@ -28,6 +28,8 @@ def test_gate_scope_excludes_operations_only_launcher_but_keeps_math_surface():
     assert "src/gbdn/gate_a_report.py" in PROTECTED_PATHS
     assert "src/gbdn/gate_acceptance.py" in PROTECTED_PATHS
     assert "src/gbdn/model.py" in PROTECTED_PATHS
+    assert "src/gbdn/provenance.py" in PROTECTED_PATHS
+    assert "src/gbdn/seed.py" in PROTECTED_PATHS
     assert "tests/test_gate_acceptance.py" in PROTECTED_PATHS
     assert "tests/test_gate_a_fixture_completion.py" not in PROTECTED_PATHS
 
