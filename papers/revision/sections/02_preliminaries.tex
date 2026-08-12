@@ -1,7 +1,30 @@
 \section{Preliminaries and convention}
 \label{sec:preliminaries}
 
-Let $G=(V,E)$ be a finite undirected weighted graph and let $L=U\Lambda U^*$ be its symmetric normalized Laplacian. Its eigenvalues satisfy $0\leq\lambda_i\leq2$. For $h\in\C^{|V|\times d}$, the graph Fourier coefficients are $\widehat h=U^*h$. Every scalar function $g$ on the spectrum defines the normal graph spectral operator $g(L)=U g(\Lambda)U^*$. Signal norms are Frobenius norms, and $\norm{\cdot}_{\op}$ denotes the induced spectral norm.
+Let $\mathcal H=\C^{n\times d}$ and let $L:\C^n\to\C^n$ be a finite
+self-adjoint graph operator with spectrum in $[0,2]$.  For the normalized
+Laplacian used in our experiments, $L=U\Lambda U^*$ and the graph Fourier
+coefficients of $h\in\mathcal H$ are $\widehat h=U^*h$.  A scalar function
+$g$ on the spectrum defines $g(L)=Ug(\Lambda)U^*$.  Signal norms are
+Frobenius norms $\norm{\cdot}_F$; tuple-valued coefficient maps use the
+corresponding direct-sum norm $\norm{\cdot}_{\oplus,F}$; and
+$\norm{\cdot}_{\op}$ is the induced spectral operator norm.  No result
+below requires a simple spectrum: repeated eigenvalues receive the same
+scalar multiplier under functional calculus.
+
+Write
+\begin{equation}
+  \D=\{z\in\C:|z|<1\}
+  \label{eq:open-unit-disk}
+\end{equation}
+for the open unit disk.
+
+The self-adjointness assumption is part of the scientific contract.  The
+canonical implementation rejects nonfinite, negative-weight, or asymmetric
+graph inputs at the operator boundary and issues a hash-bearing validated
+Laplacian token.  Directed input can instead pass through a separate
+reciprocal-mean preprocessor, $A\leftarrow(A+A^*)/2$, which records its policy
+and input/output hashes.  Symmetrization is never an implicit model operation.
 
 We use the Cayley map and elementary Blaschke factor
 \begin{equation}
@@ -11,24 +34,50 @@ We use the Cayley map and elementary Blaschke factor
   \qquad |\alpha|<1.
   \label{eq:definitions}
 \end{equation}
-For a root multiset $\mathcal R=(\alpha_1,\ldots,\alpha_R)$, write $B_{\mathcal R}=\prod_{r=1}^R B_{\alpha_r}$. The canonical convention throughout the paper and implementation is
+For a root multiset $\mathcal R=(\alpha_1,\ldots,\alpha_R)$, write
+$B_{\mathcal R}=\prod_{r=1}^R B_{\alpha_r}$ and
 \begin{equation}
   \Tcal_{\mathcal R}=B_{\mathcal R}(\cayley(L)).
   \label{eq:forward-convention}
 \end{equation}
-The inverse convention is the complex conjugate multiplier. It is not used implicitly.
+The inverse convention is the conjugate multiplier and is never used
+implicitly.  In every linearity, adjoint, conditioning, and Jacobian result,
+the roots are fixed independently of the signal being analyzed.
 
-Every learned root is parameterized by
+Our canonical admissible-root parameterization is radial:
 \begin{equation}
-  \alpha=r_{\max}\sigma(s)e^{i\theta},
-  \qquad 0<r_{\max}<1,
+  \alpha=r_{\max}\sigma(s)e^{i\vartheta},
+  \qquad 0<r_{\max}<1.
   \label{eq:radial-root}
 \end{equation}
-which enforces $|\alpha|<r_{\max}$. Independent Cartesian constraints are insufficient because their joint modulus can exceed one.
+It enforces $|\alpha|<r_{\max}$; independent Cartesian clipping does not.
+The optional center--width parameterization
+\begin{equation}
+  \alpha=\cayley(\mu+i\gamma),
+  \qquad \mu\in[0,2],
+  \qquad 0<\gamma_{\min}\leq\gamma\leq\gamma_{\max}<\infty,
+  \label{eq:center-width-root}
+\end{equation}
+places the mapped zero exactly at $\mu+i\gamma$ and its conjugate target pole
+at $\mu-i\gamma$.  Its pole margin from the graph spectral interval is
+$\operatorname{dist}(\mu-i\gamma,[0,2])=\gamma$; the implementation emits
+the mapped zero, mapped pole, and this margin as diagnostics.  Any run using
+this optional family must freeze and record $\gamma_{\min}$ and
+$\gamma_{\max}$.  The radial parameterization is less restrictive: its mapped
+real-axis center may lie
+outside $[0,2]$, in which case the mapped location and the response maximum
+over the observed interval must be reported separately.  A radial angular
+anchor such as $\cayley(\mu)$ is not called an exact spectral center.
 
-The sparse realization approximates a multiplier $g(\lambda)$ by
+The sparse realization approximates a target multiplier $g$ by
 \begin{equation}
   p_K(L)=\sum_{k=0}^{K}c_k T_k(L-I),
   \label{eq:cheb-realization}
 \end{equation}
-where $T_k$ is the Chebyshev polynomial of degree $k$. We distinguish exact spectral operators from their finite-degree realizations in every result.
+where $T_k$ is the degree-$k$ Chebyshev polynomial.  We write
+$T_\ell=g_\ell(L)$ for an exact Blaschke--Cayley factor and
+$\widetilde T_{\ell,K}=p_{\ell,K}(L)$ for its finite realization.  The exact
+target is rational and has mapped poles; $p_{\ell,K}$ is a polynomial and
+has no literal finite poles.  Thus, for the finite implementation, ``mapped
+pole'' always means a pole of the parameterized target response, not of the
+implemented polynomial.

@@ -1,14 +1,16 @@
 \section{Method}
 \label{sec:method}
 
-\subsection{Tight GBDN analysis and synthesis}
+\subsection{Tight GBDN: nonsubsampled analysis}
 \label{sec:method-tight}
 
-For a root multiset $\mathcal R_\ell$ at level $\ell$, define the complementary operators
+At level $\ell$, fix a root multiset $\mathcal R_\ell$ independently of the
+input being analyzed and define
 \begin{equation}
-  P_\ell^{+}=\frac{I+\Tcal_{\mathcal R_\ell}}{2},
+  P_\ell^{+}=\frac{I+T_\ell}{2},
   \qquad
-  P_\ell^{-}=\frac{I-\Tcal_{\mathcal R_\ell}}{2}.
+  P_\ell^{-}=\frac{I-T_\ell}{2},
+  \qquad T_\ell=\Tcal_{\mathcal R_\ell}.
   \label{eq:tight-channels}
 \end{equation}
 Starting from a complex feature signal $h_0$, Tight GBDN emits and carries
@@ -19,23 +21,66 @@ Starting from a complex feature signal $h_0$, Tight GBDN emits and carries
   \qquad \ell=0,\ldots,D-1.
   \label{eq:analysis-recursion}
 \end{equation}
-The complete coefficient representation is
+The complete coefficient representation, in the canonical order used by the
+implementation and artifacts, is
 \begin{equation}
   \Acal_Dh_0=(r_0,\ldots,r_{D-1},h_D).
   \label{eq:analysis-map}
 \end{equation}
-A downstream predictor concatenates the real and imaginary parts of every coefficient. The readout is separate from the analysis guarantee.
+This is a redundant, nonsubsampled analysis bank: every channel lives on all
+$n$ vertices.  We use ``pointwise paraunitary'' only for the multilevel
+scalar spectral analysis vector whose Hermitian squared norm is one
+(\cref{thm:pointwise-partition}); the term does not imply downsampling,
+polyphase structure, or critical sampling.
 
-Given analyzed coefficients, synthesis proceeds backward:
+A predictor concatenates real and imaginary parts of the coefficients.  Its
+learned lift and readout are outside the analysis guarantee.
+
+\paragraph{Two reconstruction identities.}
+For coefficients produced from a common state by the same channel pair,
+additive reconstruction is the algebraic identity
 \begin{equation}
-  h_\ell=(P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}.
+  h_\ell=r_\ell+h_{\ell+1},
+  \label{eq:additive-reconstruction}
+\end{equation}
+which holds because $P_\ell^-+P_\ell^+=I$.  For the finite realization define
+$\widetilde P_{\ell,K}^{\pm}=(I\pm\widetilde T_{\ell,K})/2$ and the analyzed
+coefficients, starting from $\widetilde h_0=h_0$,
+$\widetilde r_\ell=\widetilde P_{\ell,K}^-\widetilde h_\ell$ and
+$\widetilde h_{\ell+1}=\widetilde P_{\ell,K}^+\widetilde h_\ell$; then
+$\widetilde r_\ell+\widetilde h_{\ell+1}=\widetilde h_\ell$ as well.
+When $K$ is fixed, we suppress it in $\widetilde T_\ell$ and
+$\widetilde P_\ell^\pm$.
+
+Adjoint synthesis is distinct.  For an exact analyzed tuple it is the
+backward recursion
+\begin{equation}
+  h_D^{\mathrm{syn}}=h_D,
+  \qquad
+  h_\ell^{\mathrm{syn}}
+  =(P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}^{\mathrm{syn}},
+  \quad \ell=D-1,\ldots,0.
   \label{eq:synthesis-recursion}
 \end{equation}
-The exact recursion reconstructs the analyzed signal $h_0$. It does not imply
-that the preceding learned lift is invertible or that the original real feature
-matrix can be recovered. With finite Chebyshev factors, the same code applies
-the adjoint of the approximate analysis and reports the resulting reconstruction
-error.
+It yields $h_0^{\mathrm{syn}}=\Acal_D^*\Acal_Dh_0=h_0$ because the exact
+analysis is Parseval.  The finite counterpart is
+\begin{equation}
+  \widetilde h_D^{\mathrm{syn}}=\widetilde h_D,
+  \qquad
+  \widetilde h_\ell^{\mathrm{syn}}
+  =(\widetilde P_{\ell,K}^-)^*\widetilde r_\ell
+   +(\widetilde P_{\ell,K}^+)^*
+     \widetilde h_{\ell+1}^{\mathrm{syn}},
+  \quad \ell=D-1,\ldots,0.
+  \label{eq:approx-synthesis-recursion}
+\end{equation}
+It returns
+$\widetilde h_0^{\mathrm{syn}}=
+\widetilde\Acal_D^*\widetilde\Acal_D\widetilde h_0$ and need not be an
+inverse.  Its error guarantee applies only to coefficients produced by the
+same approximate analysis, not to an arbitrary coefficient tuple.  Neither
+reconstruction identity implies that the preceding learned feature lift is
+invertible or that the original real input is recoverable.
 
 \subsection{Product-sum GBDN}
 \label{sec:method-product-sum}
@@ -44,7 +89,7 @@ The expressive variant defines cumulative products
 \begin{equation}
   Q_0=I,
   \qquad
-  Q_\ell=\Tcal_{\mathcal R_\ell}Q_{\ell-1},
+  Q_\ell=T_\ell Q_{\ell-1},
 \end{equation}
 and a learned complex scalar-weighted sum
 \begin{equation}
@@ -52,14 +97,32 @@ and a learned complex scalar-weighted sum
   \qquad c_\ell\in\C.
   \label{eq:product-sum}
 \end{equation}
-Each exact factor remains unitary, but the learned sum is not generally unitary or tight. A real-valued predictor reads the real and imaginary parts of $H_{\mathrm{PS}}h$. This variant is BDN-inspired rather than equivalent to BDN.
+Each exact factor is unitary, but the learned sum is not generally unitary or
+tight.  This is a BDN-inspired secondary model, not an alternative statement
+of the Tight GBDN guarantees.
 
 \subsection{GBDN+: empirical relaxation}
 \label{sec:method-relaxed}
 
-GBDN+ applies several parallel root-parameterized filters to the same lifted input. Each branch adds an unconstrained Chebyshev correction, and a learned skip mixture combines the branch sum with the input. These corrections increase flexibility but remove exact all-pass, tightness, and reconstruction guarantees. We evaluate GBDN+ only as an empirical architecture.
+GBDN+ applies parallel root-parameterized filters to the same lifted input,
+adds unconstrained Chebyshev corrections, and learns a skip mixture.  The
+corrections remove exact all-pass, tightness, and reconstruction guarantees.
+We therefore evaluate canonical GBDN+, and label the historical implementation
+Legacy GBDN+, only as empirical architectures; neither inherits the theorems
+for Tight GBDN.
 
-\subsection{Sparse realization and graph identity}
+\subsection{Finite sparse realization and graph identity}
 \label{sec:method-cheb}
 
-All variants evaluate \cref{eq:cheb-realization} with a sparse recurrence. A caller may pass a precomputed Laplacian for a fixed graph. Otherwise the implementation rebuilds the normalized Laplacian from the supplied edge indices and weights. It never reuses an operator solely because two graphs have the same number of vertices.
+All sparse variants evaluate \cref{eq:cheb-realization} by recurrence.  A
+caller may pass a validated self-adjoint operator for a fixed graph; otherwise
+the implementation constructs the normalized Laplacian from the supplied
+graph identity.  It never reuses an operator merely because two graphs share
+the same vertex count.  Under the canonical full recurrence, each degree-$K$
+factor is evaluated without early truncation or cross-level recurrence reuse
+and therefore performs exactly $K$ sparse operator applications.  One
+application of the real Laplacian to a complex $n\times d$ feature matrix is
+counted as one complex sparse matrix--feature product (two products under a
+real-channel count).  A different batching or truncation schedule must report
+its own count.  The finite realization is the object used by GPU experiments;
+exact operators serve as a dense spectral oracle on small graphs.

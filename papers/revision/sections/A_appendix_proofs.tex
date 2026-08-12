@@ -1,5 +1,145 @@
-\section{Proofs}
+\section{Supporting statements and proofs}
 \label{app:proofs}
+
+\subsection{Supporting exact consequences}
+
+\begin{theorem}[T-B: weighted Parseval conservation; exact]
+\label{thm:weighted-parseval}
+Let $W\succeq0$ commute with every exact level factor (in particular,
+$W=w(L)\succeq0$), and write
+$\norm h_{W,F}^2=\operatorname{tr}(h^*Wh)$.  Then
+\begin{equation}
+ \sum_{\ell=0}^{D-1}\norm{r_\ell}_{W,F}^2
+ +\norm{h_D}_{W,F}^2=\norm{h_0}_{W,F}^2.
+ \label{eq:weighted-parseval}
+\end{equation}
+This includes $W=I$, $W=L$, nonnegative powers of $L$, and spectral
+projectors.  It does not generally include a node-coordinate projector, which
+need not commute with $L$.
+\end{theorem}
+
+As a purely algebraic consequence of additive reconstruction, coefficient
+rows satisfy
+\begin{equation}
+ \left(\sum_{\ell=0}^{D-1}\norm{r_\ell(u)-r_\ell(v)}_2^2
+       +\norm{h_D(u)-h_D(v)}_2^2\right)^{1/2}
+ \geq\frac{\norm{h_0(u)-h_0(v)}_2}{\sqrt{D+1}}.
+ \label{eq:nodewise-lower}
+\end{equation}
+This weak redundancy bound is not an anti-oversmoothing guarantee.
+
+\begin{theorem}[Spectral energy separation; exact]
+\label{thm:energy-separation}
+Let $q(\lambda)=(1-B_{\mathcal R}(\cayley(\lambda)))/2$, $r=q(L)h$, and
+let $\Pi_S$ project onto a set of eigenspaces.  If
+\begin{equation}
+ |q(\lambda_i)|\geq1-\delta\ (i\in S),
+ \qquad |q(\lambda_i)|\leq\eta\ (i\notin S),
+ \label{eq:energy-hypotheses}
+\end{equation}
+where $0\leq\delta<1$, then
+\begin{equation}
+ \norm{\Pi_Sr}_F\geq(1-\delta)\norm{\Pi_Sh}_F,
+ \qquad
+ \norm{\Pi_{S^c}r}_F\leq\eta\norm{\Pi_{S^c}h}_F.
+ \label{eq:energy-separation}
+\end{equation}
+When $\Pi_Sh\neq0$, the squared leakage ratio is at most
+$\eta^2\norm{\Pi_{S^c}h}_F^2/
+((1-\delta)^2\norm{\Pi_Sh}_F^2)$.  This controls energy, not target phase.
+\end{theorem}
+
+\begin{corollary}[Complex spectral packet recovery; exact]
+\label{cor:complex-recovery}
+If instead $|q(\lambda_i)-1|\leq\delta$ on $S$, while the off-target bound
+above holds, then
+\begin{equation}
+ \norm{r-\Pi_Sh}_F^2
+ \leq\delta^2\norm{\Pi_Sh}_F^2
+     +\eta^2\norm{\Pi_{S^c}h}_F^2.
+ \label{eq:complex-recovery}
+\end{equation}
+If $\norm{\widetilde T-T}_{\op}\leq\epsilon_K$, replacing the exact minus
+channel changes its output by at most $\epsilon_K\norm h_F/2$.
+\end{corollary}
+
+\subsection{Supporting expressivity, perturbation, and locality results}
+
+\begin{theorem}[Finite-spectrum Product-sum interpolation; exact]
+\label{thm:product-sum-vandermonde}
+If $L$ has one distinct eigenvalue, $q_0=1$ alone spans all complex scalar
+multipliers on its spectrum.  If $L$ has $m\geq2$ distinct eigenvalues, then
+for every $r_{\max}\in(0,1)$ there are nonzero roots
+$\alpha_1,\ldots,\alpha_{m-1}$ of modulus below $r_{\max}$ such that
+$q_0=1$ and
+$q_\ell(\lambda)=\prod_{t=1}^{\ell}B_{\alpha_t}(\cayley(\lambda))$,
+$1\leq\ell<m$, span all complex multipliers on that finite spectrum.  The
+full-rank property also holds generically outside the zero set of the
+evaluation determinant.  This establishes finite-graph interpolation, not
+size-independent efficiency or numerical conditioning.
+\end{theorem}
+
+\begin{theorem}[T-F: conditional generic exact-target family separation]
+\label{thm:movable-pole-distinction}
+Let $\mathfrak F_S$ be a documented family of rational responses whose reduced
+nonremovable poles, including those induced by every permitted learned scale,
+lie in a locus $S$.  Let an exact GBDN target $g$ have a reduced nonremovable
+target pole $p\notin S$, and suppose $g$ and every
+$f\in\mathfrak F_S$ admit meromorphic continuation to a common connected
+domain containing $[0,2]$ and $p$.  Then $g$ cannot equal any
+$f\in\mathfrak F_S$ throughout $[0,2]$.
+
+This is only a generic, conditional nonidentity result for exact rational
+targets on a continuum.  It gives no separation on a finite graph spectrum,
+no lower approximation bound, and no claim of efficiency, trainability, or
+predictive superiority.  It does not name a baseline; any comparator-specific
+corollary requires a separately verified response family and pole locus.
+\end{theorem}
+
+\begin{theorem}[T-G: fixed-root graph-operator perturbation]
+\label{thm:graph-perturbation}
+Let $L,L'$ be aligned self-adjoint operators on the same vertex space, with
+spectra in $[0,2]$, and keep the roots fixed.  For one target factor with
+mapped zero $z$ and pole $p$, let
+$\delta=\operatorname{dist}(p,[0,2])>0$.  Then
+\begin{equation}
+ \norm{g_\alpha(L)-g_\alpha(L')}_{\op}
+ \leq\frac{|p-z|}{\delta^2}\norm{L-L'}_{\op}.
+ \label{eq:graph-perturbation}
+\end{equation}
+For a product of factors, the corresponding fixed-root bound is the sum of
+their constants.  The theorem is not a claim about retraining, discrete edge
+edit distance, optimization stability, or learned roots that change with the
+graph.
+\end{theorem}
+
+\begin{proposition}[T-H: finite locality and conditional sparse cost]
+\label{prop:locality-cost}
+If $L$ is supported only on graph edges and the diagonal, a degree-$K$
+polynomial factor is $K$-hop localized.  In a depth-$D$ sequential
+realization, residual $r_\ell$ has degree at most $(\ell+1)K$ in $L$ and the
+terminal carry has degree at most $DK$, so the full receptive field is at most
+$DK$ hops.
+
+If every level uses the canonical full degree-$K$ Chebyshev recurrence, with
+no early truncation or cross-level recurrence reuse, the realization performs
+exactly $DK$ sparse operator applications and costs
+$O(DK(|E|+n)d)$ arithmetic up to feature transformations.  Here one
+application of the real Laplacian to a complex feature matrix counts as one
+complex sparse matrix--feature product, equivalent to two products under a
+real-channel count.  Storing all coefficients costs $O((D+1)nd)$ complex
+scalars, with lower memory possible by streaming the readout.  A different
+schedule must report its own operation count.  The exact rational target has
+no finite-hop guarantee and is generally global.
+\end{proposition}
+
+\subsection{Proofs}
+
+All proofs involving analysis, adjoints, condition numbers, or Jacobians treat
+the roots as fixed independently of the analyzed signal.  Matrix-valued
+signals follow by applying the scalar operator to each feature column and
+summing squared Euclidean norms, yielding the Frobenius statements in the
+main text.
 
 \begin{proof}[Proof of \cref{prop:phase-pole}]
 For $|z|=1$,
@@ -7,104 +147,275 @@ For $|z|=1$,
  |z-\alpha|^2=(z-\alpha)(\overline z-\overline\alpha)
  =(1-\overline\alpha z)(1-\alpha\overline z),
 \end{equation}
-so $|B_\alpha(z)|=1$. Writing $z=e^{i\theta}$ and differentiating a continuous argument gives the classical Poisson kernel
+so $|B_\alpha(z)|=1$.  Writing $z=e^{i\psi}$ and differentiating a
+continuous argument gives the Poisson kernel
 \begin{equation}
- \frac{d}{d\theta}\arg B_\alpha(e^{i\theta})
- =\frac{1-|\alpha|^2}{|e^{i\theta}-\alpha|^2}.
+ \frac{d}{d\psi}\arg B_\alpha(e^{i\psi})
+ =\frac{1-|\alpha|^2}{|e^{i\psi}-\alpha|^2}.
 \end{equation}
 The unwrapped argument of $\cayley(\lambda)$ has derivative
-$2/(1+\lambda^2)$, so the chain rule yields \cref{eq:phase-law}.
+$2/(1+\lambda^2)$, proving the first form of \cref{eq:phase-law}.
 
-Substituting \cref{eq:definitions} and clearing $\lambda+i$ yields
-\cref{eq:rational-form}. Setting its numerator and denominator to zero gives
-\cref{eq:mapped-zero-pole}. The Cayley transform maps the unit disk to the upper half-plane, hence $\operatorname{Im}z_\alpha>0$. Conjugacy gives
-$\operatorname{Im}p_\alpha<0$.
-\end{proof}
-
-\begin{proof}[Proof of \cref{thm:tight-split}]
-In the eigenbasis of $L$, every diagonal entry of $\Tcal_{\mathcal R}$ has unit modulus by \cref{prop:phase-pole}. Therefore
-$\Tcal_{\mathcal R}^*\Tcal_{\mathcal R}=I$. Direct expansion gives
-\begin{align}
- (P^+)^*P^+ +(P^-)^*P^-
- &=\frac14(I+\Tcal^*)(I+\Tcal)\notag\\
- &\quad+\frac14(I-\Tcal^*)(I-\Tcal)\\
- &=\frac12(I+\Tcal^*\Tcal)=I.
-\end{align}
-Taking the quadratic form with $h$ proves \cref{eq:one-level-energy}. On an eigenmode with phase $e^{i\psi}$, the carried gain is
-$|(1+e^{i\psi})/2|=|\cos(\psi/2)|\leq1$, proving contraction.
-\end{proof}
-
-\begin{proof}[Proof of \cref{thm:multilevel-pr}]
-Apply \cref{eq:one-level-energy} to $h_\ell$ at each level:
+Substitution of \cref{eq:definitions} and clearing $\lambda+i$ proves
+\cref{eq:rational-form}.  Its numerator and denominator vanish at
+$z_\alpha$ and $p_\alpha$, respectively.  The inverse Cayley map sends the
+unit disk to the upper half-plane, so $z_\alpha=a+ib$ with $b>0$, and direct
+factorization gives
 \begin{equation}
- \norm{h_\ell}_2^2=\norm{r_\ell}_2^2+\norm{h_{\ell+1}}_2^2.
+ B_\alpha(\cayley(\lambda))
+ =\frac{1-\alpha}{1-\overline\alpha}
+   \frac{\lambda-(a+ib)}{\lambda-(a-ib)}.
 \end{equation}
-Summing and cancelling intermediate carry energies gives
-\cref{eq:multilevel-isometry}.
+The prefactor has constant argument.  Expanding the inverse Cayley map at
+$\alpha=\rho e^{i\vartheta}$ gives \cref{eq:radial-mapped-geometry}.  Taking
+the imaginary part of the logarithmic derivative of the last ratio gives
+$2b/((\lambda-a)^2+b^2)$.  If
+$\alpha=\cayley(\mu+i\gamma)$ with $\mu\in[0,2]$, inverse Cayley mapping gives
+$a=\mu,b=\gamma$; the target pole is $\mu-i\gamma$, its interval margin is
+$\gamma$, and the Lorentzian reaches half its maximum at
+$|\lambda-\mu|=\gamma$.  If instead $a\notin[0,2]$, monotonicity on the
+interval places the in-domain maximum at the nearer endpoint.  The argument
+of a finite product is the sum of
+the factor arguments on any consistent unwrapped branch, so its derivative is
+the sum of the displayed Lorentzians.
+\end{proof}
 
-For analyzed coefficients, one synthesis step gives
+\begin{proof}[Proof of \cref{thm:pointwise-partition}]
+At any fixed real $\lambda$, let $t_\ell=t_\ell(\lambda)$.  Since
+$|t_\ell|=1$ by \cref{prop:phase-pole},
+\begin{equation}
+ |p_\ell^-|^2+|p_\ell^+|^2=1.
+\end{equation}
+Define the remaining normalized energy from level $j$ by
+\begin{equation}
+ F_j=\sum_{\ell=j}^{D-1}|p_\ell^-|^2
+             \prod_{k=j}^{\ell-1}|p_k^+|^2
+     +\prod_{k=j}^{D-1}|p_k^+|^2.
+\end{equation}
+Then $F_D=1$ and
+$F_j=|p_j^-|^2+|p_j^+|^2F_{j+1}=1$ by backward induction.  Taking $j=0$
+is exactly \cref{eq:pointwise-partition}.
+
+Functional calculus applies the one-level equality to each eigenspace,
+including eigenspaces of multiplicity greater than one.  It also gives
+$T_\ell^*T_\ell=I$ and
 \begin{align}
- (P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}
- &=\bigl[(P_\ell^-)^*P_\ell^-+(P_\ell^+)^*P_\ell^+\bigr]h_\ell\\
- &=h_\ell.
+ (P_\ell^-)^*P_\ell^-+(P_\ell^+)^*P_\ell^+
+ &=\tfrac14(I-T_\ell^*)(I-T_\ell)
+   +\tfrac14(I+T_\ell^*)(I+T_\ell)\\
+ &=\tfrac12(I+T_\ell^*T_\ell)=I.
 \end{align}
-Backward induction reconstructs $h_0$. The same identity shows that synthesis is the adjoint of the nested analysis map and that
-$\Acal_D^*\Acal_D=I$.
+Taking the trace of $h^*[\cdot]h$ yields the Frobenius identity.  Finally,
+the spectral gain $|(1+e^{i\psi})/2|=|\cos(\psi/2)|$ is at most one.
+\end{proof}
+
+\begin{proof}[Proof of \cref{prop:two-reconstructions}]
+The exact channels obey $P_\ell^-+P_\ell^+=I$, and the separately defined
+approximate channels obey
+$\widetilde P_{\ell,K}^-+\widetilde P_{\ell,K}^+=I$.  Thus both corresponding
+analyzed pairs reconstruct additively.  In the exact case,
+\cref{eq:parseval-operator} also gives
+\begin{equation}
+ (P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}
+ =[(P_\ell^-)^*P_\ell^-+(P_\ell^+)^*P_\ell^+]h_\ell=h_\ell.
+\end{equation}
+Starting from $h_D^{\mathrm{syn}}=h_D$ and applying this identity backward
+proves $h_0^{\mathrm{syn}}=h_0$.  For the approximate recursion, the analogous
+backward calculation returns
+$\widetilde\Acal_D^*\widetilde\Acal_D\widetilde h_0$; without the Parseval
+identity it need not equal $\widetilde h_0$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:multilevel-pr} and
+\cref{eq:nodewise-lower}]
+At level $\ell$, \cref{eq:parseval-operator} gives
+\begin{equation}
+ \norm{h_\ell}_F^2=\norm{r_\ell}_F^2+
+ \norm{h_{\ell+1}}_F^2.
+\end{equation}
+Summing telescopes to \cref{eq:multilevel-isometry}.  Applying the exact
+adjoint identity in \cref{prop:two-reconstructions} backward reconstructs
+$h_0$ and proves $\Acal_D^*\Acal_D=I$.  Therefore
+$\norm{\Acal_Dx}_{\oplus,F}=\norm{x}_F$ for every input: all singular values
+on the input domain are one and their ratio is one.  The map has a larger codomain,
+so this left-inverse statement does not imply $\Acal_D\Acal_D^*=I$.
+
+Repeated additive reconstruction gives
+$h_0=\sum_{\ell=0}^{D-1}r_\ell+h_D$.  Subtracting rows $u,v$, using the
+triangle inequality, and then Cauchy--Schwarz over the $D+1$ summands proves
+\cref{eq:nodewise-lower}.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:weighted-parseval}]
+Because $W$ commutes with the unitary $T_\ell$, one has
+$T_\ell^*WT_\ell=W$.  Direct expansion therefore yields
+\begin{equation}
+ (P_\ell^-)^*WP_\ell^-+(P_\ell^+)^*WP_\ell^+
+ =\tfrac12(W+T_\ell^*WT_\ell)=W.
+\end{equation}
+Taking the trace against $h_\ell h_\ell^*$ gives one-level weighted energy
+conservation; summing over levels telescopes.  Any nonnegative spectral
+function $W=w(L)$ commutes with every level factor because both are functions
+of $L$.
 \end{proof}
 
 \begin{proof}[Proof of \cref{thm:energy-separation}]
 In the graph Fourier basis,
 \begin{equation}
- \Pi_Sr=\sum_{i\in S}q(\lambda_i)\widehat h_i u_i,
+ \Pi_Sr=\sum_{i\in S}q(\lambda_i)u_i\widehat h_i,
  \qquad
- \Pi_{S^c}r=\sum_{i\notin S}q(\lambda_i)\widehat h_i u_i.
+ \Pi_{S^c}r=\sum_{i\notin S}q(\lambda_i)u_i\widehat h_i.
 \end{equation}
-Orthonormality and \cref{eq:energy-hypotheses} give the two norm bounds in
-\cref{eq:energy-separation}. Squaring their quotient gives
-\cref{eq:leakage-ratio}.
+Orthogonality of distinct eigenspaces and \cref{eq:energy-hypotheses} give
+the two Frobenius bounds column by column.  Squaring their quotient gives the
+stated leakage bound whenever its denominator is nonzero.
 \end{proof}
 
 \begin{proof}[Proof of \cref{cor:complex-recovery}]
-Orthonormality gives the exact decomposition
+Orthogonality gives
 \begin{equation}
- \norm{r-h_S}_2^2
- =\sum_{i\in S}|q(\lambda_i)-1|^2|\widehat h_i|^2
- +\sum_{i\notin S}|q(\lambda_i)|^2|\widehat h_i|^2.
+ \norm{r-\Pi_Sh}_F^2
+ =\sum_{i\in S}|q(\lambda_i)-1|^2\norm{\widehat h_i}_2^2
+ +\sum_{i\notin S}|q(\lambda_i)|^2\norm{\widehat h_i}_2^2.
 \end{equation}
-Applying the two hypotheses proves \cref{eq:complex-recovery}. For the approximate channel,
-$\widetilde q(L)-q(L)=-(\widetilde\Tcal-\Tcal)/2$, so its operator norm is at most $\epsilon_K/2$.
+The hypotheses prove \cref{eq:complex-recovery}.  Moreover,
+$\widetilde q(L)-q(L)=-(\widetilde T-T)/2$, whose operator norm is at most
+$\epsilon_K/2$.
 \end{proof}
 
 \begin{proof}[Proof of \cref{thm:pole-distance-cheb}]
-By \cref{eq:rational-form}, $g$ is rational and its only singularities are the mapped poles $p_r$. After the affine change $x=\lambda-1$, the largest open Bernstein ellipse that avoids all poles is determined by the minimum of the parameters $\chi(\xi_r)$. For any strictly smaller $\varrho$, $g$ is analytic on and inside the ellipse. The classical Chebyshev interpolation estimate at first-kind nodes gives
+By \cref{eq:rational-form}, the exact target is rational and its
+reduced nonremovable singularities are the poles in
+$\mathcal P_{\mathrm{red}}(g)$.  Under $x=\lambda-1$, a pole $p$ becomes
+$\xi_p=p-1$.  The largest open Bernstein ellipse not meeting that pole has
+parameter $\chi(\xi_p)$; hence for every strictly smaller common $\varrho$,
+$x\mapsto g(1+x)$ is analytic on and inside $E_\varrho$.  Applying the
+first-kind Chebyshev interpolation estimate at the nodes specified in
+\cref{thm:pole-distance-cheb} gives
 \begin{equation}
  \sup_{x\in[-1,1]}|g(x+1)-p_K(x+1)|
  \leq\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
 \end{equation}
-The spectral theorem converts uniform scalar error into the stated operator-norm error.
+The spectral theorem turns uniform scalar error on $[0,2]$ into operator-norm
+error for self-adjoint $L$.  Solving the displayed inequality for $K$ proves
+\cref{eq:cheb-degree}, with the degree truncated below at zero.  This proof
+uses the external approximation theorem whose missing verified attribution is
+flagged immediately after \cref{thm:pole-distance-cheb}; it is not promoted as
+a self-contained derivation of that interpolation constant.
+\end{proof}
 
-The parallelogram identity gives
+\begin{proof}[Proof of \cref{thm:finite-frame}]
+Write $E_\ell=\widetilde T_\ell-T_\ell$.  Since $T_\ell$ is unitary,
+\begin{align}
+ \left\|\tfrac12(I+\widetilde T_\ell^*\widetilde T_\ell)-I\right\|_{\op}
+ &=\tfrac12\norm{T_\ell^*E_\ell+E_\ell^*T_\ell+E_\ell^*E_\ell}_{\op}\\
+ &\leq \epsilon_\ell+\tfrac12\epsilon_\ell^2=d_\ell,
+\end{align}
+and
+$\norm{\widetilde P_\ell^+}_{\op}
+\leq(1+\norm{\widetilde T_\ell}_{\op})/2
+\leq1+\epsilon_\ell/2$, whose square is $c_\ell$.
+
+Let $\widetilde\Acal_{\ell:D}$ denote the tail analysis beginning at level
+$\ell$, and set
+$e_\ell=\norm{\widetilde\Acal_{\ell:D}^*
+\widetilde\Acal_{\ell:D}-I}_{\op}$, with $e_D=0$.  Splitting off the first
+emitted branch gives
 \begin{equation}
- \norm{\widetilde P^+h}_2^2+\norm{\widetilde P^-h}_2^2
- =\frac12\bigl(\norm h_2^2+\norm{\widetilde\Tcal h}_2^2\bigr).
+ e_\ell\leq d_\ell+c_\ell e_{\ell+1}.
 \end{equation}
-Since $\Tcal$ is unitary and
-$\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon$,
-\begin{equation}
- (1-\epsilon)\norm h_2\leq\norm{\widetilde\Tcal h}_2
- \leq(1+\epsilon)\norm h_2.
-\end{equation}
-Substitution proves \cref{eq:approx-frame-bound}.
+Backward expansion yields
+$e_0\leq\sum_{\ell=0}^{D-1}d_\ell\prod_{j=0}^{\ell-1}c_j=\Delta_D$.
+The Rayleigh quotient then lies in $[1-\Delta_D,1+\Delta_D]$ when the lower
+endpoint is positive.  Adjoint reconstruction error is
+$\norm{(\widetilde\Acal_D^*\widetilde\Acal_D-I)h}_F
+\leq\Delta_D\norm h_F$.  Additive reconstruction instead follows exactly
+from $\widetilde P_\ell^-+\widetilde P_\ell^+=I$ and does not use the frame
+bound.
 \end{proof}
 
 \begin{proof}[Proof of \cref{thm:product-sum-vandermonde}]
-Let $z_j=\cayley(\mu_j)$. The Cayley map is injective on the real line, so the $z_j$ are distinct. First consider the disk-center witness $\alpha_t=0$ for every factor. Since $B_0(z)=z$,
+For $m=1$, $q_0=1$ spans the one-dimensional space of scalar multipliers, so
+there is no root to choose.  Now suppose $m\geq2$.
+Let $z_j=\cayley(\mu_j)$ for the $m$ distinct eigenvalues.  The Cayley map is
+injective on $\R$, so the $z_j$ are distinct.  At the witness
+$\alpha_t=0$, $B_0(z)=z$ and the evaluation matrix is Vandermonde:
 \begin{equation}
- q_\ell(\mu_j)=z_j^\ell.
-\end{equation}
-The evaluation matrix is Vandermonde, with determinant
-\begin{equation}
+ q_\ell(\mu_j)=z_j^\ell,
+ \qquad
  \det V=\prod_{1\leq j<k\leq m}(z_k-z_j)\neq0.
 \end{equation}
-Thus the cumulative products span every complex-valued function on the distinct eigenvalues. By continuity, the determinant remains nonzero for sufficiently small nonzero roots, which may be chosen with modulus below any fixed $r_{\max}>0$ and represented by \cref{eq:radial-root}. The determinant for general roots is real-analytic in their real and imaginary parts and is not identically zero because it is nonzero at the center witness. Its zero set has measure zero, proving generic full rank on the punctured parameter domain. Repeated eigenvalues necessarily share a multiplier value, as for every function of $L$.
+Continuity gives nonzero roots of arbitrarily small prescribed modulus with
+the same full rank.  More generally, the determinant is real-analytic in root
+coordinates and not identically zero, so its zero set has measure zero.
+Repeated eigenvalues necessarily share one multiplier value, as for every
+function of $L$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:movable-pole-distinction}]
+Assume for contradiction that $g=f$ on $[0,2]$ for some
+$f\in\mathfrak F_S$.  Away from their isolated poles, $g-f$ is analytic on
+the connected common continuation domain.  Its zeros contain an interval and
+hence have an interior accumulation point, so the identity theorem makes the
+two meromorphic continuations identical.  Their reduced nonremovable poles,
+including multiplicities, must then coincide.  But $g$ has a reduced
+nonremovable target pole
+$p\notin S$, while $f$ is holomorphic there by the definition of
+$\mathfrak F_S$, a contradiction.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:graph-perturbation}]
+From \cref{eq:rational-form}, for a scalar $c$ of modulus one,
+\begin{equation}
+ g_\alpha(L)=c\bigl[I+(p-z)(L-pI)^{-1}\bigr].
+\end{equation}
+The resolvent identity gives
+\begin{equation}
+ (L-pI)^{-1}-(L'-pI)^{-1}
+ =(L-pI)^{-1}(L'-L)(L'-pI)^{-1}.
+\end{equation}
+Self-adjointness and the pole-margin hypotheses bound each resolvent norm by
+$1/\delta$, proving \cref{eq:graph-perturbation}.  For products, insert and
+subtract one factor at a time.  All untouched exact factors at $L$ or $L'$
+are unitary, so the triangle inequality leaves the sum of the one-factor
+constants.
+\end{proof}
+
+\begin{proof}[Proof of \cref{prop:locality-cost}]
+The matrix $L^k$ has no nonzero $(u,v)$ entry when graph distance exceeds
+$k$.  A degree-$K$ polynomial in $L$ is therefore $K$-hop localized.
+Before level $\ell$, the carry has degree at most $\ell K$; applying either
+half-channel of its level-$\ell$ degree-$K$ factor gives residual and next-carry
+degrees at most $(\ell+1)K$.  Thus the terminal degree and receptive radius are
+at most $DK$, while additions do not enlarge support.  Under the stated
+canonical schedule, each of the $D$ levels evaluates all $K$ recurrence
+applications without reuse or truncation, giving exactly $DK$ complex sparse
+matrix--feature products, or $2DK$ under a real-channel count.  The standard
+sparse arithmetic and coefficient-storage counts follow.  A nonpolynomial
+rational function has no analogous finite-degree support argument and is
+generally dense under spectral functional calculus.
+\end{proof}
+
+\begin{proof}[Proof of \cref{prop:sensitivity-boundary}]
+For fixed roots the analysis is linear, so its Jacobian is $\Acal_D$; the
+singular-value statement is \cref{thm:multilevel-pr}.  To disprove a uniform
+target-block lower bound, take one real root $r\in(0,1)$.  For every finite
+real $\lambda$, $\cayley(\lambda)\neq1$ and
+\begin{equation}
+ B_r(\cayley(\lambda))\longrightarrow -1
+ \quad\text{as }r\uparrow1.
+\end{equation}
+Because a finite $L$ has finitely many eigenvalues, convergence is uniform on
+its spectrum and $T_r\to-I$ in operator norm.  For $u\neq v$, the block from
+an input at $u$ to the two one-level coefficient rows at $v$ has norm
+\begin{equation}
+ \left(|(P_r^-)_{vu}|^2+|(P_r^+)_{vu}|^2\right)^{1/2}
+ =\frac{|(T_r)_{vu}|}{\sqrt2}\longrightarrow0.
+\end{equation}
+Functions of a block-diagonal operator remain block diagonal, proving the
+disconnected-component statement.  The distance-$DK$ zero statement follows
+from \cref{prop:locality-cost}.  Finally,
+$\cayley(0)=-1$ and $B_r(-1)=-1$ for real $r$, so $P_r^+$ is zero on every
+zero eigenspace while $P_r^-$ is the identity there.  These examples coexist
+with the global isometry and establish the claimed logical boundary.
 \end{proof}

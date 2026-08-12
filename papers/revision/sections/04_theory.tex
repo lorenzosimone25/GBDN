@@ -1,167 +1,223 @@
 \section{Theory}
 \label{sec:theory}
 
-The analysis first treats exact spectral operators and then quantifies the finite Chebyshev realization. Proofs are in \cref{app:proofs}. Each result states the observable that its corresponding experiment tests.
+\paragraph{Draft status.}
+The statements in this section are a theory patch under internal review.  They
+are \emph{paper-blocked}: none is claim-admissible until the corresponding
+Gate~A oracle test passes and an independent reviewer accepts its assumptions
+and proof.  We tag the scope of each result as \emph{exact} or
+\emph{Chebyshev-$K$}; Legacy GBDN+ is outside this theory.
 
-\begin{proposition}[Phase and mapped pole geometry]
+\subsection{Root geometry and exact nonsubsampled tightness}
+
+\begin{proposition}[Mapped geometry and phase localization; exact]
 \label{prop:phase-pole}
-Let $|\alpha|<1$. For every real $\lambda$,
-$|B_\alpha(\cayley(\lambda))|=1$. If
-$\alpha=\rho e^{i\theta_\alpha}$ and a continuous phase branch is used, then
-\begin{equation}
- \frac{d}{d\lambda}\arg B_\alpha(\cayley(\lambda))
- =\frac{1-\rho^2}{|\cayley(\lambda)-\alpha|^2}
-  \frac{2}{1+\lambda^2}>0.
- \label{eq:phase-law}
-\end{equation}
-Moreover,
+Let $|\alpha|<1$.  For real $\lambda$,
+$|B_\alpha(\cayley(\lambda))|=1$, and
 \begin{equation}
  B_\alpha(\cayley(\lambda))
  =\frac{(1-\alpha)\lambda-i(1+\alpha)}
- {(1-\overline\alpha)\lambda+i(1+\overline\alpha)},
+ {(1-\overline\alpha)\lambda+i(1+\overline\alpha)}.
  \label{eq:rational-form}
 \end{equation}
-with zero and pole
+Its mapped zero and pole are
 \begin{equation}
- z_\alpha=i\frac{1+\alpha}{1-\alpha},
+ z_\alpha=i\frac{1+\alpha}{1-\alpha}=a+ib,
  \qquad
- p_\alpha=-i\frac{1+\overline\alpha}{1-\overline\alpha}
- =\overline{z_\alpha}.
+ p_\alpha=\overline{z_\alpha}=a-ib,
+ \qquad b>0.
  \label{eq:mapped-zero-pole}
 \end{equation}
-The zero lies in the upper half-plane and the pole lies in the lower half-plane.
+For a continuous phase branch,
+\begin{equation}
+ \frac{d}{d\lambda}\arg B_\alpha(\cayley(\lambda))
+ =\frac{1-|\alpha|^2}{|\cayley(\lambda)-\alpha|^2}
+   \frac{2}{1+\lambda^2}
+ =\frac{2b}{(\lambda-a)^2+b^2}>0.
+ \label{eq:phase-law}
+\end{equation}
+If $\alpha=\rho e^{i\vartheta}$, then
+\begin{equation}
+ a=\frac{-2\rho\sin\vartheta}{1-2\rho\cos\vartheta+\rho^2},
+ \qquad
+ b=\frac{1-\rho^2}{1-2\rho\cos\vartheta+\rho^2}.
+ \label{eq:radial-mapped-geometry}
+\end{equation}
+For a product of factors, the phase derivatives in \cref{eq:phase-law} add.
+Consequently the optional choice in \cref{eq:center-width-root}, with
+$\mu\in[0,2]$ and frozen
+$0<\gamma_{\min}\leq\gamma\leq\gamma_{\max}<\infty$, has an in-spectrum
+phase-derivative center $\mu$, half-width at half maximum $\gamma$, and target
+pole margin $\gamma$.  For an unrestricted radial root, $a$ is the real-axis
+center; if $a\notin[0,2]$, the maximum observed on the graph interval occurs
+at the nearer endpoint.  A radial angle anchor is not an exact center.
 \end{proposition}
 
-This proposition predicts the measured phase derivative and shows why root angle and radius jointly control polynomial approximation.
-
-\begin{theorem}[Exact unitary factor and tight split]
+\begin{theorem}[T-A: pointwise multilevel partition and exact split]
+\label{thm:pointwise-partition}
 \label{thm:tight-split}
-Let $L$ be self-adjoint and let every root of $\mathcal R$ lie in $\D$. Then
-$\Tcal_{\mathcal R}^*\Tcal_{\mathcal R}=I$. For
-$P^\pm=(I\pm\Tcal_{\mathcal R})/2$,
+Let $L$ be self-adjoint and let all level roots be fixed in $\D$.  Write
+$t_\ell(\lambda)=B_{\mathcal R_\ell}(\cayley(\lambda))$,
+$p_\ell^\pm=(1\pm t_\ell)/2$, and define the effective atoms
 \begin{equation}
-  (P^+)^*P^+ +(P^-)^*P^-=I
-  \label{eq:parseval-operator}
+ a_\ell(\lambda)=p_\ell^-(\lambda)
+                  \prod_{j<\ell}p_j^+(\lambda)\quad(0\leq\ell<D),
+ \qquad
+ a_D(\lambda)=\prod_{j<D}p_j^+(\lambda).
+ \label{eq:effective-atoms}
 \end{equation}
-and
+The scalar multilevel analysis vector
+$a(\lambda)=(a_0(\lambda),\ldots,a_D(\lambda))^\top$ obeys the pointwise
+paraunitary identity
 \begin{equation}
-  \norm{P^+h}_2^2+\norm{P^-h}_2^2=\norm h_2^2.
-  \label{eq:one-level-energy}
+ \sum_{\ell=0}^{D}|a_\ell(\lambda)|^2=1
+ \quad(\lambda\in\R).
+ \label{eq:pointwise-partition}
 \end{equation}
-The carried operator is contractive: $\norm{P^+}_{\op}\leq1$.
+At each level, $T_\ell=t_\ell(L)$ is unitary and
+\begin{equation}
+ (P_\ell^-)^*P_\ell^-+(P_\ell^+)^*P_\ell^+=I,
+ \qquad
+ \norm{P_\ell^-h}_F^2+\norm{P_\ell^+h}_F^2=\norm h_F^2.
+ \label{eq:parseval-operator}
+\end{equation}
+The bank is nonsubsampled and redundant; this identity makes no
+critical-sampling claim.  The carried operator satisfies
+$\norm{P_\ell^+}_{\op}\leq1$.
 \end{theorem}
 
-The experiment must report factor unitarity, channel-energy error, and carried-path norm separately.
+\begin{proposition}[Additive versus adjoint reconstruction]
+\label{prop:two-reconstructions}
+At each level, additive reconstruction
+$r_\ell+h_{\ell+1}=h_\ell$ holds whenever the same exact or approximate
+factor defines both channels.  For the exact bank, the terminal condition and
+backward recursion in \cref{eq:synthesis-recursion} give
+$h_0^{\mathrm{syn}}=h_0$.  The separately defined approximate channels and
+recursion in \cref{eq:approx-synthesis-recursion} return
+$\widetilde\Acal_D^*\widetilde\Acal_D\widetilde h_0$ and are not generally an
+inverse.
+\end{proposition}
 
-\begin{theorem}[Isometric multilevel analysis and perfect reconstruction]
+\begin{theorem}[T-C: exact multilevel isometry and conditioning]
 \label{thm:multilevel-pr}
-Let \cref{eq:analysis-recursion} use exact operators at $D$ levels. Then
+For fixed roots and exact factors at $D$ levels,
 \begin{equation}
-  \norm{\Acal_Dh_0}_{\oplus}^2
-  =\sum_{\ell=0}^{D-1}\norm{r_\ell}_2^2+\norm{h_D}_2^2
-  =\norm{h_0}_2^2.
-  \label{eq:multilevel-isometry}
+ \norm{\Acal_Dh_0}_{\oplus,F}^2
+ =\sum_{\ell=0}^{D-1}\norm{r_\ell}_F^2+\norm{h_D}_F^2
+ =\norm{h_0}_F^2,
+ \qquad \Acal_D^*\Acal_D=I.
+ \label{eq:multilevel-isometry}
 \end{equation}
-The analysis map is therefore an isometry. The adjoint synthesis recursion in
-\cref{eq:synthesis-recursion} reconstructs every analyzed signal, so
-$\Acal_D^*\Acal_D=I$.
+Thus every singular value of the rectangular analysis map on its input domain
+equals one, $\norm{\Acal_D\,\delta h}_{\oplus,F}=\norm{\delta h}_F$, and
+$\kappa(\Acal_D)=1$.  In general
+$\Acal_D\Acal_D^*\neq I$ because the coefficient space is redundant.  Adjoint
+synthesis reconstructs every analyzed signal.
 \end{theorem}
 
-The experiment must measure coefficient-energy and reconstruction errors across graph families and depths.
+Weighted spectral Parseval conservation, the additive node-pair bound, and
+spectral selection/recovery inequalities are useful consequences rather than
+the central claim chain.  We state them in
+\cref{thm:weighted-parseval,eq:nodewise-lower,thm:energy-separation,cor:complex-recovery}
+in \cref{app:proofs}.  In particular, the node-pair inequality is a weak
+redundancy bound and is not presented as resistance to representation
+collapse.
 
-\begin{theorem}[Spectral energy separation]
-\label{thm:energy-separation}
-Let $q(\lambda)=(1-B_{\mathcal R}(\cayley(\lambda)))/2$ and let
-$r=q(L)h$. For a target eigenmode set $S$, suppose
-\begin{equation}
- |q(\lambda_i)|\geq1-\delta\quad(i\in S),
- \qquad
- |q(\lambda_i)|\leq\eta\quad(i\notin S),
- \label{eq:energy-hypotheses}
-\end{equation}
-where $0\leq\delta<1$ and $\eta\geq0$. Then
-\begin{equation}
- \norm{\Pi_Sr}_2\geq(1-\delta)\norm{h_S}_2,
- \qquad
- \norm{\Pi_{S^c}r}_2\leq\eta\norm{h_{S^c}}_2.
- \label{eq:energy-separation}
-\end{equation}
-If $h_S\neq0$, the leakage ratio satisfies
-\begin{equation}
- \frac{\norm{\Pi_{S^c}r}_2^2}{\norm{\Pi_Sr}_2^2}
- \leq
- \frac{\eta^2\norm{h_{S^c}}_2^2}
- {(1-\delta)^2\norm{h_S}_2^2}.
- \label{eq:leakage-ratio}
-\end{equation}
-\end{theorem}
+\subsection{Finite approximation and target-pole complexity}
 
-This result supports band-energy separation only; it does not control target phase.
-
-\begin{corollary}[Complex spectral packet recovery]
-\label{cor:complex-recovery}
-Under the setting of \cref{thm:energy-separation}, replace the on-target assumption by
-\begin{equation}
-  |q(\lambda_i)-1|\leq\delta\quad(i\in S).
-  \label{eq:complex-hypothesis}
-\end{equation}
-Then
-\begin{equation}
-  \norm{r-h_S}_2^2
-  \leq\delta^2\norm{h_S}_2^2+\eta^2\norm{h_{S^c}}_2^2.
-  \label{eq:complex-recovery}
-\end{equation}
-If $\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon_K$, the corresponding approximate minus channel adds at most
-$\epsilon_K\norm h_2/2$ in signal norm.
-\end{corollary}
-
-The experiment must compare magnitude-only fitting with complex response fitting and report both leakage and complex reconstruction error.
-
-\begin{theorem}[Chebyshev error from mapped-pole distance]
+\begin{theorem}[T-E: Chebyshev interpolation under target analyticity]
 \label{thm:pole-distance-cheb}
-Let $g(\lambda)=B_{\mathcal R}(\cayley(\lambda))$, and map
-$\lambda\in[0,2]$ to $x=\lambda-1\in[-1,1]$. For each pole $p_r$ in
-\cref{eq:mapped-zero-pole}, set $\xi_r=p_r-1$ and
+Let the nonconstant exact rational target
+$g(\lambda)=B_{\mathcal R}(\cayley(\lambda))$ have a nonempty multiset
+$\mathcal P_{\mathrm{red}}(g)$ of \emph{reduced nonremovable target poles}.
+For $p\in\mathcal P_{\mathrm{red}}(g)$ set $\xi_p=p-1$ and define
 \begin{equation}
- \chi(\xi_r)=\max_{\pm}\left|\xi_r\pm\sqrt{\xi_r^2-1}\right|.
+ \chi(\xi_p)=\max_{\pm}|\xi_p\pm\sqrt{\xi_p^2-1}|.
 \end{equation}
-For any Bernstein ellipse parameter
-$1<\varrho<\min_r\chi(\xi_r)$, let $M_\varrho$ bound $|g|$ on that ellipse.
-Then the degree-$K$ Chebyshev interpolant $p_K$ at the $K+1$ first-kind nodes satisfies
+For $1<\varrho<\min_{p\in\mathcal P_{\mathrm{red}}(g)}\chi(\xi_p)$, let
+$E_\varrho$ be the closed Bernstein ellipse for $[-1,1]$ and let
+$M_\varrho=\max_{x\in E_\varrho}|g(1+x)|$.  The degree-$K$ interpolant $p_K$
+at the $K+1$ first-kind nodes
+$\lambda_j=1+\cos((j+\tfrac12)\pi/(K+1))$, $j=0,\ldots,K$, satisfies
 \begin{equation}
  \sup_{\lambda\in[0,2]}|g(\lambda)-p_K(\lambda)|
- \leq\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
+ \leq \frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
  \label{eq:cheb-bound}
 \end{equation}
-For self-adjoint $L$, the same quantity bounds
-$\norm{g(L)-p_K(L)}_{\op}$.
-
-If $\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon<1$ and
-$\widetilde P^\pm=(I\pm\widetilde\Tcal)/2$, then
-\begin{align}
- \frac{1+(1-\epsilon)^2}{2}\norm h_2^2
- &\leq \norm{\widetilde P^+h}_2^2+\norm{\widetilde P^-h}_2^2 \notag\\
- &\leq \frac{1+(1+\epsilon)^2}{2}\norm h_2^2.
- \label{eq:approx-frame-bound}
-\end{align}
-\end{theorem}
-
-The experiment must vary root angle and radius independently and compare error prediction by radius against mapped-pole distance.
-
-\begin{theorem}[Finite-spectrum product-sum interpolation]
-\label{thm:product-sum-vandermonde}
-Suppose $L$ has $m$ distinct eigenvalues $\mu_1,\ldots,\mu_m$. For every $r_{\max}\in(0,1)$, there exist roots satisfying $0<|\alpha_t|<r_{\max}$ for which the cumulative products
+For self-adjoint $L$ the same bound holds in operator norm.  Hence this upper
+bound is at most $\varepsilon$ whenever
 \begin{equation}
- q_0(\lambda)=1,
- \qquad
- q_\ell(\lambda)=\prod_{t=1}^{\ell}B_{\alpha_t}(\cayley(\lambda)),
- \quad \ell=1,\ldots,m-1,
+ K\geq
+ \left\lceil\frac{\log(4M_\varrho/((\varrho-1)\varepsilon))}
+ {\log\varrho}\right\rceil_+.
+ \label{eq:cheb-degree}
 \end{equation}
-form a basis for all complex multipliers on that finite spectrum. Full rank also holds for generic choices in the punctured radius-$r_{\max}$ disk outside the zero set of the evaluation determinant.
+Here $\lceil x\rceil_+=\max\{0,\lceil x\rceil\}$.
+Both the admissible ellipse and $M_\varrho$ are essential: target-pole distance
+alone does not determine the realized interpolation error.  The poles belong
+to the reduced rational target; the finite interpolant itself is a polynomial
+without finite poles.
 \end{theorem}
 
-This theorem establishes finite-graph interpolation with up to $m$ terms. It does not establish graph-size-independent approximation or parameter efficiency.
+\paragraph{Attribution gate.}
+The displayed constant and first-kind node convention require an exact,
+verified approximation-theory citation before paper promotion.  The frozen
+bibliography contains no such source, so this theorem remains paper-blocked on
+attribution in addition to its Gate~A evidence requirement.
 
-\begin{remark}[Scope of stability]
-Exact factor products are unitary, the complete exact coefficient map is isometric, and the carried path is contractive. If each approximate factor has operator error at most $\epsilon$, an approximate product has norm at most $(1+\epsilon)^D$. These facts do not imply stable nonlinear optimization, resistance to oversmoothing, or mitigation of oversquashing.
-\end{remark}
+\begin{theorem}[T-D: finite-Chebyshev multilevel frame distortion]
+\label{thm:finite-frame}
+Suppose the level-$\ell$ polynomial factor obeys the \emph{true} error
+$\norm{\widetilde T_\ell-T_\ell}_{\op}\leq\epsilon_\ell$.  Define
+\begin{equation}
+ d_\ell=\epsilon_\ell+\frac{\epsilon_\ell^2}{2},
+ \qquad c_\ell=\left(1+\frac{\epsilon_\ell}{2}\right)^2,
+ \qquad
+ \Delta_D=\sum_{\ell=0}^{D-1}d_\ell
+              \prod_{j=0}^{\ell-1}c_j.
+ \label{eq:finite-delta}
+\end{equation}
+For the complete approximate analysis map $\widetilde\Acal_D$,
+\begin{equation}
+ \norm{\widetilde\Acal_D^*\widetilde\Acal_D-I}_{\op}\leq\Delta_D.
+ \label{eq:finite-frame-distortion}
+\end{equation}
+If $\Delta_D<1$, valid frame bounds (equivalently, squared singular-value
+bounds) are $1-\Delta_D$ and $1+\Delta_D$.  No positive lower frame bound is
+asserted from this estimate when $\Delta_D\geq1$.  Additive reconstruction remains exact for coefficients
+formed by the same approximate channels.  For coefficients obtained by
+analyzing $h$, approximate adjoint synthesis has error
+$\norm{(\widetilde\Acal_D^*\widetilde\Acal_D-I)h}_F
+\leq\Delta_D\norm h_F$; this is not an inverse guarantee for arbitrary
+coefficient tuples.
+\end{theorem}
+
+\paragraph{Supporting scope results.}
+The finite-spectrum Product-sum basis result, generic exact-target family
+separation, fixed-root operator perturbation bound, and detailed locality and
+cost accounting are stated in
+\cref{thm:product-sum-vandermonde,thm:movable-pole-distinction,thm:graph-perturbation,prop:locality-cost}
+in \cref{app:proofs}.  These supporting results establish neither approximation
+efficiency nor predictive superiority.
+
+\subsection{What the exact isometry does not guarantee}
+
+\begin{proposition}[Negative boundary for oversmoothing and oversquashing]
+\label{prop:sensitivity-boundary}
+With fixed roots, the Jacobian of the complete exact coefficient map is
+$\Acal_D$, so its \emph{global} singular values equal one.  Nevertheless no
+positive, graph-independent lower bound follows for a prescribed
+source-to-target Jacobian block.  Indeed, for $D=1$, a real root $r\uparrow1$
+gives $B_r(\cayley(L))\to-I$ in operator norm; for any $u\neq v$, the block
+mapping a perturbation at $u$ to both coefficients at $v$ therefore tends to
+zero while the complete map remains isometric.  It is exactly zero across
+disconnected components.  For a Chebyshev-$K$ depth-$D$ realization it is
+also exactly zero when $\operatorname{dist}(u,v)>DK$.
+
+Moreover, for any real root, $B_r(\cayley(0))=-1$, so the zero-eigenspace is
+annihilated by the carried $P^+$ branch in one level even though it is retained
+by the emitted coefficient.  Complete coefficients and carried state must
+therefore be evaluated separately.  Parseval tightness, invertibility,
+energy conservation, and global Jacobian norm preservation alone establish
+neither resistance to oversmoothing nor mitigation of oversquashing.
+\end{proposition}
