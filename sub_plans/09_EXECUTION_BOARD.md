@@ -22,8 +22,8 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-001 | Audit current paper–repository correspondence | Reviewer | ORCH-001, ORCH-002 | `reviews/phase0_correspondence_review.md`; `handoffs/REV-001.md` | DONE |
 | PH0-MATH-001 | Independently audit current theorem/proof state and candidate counterexamples | Math | ORCH-001, ORCH-002 | `math/phase0_theorem_audit.md`; `handoffs/PH0-MATH-001.md` | DONE |
 | PH0-ENG-001 | Independently inventory legacy/canonical implementation, tests, notebooks, artifacts, and hazards | Engineer | ORCH-001 | `reviews/phase0_engineering_inventory.md`; `handoffs/PH0-ENG-001.md` | DONE |
-| SCI-001 | Freeze canonical notation and method variants | Orchestrator + Math | REV-001 | Accepted scientific contract | IN_PROGRESS |
-| MATH-001 | Audit all current theorem statements and proofs | Math | SCI-001 | Theorem ledger | READY |
+| SCI-001 | Freeze canonical notation and method variants | Orchestrator + Math | REV-001 | Accepted scientific contract | DONE |
+| MATH-001 | Audit all current theorem statements and proofs | Math | SCI-001 | Theorem ledger | IN_PROGRESS |
 | MATH-002 | Add additive versus adjoint reconstruction distinction | Math | MATH-001 | Proof and paper patch | BACKLOG |
 | MATH-003 | Prove pointwise paraunitary partition | Math | MATH-001 | Theorem, proof, test contract | BACKLOG |
 | MATH-004 | Prove weighted spectral Parseval conservation | Math | MATH-003 | Theorem, proof, test contract | BACKLOG |
@@ -34,7 +34,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | MATH-009 | Prove generic movable-pole separation from Cayley filters | Math | MATH-008 | Theorem | BACKLOG |
 | MATH-010 | Derive graph perturbation stability or narrow replacement | Math | MATH-008 | Theorem or negative result | BACKLOG |
 | MATH-011 | State locality, degree, and SpMV complexity | Math | SCI-001 | Proposition | BACKLOG |
-| ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Legacy map and tests | READY |
+| ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Legacy map and tests | IN_PROGRESS |
 | ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | BACKLOG |
 | ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | BACKLOG |
 | ENG-004 | Implement streaming Chebyshev/Clenshaw realization | Engineer | ENG-002 | Sparse implementation | BACKLOG |
@@ -83,9 +83,9 @@ Record each decision before dependent full runs.
 
 | Decision | Options | Current |
 |---|---|---|
-| Primary title | foundational / heterophily-and-long-range | UNDECIDED |
+| Primary title | foundational / heterophily-and-long-range | FOUNDATIONAL |
 | Root parameterization | radial / exact center-width / both | PROVISIONAL: radial primary; evaluate exact center-width; reject `rho*phi(mu)` as exact center |
-| Optional unitary routing | include / ablation / drop | UNDECIDED |
+| Optional unitary routing | include / ablation / drop | DROP unless Gate B identifies a prespecified need |
 | Primary baseline tier | minimum / extended | UNDECIDED |
 | Tuning policy | upstream / equal-budget / both labeled | UNDECIDED |
 | Trial budget | integer per model–dataset | UNDECIDED |

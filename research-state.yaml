@@ -14,9 +14,8 @@ completed_tasks:
   - REV-001
   - PH0-MATH-001
   - PH0-ENG-001
-active_tasks:
   - SCI-001
-ready_tasks:
+active_tasks:
   - MATH-001
   - ENG-001
 stop_line:

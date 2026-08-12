@@ -17,3 +17,11 @@
 - Completed: merged and adjudicated the independent Math and Reviewer reports, preserved the Engineering findings, and published the consolidated correspondence matrix in `PHASE0_AUDIT.md`.
 - Corrected an overbroad audit inference: the reusable sphere helper is asymmetric, but the mechanism generator uses a separate explicitly symmetric graph construction whose recorded source hash matches the current source.
 - Closed Phase 0 as an audit and opened `SCI-001`; `MATH-001` and `ENG-001` are ready in parallel. Gate A and H100 claim-bearing execution remain blocked.
+
+## 2026-08-11 — SCI-001 scientific contract freeze
+
+- Froze a foundational paper identity with Tight GBDN primary, Product-sum secondary, canonical relaxed GBDN+ separate, and Legacy GBDN+ provenance-only.
+- Froze exact/Chebyshev/legacy realization tags, residual-first coefficient order, Frobenius/direct-sum/spectral norm conventions, and a fail-or-explicitly-symmetrize graph contract.
+- Rejected `rho*phi(mu)` as an exact frequency-center parameterization. Kept unrestricted radial roots primary and admitted `phi(mu+i*gamma)` only as a Gate-B ablation candidate.
+- Dropped optional unitary routing from the primary scope and froze the negative boundary from complete-map isometry to oversquashing claims.
+- Opened MATH-001 and ENG-001 in parallel; no claim-bearing experiment is authorized.
