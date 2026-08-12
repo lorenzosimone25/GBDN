@@ -1,10 +1,17 @@
-# GBDN Revision Source of Truth
+# GBDN revision handoff (superseded where noted)
+
+The canonical source of truth is now `sub_plans/01_SCIENTIFIC_CONTRACT.md`,
+followed by `math/theorem_ledger.md` and
+`math/theorem_to_test_contract.md`. This earlier handoff remains useful for
+historical context, but it must not override those files or the live execution
+board.
 
 ## Central claim
 
 GBDN is a learned Blaschke–Cayley tight graph filter bank with interpretable all-pass pole–zero geometry and explicit multilevel reconstruction.
 
-This file controls the revision. When code, theory, figures, or prose disagree with it, stop and resolve the discrepancy before producing new evidence.
+When code, theory, figures, or prose disagree with the canonical contract, stop
+and resolve the discrepancy before producing new evidence.
 
 ## Canonical mathematical convention
 
@@ -49,7 +56,10 @@ Independent constraints on real and imaginary coordinates are prohibited because
 | T7 | Factor-product norm, carried-path contraction, and coefficient-map isometry | Separate statements | Separate operator measurements |
 | T8 | Laplacian-only analytic lift | Remove | None; requires an oriented operator in future work |
 
-## Permitted claims before experiments
+## Historical candidate claims (not paper-admitted)
+
+The bullets below predate the 36-test contract. They remain hypotheses until
+their corresponding Gate-A rows and independent reviews pass.
 
 - Exact Blaschke–Cayley factors are all-pass and unitary.
 - Exact complementary channels form a tight split.
@@ -68,9 +78,12 @@ Independent constraints on real and imaginary coordinates are prohibited because
 - Parameter efficiency from finite-spectrum universality alone.
 - Tightness or perfect reconstruction for GBDN+.
 
-## Gates
+## Historical gate summary
 
-**Gate A:** exact unitary and reconstruction errors below `1e-10` in double precision; sparse comparisons below `1e-8`; cache identity and depth-dependence tests pass; no proof test depends on GBDNStrict.
+**Gate A:** the historical criteria below are regression checks only. Current
+acceptance requires every GA-00--GA-35 row and fixture in
+`math/theorem_to_test_contract.md`, a machine-readable report, and independent
+review.
 
 **Gate B:** theorem statements, appendix proofs, code defaults, test names, and planned figure labels use identical notation and assumptions.
 
