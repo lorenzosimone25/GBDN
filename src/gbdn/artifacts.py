@@ -33,6 +33,8 @@ from gbdn.provenance import (
 
 SCHEMA_VERSION: Final[str] = "1.0"
 NA_ID: Final[str] = "na"
+TIGHT_ANALYSIS_MANIFEST_PATH: Final[str] = "analysis/tight_coefficients.json"
+TIGHT_ANALYSIS_PAYLOAD_PATH: Final[str] = "analysis/tight_coefficients.bin"
 _SHA256_RE: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{64}")
 _GIT_OBJECT_RE: Final[re.Pattern[str]] = re.compile(
     r"(?:[0-9a-f]{40}|[0-9a-f]{64})"
@@ -1178,6 +1180,29 @@ def validate_prediction_manifest(
     return target
 
 
+def validate_artifact_file_manifest(
+    bundle_root: str | Path,
+    manifest: ArtifactFileManifest,
+) -> Path:
+    """Verify one hash-bound regular file inside a run bundle.
+
+    This is the generic counterpart of :func:`validate_prediction_manifest`.
+    It deliberately accepts an already-typed manifest rather than an
+    untrusted path/hash pair, and inherits the bundle path's symlink and
+    traversal checks.
+    """
+
+    root = Path(bundle_root).resolve(strict=True)
+    target = _bundle_file_path(root, manifest.path)
+    if not target.is_file():
+        raise ArtifactValidationError("artifact is not a regular file")
+    if target.stat().st_size != manifest.size_bytes:
+        raise ArtifactValidationError(f"artifact size mismatch: {manifest.path}")
+    if sha256_file(target) != manifest.sha256:
+        raise ArtifactValidationError(f"artifact hash mismatch: {manifest.path}")
+    return target
+
+
 def _manifest_for_file(root: Path, relative_path: str) -> ArtifactFileManifest:
     target = _bundle_file_path(root, relative_path)
     return ArtifactFileManifest(
@@ -1226,6 +1251,21 @@ def _validate_bundle_directory(bundle_path: Path, identity: RunIdentity) -> None
     validate_prediction_manifest(
         bundle_path, result.predictions, expected_run_id=identity.run_id
     )
+    coefficient_paths = {
+        TIGHT_ANALYSIS_MANIFEST_PATH,
+        TIGHT_ANALYSIS_PAYLOAD_PATH,
+    }
+    if coefficient_paths & set(expected_files):
+        # Keep the stdlib-only artifact core lightweight for bundles that do
+        # not contain model coefficients.  The local import is safe here: the
+        # artifacts module is fully initialized before any bundle validation.
+        from gbdn.coefficient_artifacts import validate_tight_analysis_bundle_files
+
+        validate_tight_analysis_bundle_files(
+            bundle_path,
+            config=config,
+            bundle_manifest=marker,
+        )
 
 
 class ResumeState(str, Enum):
@@ -1419,6 +1459,37 @@ class AtomicRunBundle:
     def write_json(self, relative_path: str, value: Any) -> ArtifactFileManifest:
         return self.write_bytes(relative_path, canonical_json_bytes(value))
 
+    def validate_managed_artifacts(
+        self,
+        manifests: Sequence[ArtifactFileManifest],
+    ) -> tuple[ArtifactFileManifest, ...]:
+        """Fail unless every supplied manifest is an existing managed file.
+
+        The returned tuple has deterministic path order.  This method is
+        read-only and exists so derived artifacts can bind themselves to
+        already-written bundle members without inspecting private writer
+        state or trusting caller-supplied hashes.
+        """
+
+        self._ensure_open()
+        ordered = tuple(sorted(manifests, key=lambda item: item.path))
+        paths = [item.path for item in ordered]
+        if not ordered:
+            raise ArtifactValidationError("at least one bound artifact is required")
+        if len(paths) != len(set(paths)):
+            raise ArtifactValidationError("bound artifact manifests contain duplicates")
+        for manifest in ordered:
+            if self._files.get(manifest.path) != manifest:
+                raise ArtifactValidationError(
+                    f"artifact is absent, changed, or unmanaged: {manifest.path}"
+                )
+            observed = _manifest_for_file(self.staging_path, manifest.path)
+            if observed != manifest:
+                raise ArtifactValidationError(
+                    f"managed artifact changed on disk: {manifest.path}"
+                )
+        return ordered
+
     def copy_file(
         self, relative_path: str, source_path: str | Path
     ) -> ArtifactFileManifest:
@@ -1543,6 +1614,8 @@ __all__ = [
     "RunMode",
     "RunResultRecord",
     "SCHEMA_VERSION",
+    "TIGHT_ANALYSIS_MANIFEST_PATH",
+    "TIGHT_ANALYSIS_PAYLOAD_PATH",
     "canonical_json_bytes",
     "canonical_json_sha256",
     "canonical_run_bundle_path",
@@ -1555,6 +1628,7 @@ __all__ = [
     "sha256_file",
     "utc_now_iso",
     "validate_prediction_manifest",
+    "validate_artifact_file_manifest",
     "verify_file_sha256",
     "write_failure_record",
 ]
