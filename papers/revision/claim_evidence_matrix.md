@@ -28,7 +28,7 @@ states. The controlling assumptions and acceptance criteria are in
 
 ## Current gate snapshot
 
-- The local suite passes 447 tests.  The Gate-A collector maps 410 parametrized
+- The local suite passes 449 tests.  The Gate-A collector maps 410 parametrized
   nodes to every GA-00--GA-35 row and reports no declared graph, depth, root,
   degree, or row-matrix gap.
 - Gate A still requires complete row-level numerical provenance and independent

@@ -32,7 +32,7 @@ poles; reported mapped poles belong to its parameterized exact target.
 The repository is under a stop-line policy:
 
 - all 36 prespecified Gate-A correctness IDs have executable coverage;
-- the full local suite currently passes 447 tests;
+- the full local suite currently passes 449 tests;
 - final row-level provenance and independent Gate-A acceptance are still in
   progress; and
 - no new claim-bearing H100 benchmark is authorized until that gate closes.

@@ -72,3 +72,4 @@
 - Audited the existing mechanism artifacts. The pole-distance sweep retains all 80 grid records, but its composite source hash is not the current source commit; the sphere study retains aggregate moments and one selected run but not the ten per-initialization rows.
 - Narrowed the abstract, introduction, mechanism captions, and conclusion accordingly: current mechanism and legacy H100 outputs are diagnostics, not contribution evidence. No claim-bearing experiment was launched.
 - Opened immutable run-identity and artifact-bundle infrastructure in parallel; this infrastructure work does not authorize H100 execution.
+- Added installable `src`-layout package metadata and made the H100 setup install and import the canonical `gbdn` package before running tests. A fresh wheel smoke test imports `GBDNTight`; the full suite is now 449/449 passing.
