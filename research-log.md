@@ -105,3 +105,11 @@
 - Split row execution state from duplicate mapping metadata and bound frozen fixture/root/depth/degree coverage declarations to computed typed evidence; tampering now blocks acceptance. The historical ten-check file is explicitly diagnostic only.
 - Re-ran the integrated suite: 558 tests passed with three known environment warnings. The evidence catalog reports 36/36 rows, 811 measured values, 59 justified not-applicable fields, and no schema, decision, provenance, or coverage mismatch.
 - Opened a third independent Gate-A review from the clean repair commit. Gate A remains closed until that review issues a binary acceptance.
+
+## 2026-08-12 — Third Gate-A review and official protocol freeze
+
+- The third independent review accepted 35 of 36 mandatory rows, including the repaired GA-13 theorem premise, evidence/report semantics, oracle separation, and residual-first artifact binding.
+- It rejected GA-00 after reproducing a remaining public-API escape: `orthogonality_atol=10` makes both exact eigendecomposition constructors accept the frozen nonorthogonal basis and return a factor with operator unitarity defect `4.83269046506849`.
+- Opened a minimal fourth-pass repair to remove caller-controlled relaxation, freeze dtype-aware validation, and add the exact bypass as a regression. Gate A remains rejected until a different independent reviewer accepts that repair.
+- Froze the official Platonov five-dataset task contract from the official paper and repository: Roman-empire and Amazon-ratings use multiclass cross-entropy and accuracy; Minesweeper, Tolokers, and Questions use a scalar binary head, BCE-with-logits, and binary ROC-AUC.
+- Formally excluded the legacy one-split/one-seed universal cross-entropy and macro-AUROC path from confirmatory evidence. Dataset checksums, redistribution terms, adapter parity, baseline licenses/versions, and the isolated train/validation-versus-test boundary remain implementation blockers.

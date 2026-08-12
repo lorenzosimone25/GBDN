@@ -58,7 +58,8 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | OPS-RUNID-1 | Implement immutable run identities and artifact bundle validation | Engineer | ENG-001 | Deterministic IDs, non-overwrite/resume classifier, schema tests | DONE |
 | ENG-R3-ARTIFACT-1 | Bind residual-first complex coefficients through immutable artifact serialization | Engineer | OPS-RUNID-1, ENG-GATEA-SEMANTIC-REPAIR-1 | Order/dtype/shape/run/hash-bound codec and adversarial tests | DONE |
 | ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | DONE |
-| REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | IN_PROGRESS |
+| REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | DONE |
+| ENG-GATEA-TOLERANCE-3 | Remove caller-controlled exactness tolerance escape and add frozen regressions | Engineer | REV-GATEA-REVIEW-3 | Fixed public validation boundary, tests, and clean evidence | IN_PROGRESS |
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
 | OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
@@ -73,6 +74,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-005 | Run matched response-efficiency study | Engineer | EXP-002, EXP-003, EXP-004 | Gate-C artifacts | BACKLOG |
 | REV-003 | Review mechanism claims and figures | Reviewer | EXP-005 | Mechanism review | BACKLOG |
 | EXP-006 | Implement official heterophily task contract | Engineer | OPS-002 | Protocol tests | BACKLOG |
+| EXP-006-PREFLIGHT | Freeze official five-dataset task, split, metric, provenance, and baseline-admission contract | Reviewer | ORCH-001 | Primary-source protocol audit and manifest | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
