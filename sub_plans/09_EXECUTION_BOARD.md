@@ -71,12 +71,16 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | OPS-RUN-PLAN-1 | Validate immutable full-grid plan and read-only resume inventory | Engineer | EXP-007-008-ADMISSION-CONTRACT-1, OPS-RUNID-1 | Exact job-product/config/source/env validation; no launcher | DONE |
 | OPS-SCHEDULER-1 | Implement guarded sequential subprocess/failure state machine | Engineer | OPS-RUN-PLAN-1, OPS-GATE-ACCEPTANCE-1 | Refusal/resume/failure-isolation tests; canonical training worker intentionally absent | DONE |
 | REV-OPS-CPU-SMOKE-2 | Independently review diagnostic smoke and future scheduler binding separately | Reviewer | OPS-CPU-SMOKE-1, OPS-SCHEDULER-1 | CPU-smoke ACCEPT; scheduler-binding REJECT with frozen witnesses | DONE |
-| OPS-SCHEDULER-REPAIR-1 | Bind resume/completion to authoritative evaluation, current provenance, and immutable failures | Engineer | REV-OPS-CPU-SMOKE-2 | Fail-closed scheduler patch and adversarial tests | IN_PROGRESS |
+| OPS-SCHEDULER-REPAIR-1 | Bind resume/completion to authoritative evaluation, current provenance, and immutable failures | Engineer | REV-OPS-CPU-SMOKE-2 | Fail-closed scheduler patch and adversarial tests | DONE |
 | REV-OPS-SCHEDULER-3 | Independently adjudicate repaired scheduler binding | Reviewer | OPS-SCHEDULER-REPAIR-1 | REJECT: manifest-unbound evaluation and split coercion witnesses | REJECTED |
 | OPS-SCHEDULER-REPAIR-2 | Recheck prediction manifest across evaluation and require exact split scalar types | Orchestrator | REV-OPS-SCHEDULER-3 | Frozen-witness patch and focused tests | DONE |
 | REV-OPS-SCHEDULER-4 | Independently adjudicate narrow manifest/type repair | Reviewer | OPS-SCHEDULER-REPAIR-2 | REJECT: path-hash ABA race | REJECTED |
 | OPS-SCHEDULER-REPAIR-3 | Evaluate one immutable manifest-bound prediction byte snapshot | Orchestrator | REV-OPS-SCHEDULER-4 | ABA-safe byte evaluator and frozen witness | DONE |
 | REV-OPS-SCHEDULER-5 | Independently adjudicate immutable-snapshot scheduler | Reviewer | OPS-SCHEDULER-REPAIR-3 | ACCEPT scheduler substrate; worker remains blocked | DONE |
+| ENG-HET-WORKER-1 | Implement leakage-isolated official heterophily worker | Engineer | REV-OPS-SCHEDULER-5, EXP-006-LOSS-1 | Validation-only selection, post-freeze evaluation, immutable result bundle | REVIEW |
+| OPS-DATASET-ROOT-1 | Pass the scheduler's authoritative dataset root to the canonical worker | Orchestrator | ENG-HET-WORKER-1 | Explicit scheduler/CLI/worker binding and regression test | DONE |
+| OPS-ACCEPTANCE-CONTRACT-1 | Bind claim-bearing operations acceptance to a clean reviewed surface | Orchestrator + Reviewer | REV-OPS-SCHEDULER-5 | Signed machine-review contract and adversarial tests | REJECTED |
+| OPS-ACCEPTANCE-CONTRACT-2 | Authenticate review and freeze complete canonical runtime surface | Orchestrator + Reviewer | OPS-ACCEPTANCE-CONTRACT-1, ENG-HET-WORKER-1 | Ed25519-signed review contract, closed-package tests, fresh independent verdict | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
@@ -99,6 +103,9 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-006-007-IDENTITY-AUDIT-1 | Pin official NPZ byte identity and audit comparator root licenses | Orchestrator | EXP-006-PREFLIGHT | Five size/blob/SHA records; four pinned spectral baselines remain BLOCKED | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-007-CHEBNET-PYG-1 | Implement licensed PyG ChebNet adapter and independent dense recurrence/resource checks | Orchestrator | EXP-007-008-ADMISSION-CONTRACT-2 | Unadmitted canonical adapter, tests, and provenance boundary | DONE |
+| EXP-007-CHEBNET-PARITY-1 | Audit PyG 2.8 ChebNet forward/gradient/operator/resource parity | Engineer | EXP-007-CHEBNET-PYG-1 | Correct upstream pin, MIT notice, dense oracle, CPU parity tests | DONE |
+| EXP-007-008-ADMISSION-CONTRACT-3 | Separate implementation parity from local equal-budget configuration provenance | Engineer | EXP-007-CHEBNET-PARITY-1 | Registry-v3 schema and adversarial migration tests | IN_PROGRESS |
+| EXP-006-DATA-ACQUIRE-1 | Acquire and verify pinned Platonov-five NPZs without tracking raw data | Engineer | EXP-006-007-IDENTITY-AUDIT-1 | Hash/shape/split/graph/license verifier and compact manifest | IN_PROGRESS |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
 | EXP-010 | Run all-split, multi-seed heterophily confirmation | Engineer | EXP-009 | Primary artifacts | BACKLOG |
