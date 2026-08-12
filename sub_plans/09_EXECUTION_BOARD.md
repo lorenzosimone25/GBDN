@@ -99,6 +99,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-005 | Review oversmoothing/oversquashing claims | Reviewer | EXP-013, EXP-015 | Phenomena review | BACKLOG |
 | EXP-016 | Integrate optional official LRGB pipeline | Engineer | EXP-011 | LRGB artifacts | BACKLOG |
 | PAPER-001 | Merge accepted method and theory patch | Orchestrator | REV-002 | Revised theory | BACKLOG |
+| PAPER-DIAGNOSTIC-1 | Align the preliminary H100 tables, claim boundaries, checklist, and NeurIPS page budget | Orchestrator | REV-CITATIONS-002, MATH-PAPER-REPAIR-1 | Nine-page compiling draft; audited diagnostic appendices | DONE |
 | PAPER-002 | Generate all result tables and figures | Engineer | EXP-011, EXP-013, EXP-015 | `paper/generated` | BACKLOG |
 | PAPER-003 | Rewrite experiments, related work, and limitations | Math + Reviewer | PAPER-001, PAPER-002, REV-004, REV-005 | Paper patch | BACKLOG |
 | PAPER-004 | Rebuild paper and trace every number to run IDs | Orchestrator | PAPER-003 | Rebuilt PDF and trace report | BACKLOG |

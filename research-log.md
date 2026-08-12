@@ -203,3 +203,12 @@
 - Windows command policy blocked deletion of the already verified unique temp path; it remains untouched outside the repository. The full suite remains 645 passed, 2 privilege-dependent skips, and 3 known environment warnings.
 - A metadata-only follow-up with pickle disabled pinned all six array hashes, raw/expanded graph hashes, and a canonical full ten-split manifest hash per dataset. All shapes/dtypes, connectedness, loop/duplicate checks, reciprocal expansion, and disjoint full 50/25/25 partitions match the official contract.
 - Found and repaired a validator omission: observed NPZ size/SHA had been checked for syntax but not equality to the pinned registry. Regressions now reject a well-formed wrong size or hash. Raw arrays/indices remain outside the repository; redistribution remains blocked.
+
+## 2026-08-12 - NeurIPS draft and diagnostic-table alignment
+
+- Audited every displayed legacy H100 value against the frozen JSON artifacts without changing any measurement. Removed boldface winner cues because the one-split, one-seed local baselines are not upstream verified and the reproduction audit fails.
+- Rewrote both captions to identify the experimental unit, task-specific metric, independent ROC-AUC recomputation, GBDN+ versus Tight GBDN boundary, metric drifts, missing predictions/manifest, and absence of comparative inference.
+- Moved the full legacy H100 protocols/tables and the primary-source positioning matrix to labeled appendices. The main paper retains concise evidence boundaries and ends within the official NeurIPS 2026 nine-page content limit; references begin on page 9.
+- Corrected the NeurIPS statistics checklist answer from Yes to No because the five-initialization mechanism summary lacks the retained per-initialization records required for verification.
+- A forced LaTeX/BibTeX rebuild produces a 25-page PDF including references, proofs, diagnostic appendices, positioning appendix, and checklist, with no undefined citations/references, missing figures, duplicate labels, overfull boxes, or compilation errors. No PDF or prohibited research-assistance reference was committed.
+- Commit `f93fd88` contains only manuscript source. Gate A, confirmatory experiments, and performance claims remain blocked.
