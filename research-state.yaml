@@ -62,7 +62,7 @@ stop_line:
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
     - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, synthetic split-first statistics contract, fail-closed acceptance-token validator, thin H100 notebook, and read-only readiness inventory exist; no independent token has been issued, and the full scheduler, plan/registry semantics, official test evaluator, immutable aggregate renderer, and artifact-complete verifier are not yet implemented.
-    - The official five-dataset protocol, whole-file byte identities, metadata, baseline-admission, and equal-budget plan contracts are frozen, but array-level identities, redistribution terms, adapter parity, actual upstream baseline license/wrapper/parity evidence, comparator family, and tie thresholds remain unresolved. Four pinned spectral repositories expose no root license/SPDX and remain blocked.
+    - The official five-dataset protocol, whole-file and array identities, graph/split metadata, baseline-admission, and equal-budget plan contracts are frozen, but redistribution terms, adapter parity, actual upstream baseline license/wrapper/parity evidence, comparator family, and tie thresholds remain unresolved. Four pinned spectral repositories expose no root license/SPDX and remain blocked.
 current_evidence:
   automated_tests: 645
   automated_tests_passing: 645
@@ -80,6 +80,8 @@ current_evidence:
   diagnostic_cpu_smoke_resume: matching_complete_then_skipped_same_worker
   official_npz_whole_file_sha256_resolved: 5
   audited_unlicensed_spectral_baselines: 4
+  official_npz_array_identity_sets_resolved: 5
+  official_graph_and_split_manifests_validated: 5
 next_dependency_chain:
   - Obtain a fourth independent Gate-A adjudication and tracked executable report for the fixed public constructors; only an independently issued source-bound token may close the gate.
   - Obtain independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.

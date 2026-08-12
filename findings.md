@@ -53,6 +53,7 @@
 - Dataset identity requires the official source commit, NPZ and per-array hashes, canonical serialization, exact graph expansion, ordered split-mask identities, and reviewed redistribution terms. These hashes and terms are unresolved, so no real-data execution is authorized.
 - Training and checkpoint selection must receive only train/validation identities and the official validation metric. Test identities and evaluation belong to a later isolated, post-freeze process.
 - Whole-file identity is now pinned for all five official NPZs by source commit, byte size, Git blob SHA-1, and SHA-256. This resolves provenance but not redistribution permission or array/split semantic validation; raw data remains excluded from Git and public artifacts.
+- Metadata-only validation now also resolves six content hashes, graph identities/invariants, and a canonical ten-split manifest root for every dataset. All official graphs are connected, loop-free, duplicate-free after reciprocal expansion, and all split rows are disjoint full partitions. Redistribution permission remains a separate unresolved legal boundary.
 - Confirmatory inference is now executable on verified scalar run records only: training seeds are averaged within each official split; paired differences, intervals, and exact sign flips then use the ten splits as the inferential units. A practical tie threshold and each Holm comparison family must be declared before predictions are evaluated.
 
 ## Operations lessons and constraints
