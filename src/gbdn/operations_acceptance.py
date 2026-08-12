@@ -73,6 +73,7 @@ EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "src/gbdn/peel.py",
     "src/gbdn/provenance.py",
     "src/gbdn/run_plan.py",
+    "src/gbdn/screening_contract.py",
     "src/gbdn/seed.py",
     "src/gbdn/spectral.py",
     "src/gbdn/submission.py",
@@ -90,6 +91,7 @@ EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "tests/test_heterophily_worker.py",
     "tests/test_operations_acceptance.py",
     "tests/test_run_plan.py",
+    "tests/test_screening_contract.py",
     "tests/test_submission_scheduler.py",
     "tests/test_submission_verify.py",
 )
