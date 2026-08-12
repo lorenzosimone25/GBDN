@@ -20,15 +20,45 @@ from gbdn.spectral import Convention
 
 @dataclass
 class TightAnalysisOutput:
-    """Complete multilevel coefficient representation from Tight GBDN."""
+    """Residual-first complete multilevel representation from Tight GBDN.
 
-    final_carry: torch.Tensor
+    The public order is frozen as ``(r_0, ..., r_{D-1}, h_D)``. The fields and
+    construction order follow the same convention so no implicit permutation
+    is needed by readouts, diagnostics, or artifact serializers.
+    """
+
     bands: list[torch.Tensor]
+    final_carry: torch.Tensor
     roots: list[torch.Tensor]
 
+    def __post_init__(self) -> None:
+        if len(self.bands) != len(self.roots):
+            raise ValueError("bands and roots must have the same depth")
+
     @property
-    def components(self) -> list[torch.Tensor]:
-        return [self.final_carry, *self.bands]
+    def components(self) -> tuple[torch.Tensor, ...]:
+        """Return ``(r_0, ..., r_{D-1}, h_D)`` exactly."""
+
+        return (*self.bands, self.final_carry)
+
+    @property
+    def component_names(self) -> tuple[str, ...]:
+        """Return stable semantic names aligned with :attr:`components`."""
+
+        return (*[f"r_{index}" for index in range(len(self.bands))], "h_D")
+
+    def concatenate(self, dim: int = -1) -> torch.Tensor:
+        """Concatenate coefficients in the canonical residual-first order."""
+
+        return torch.cat(self.components, dim=dim)
+
+    def additive_reconstruction(self) -> torch.Tensor:
+        """Recover the analyzed lift by telescoping shared complementary splits."""
+
+        reconstructed = self.final_carry
+        for band in reversed(self.bands):
+            reconstructed = band + reconstructed
+        return reconstructed
 
     def coefficient_energy(self) -> torch.Tensor:
         return sum(component.abs().square().sum() for component in self.components)
@@ -154,7 +184,11 @@ class GBDNTight(nn.Module):
             carry, band, layer_roots = layer(carry, basis)
             bands.append(band)
             roots.append(layer_roots)
-        return TightAnalysisOutput(carry, bands, roots)
+        return TightAnalysisOutput(
+            bands=bands,
+            final_carry=carry,
+            roots=roots,
+        )
 
     def analyze(
         self,
@@ -203,7 +237,7 @@ class GBDNTight(nn.Module):
         edge_weight: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         analysis = self.analyze(x, edge_index, edge_weight=edge_weight)
-        coefficients = torch.cat(analysis.components, dim=-1)
+        coefficients = analysis.concatenate(dim=-1)
         features = torch.cat([coefficients.real, coefficients.imag], dim=-1)
         return self.readout(features), analysis.roots
 

@@ -6,8 +6,8 @@ import warnings
 
 import torch
 import torch.nn as nn
-from torch_geometric.utils import get_laplacian
 
+from gbdn.core import validate_self_adjoint_operator, validated_normalized_laplacian
 from gbdn.spectral import (
     Convention,
     blaschke_product_cheb_coeffs,
@@ -29,23 +29,18 @@ def normalized_laplacian(
     *,
     device: torch.device | None = None,
 ) -> torch.Tensor:
-    """Build a coalesced symmetric normalized Laplacian."""
-    if num_nodes is None:
-        num_nodes = int(edge_index.max().item()) + 1
-    lap_index, lap_weight = get_laplacian(
+    """Build a normalized Laplacian from strictly validated undirected input.
+
+    Directed input is never silently repaired here. Call
+    :func:`gbdn.core.preprocess_reciprocal_mean` explicitly when that recorded
+    policy is intended.
+    """
+    return validated_normalized_laplacian(
         edge_index,
         edge_weight,
-        normalization="sym",
+        device=device,
         num_nodes=num_nodes,
     )
-    if device is None:
-        device = edge_index.device
-    return torch.sparse_coo_tensor(
-        lap_index.to(device),
-        lap_weight.to(device),
-        (num_nodes, num_nodes),
-        device=device,
-    ).coalesce()
 
 
 class ChebyshevBasis(nn.Module):
@@ -84,6 +79,7 @@ class ChebyshevBasis(nn.Module):
                 f"laplacian shape {tuple(laplacian.shape)} does not match "
                 f"({num_nodes}, {num_nodes})"
             )
+        validate_self_adjoint_operator(laplacian, spectral_bounds=None)
         laplacian = laplacian.to(device=x.device, dtype=x.dtype)
 
         bases = [x]

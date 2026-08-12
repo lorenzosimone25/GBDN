@@ -1,5 +1,14 @@
 """Canonical implementation of the revised GBDN model families."""
 
+from gbdn.core import (
+    GraphPreprocessRecord,
+    PreprocessedGraph,
+    normalized_laplacian_from_adjacency,
+    preprocess_reciprocal_mean,
+    validate_adjacency,
+    validate_self_adjoint_operator,
+    validated_normalized_laplacian,
+)
 from gbdn.layers import (
     ChebyshevBasis,
     GraphBlaschkeLayerMultiRoot,
@@ -7,6 +16,14 @@ from gbdn.layers import (
     GraphBlaschkeLayerStrict,
     GraphBlaschkeLayerTight,
     normalized_laplacian,
+)
+from gbdn.oracle import (
+    apply_tight_analysis as dense_apply_tight_analysis,
+    dense_chebyshev_operator,
+    exact_blaschke_operator as dense_exact_blaschke_operator,
+    exact_blaschke_operator_from_eigendecomposition,
+    exact_blaschke_symbol as dense_exact_blaschke_symbol,
+    tight_analysis_matrix as dense_tight_analysis_matrix,
 )
 from gbdn.model import (
     GBDNProductSum,
@@ -41,12 +58,25 @@ __all__ = [
     "GBDNProductSum",
     "GBDNRelaxed",
     "TightAnalysisOutput",
+    "GraphPreprocessRecord",
+    "PreprocessedGraph",
+    "validate_adjacency",
+    "validate_self_adjoint_operator",
+    "validated_normalized_laplacian",
+    "normalized_laplacian_from_adjacency",
+    "preprocess_reciprocal_mean",
     "ChebyshevBasis",
     "GraphBlaschkeLayerStrict",
     "GraphBlaschkeLayerMultiRoot",
     "GraphBlaschkeLayerTight",
     "GraphBlaschkeLayerRelaxed",
     "normalized_laplacian",
+    "dense_exact_blaschke_symbol",
+    "dense_exact_blaschke_operator",
+    "exact_blaschke_operator_from_eigendecomposition",
+    "dense_chebyshev_operator",
+    "dense_tight_analysis_matrix",
+    "dense_apply_tight_analysis",
     "blaschke_cayley_exact",
     "blaschke_cayley_symbol",
     "blaschke_cheb_coeffs",
