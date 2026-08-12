@@ -77,10 +77,11 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-OPS-SCHEDULER-4 | Independently adjudicate narrow manifest/type repair | Reviewer | OPS-SCHEDULER-REPAIR-2 | REJECT: path-hash ABA race | REJECTED |
 | OPS-SCHEDULER-REPAIR-3 | Evaluate one immutable manifest-bound prediction byte snapshot | Orchestrator | REV-OPS-SCHEDULER-4 | ABA-safe byte evaluator and frozen witness | DONE |
 | REV-OPS-SCHEDULER-5 | Independently adjudicate immutable-snapshot scheduler | Reviewer | OPS-SCHEDULER-REPAIR-3 | ACCEPT scheduler substrate; worker remains blocked | DONE |
-| ENG-HET-WORKER-1 | Implement leakage-isolated official heterophily worker | Engineer | REV-OPS-SCHEDULER-5, EXP-006-LOSS-1 | Validation-only selection, post-freeze evaluation, immutable result bundle | REVIEW |
+| ENG-HET-WORKER-1 | Implement leakage-isolated official heterophily worker | Engineer | REV-OPS-SCHEDULER-5, EXP-006-LOSS-1 | Validation-only selection, post-freeze evaluation, immutable result bundle | DONE |
 | OPS-DATASET-ROOT-1 | Pass the scheduler's authoritative dataset root to the canonical worker | Orchestrator | ENG-HET-WORKER-1 | Explicit scheduler/CLI/worker binding and regression test | DONE |
 | OPS-ACCEPTANCE-CONTRACT-1 | Bind claim-bearing operations acceptance to a clean reviewed surface | Orchestrator + Reviewer | REV-OPS-SCHEDULER-5 | Signed machine-review contract and adversarial tests | REJECTED |
 | OPS-ACCEPTANCE-CONTRACT-2 | Authenticate review and freeze complete canonical runtime surface | Orchestrator + Reviewer | OPS-ACCEPTANCE-CONTRACT-1, ENG-HET-WORKER-1 | Ed25519-signed review contract, closed-package tests, fresh independent verdict | IN_PROGRESS |
+| OPS-GATE-REFRESH-1 | Re-review Gate A after the protected submission launcher changed | Reviewer | OPS-GATE-ACCEPTANCE-2, ENG-HET-WORKER-1 | Clean report, independent binary review, refreshed source-bound token | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
@@ -104,9 +105,10 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-007-CHEBNET-PYG-1 | Implement licensed PyG ChebNet adapter and independent dense recurrence/resource checks | Orchestrator | EXP-007-008-ADMISSION-CONTRACT-2 | Unadmitted canonical adapter, tests, and provenance boundary | DONE |
 | EXP-007-CHEBNET-PARITY-1 | Audit PyG 2.8 ChebNet forward/gradient/operator/resource parity | Engineer | EXP-007-CHEBNET-PYG-1 | Correct upstream pin, MIT notice, dense oracle, CPU parity tests | DONE |
-| EXP-007-008-ADMISSION-CONTRACT-3 | Separate implementation parity from local equal-budget configuration provenance | Engineer | EXP-007-CHEBNET-PARITY-1 | Registry-v3 schema and adversarial migration tests | IN_PROGRESS |
-| EXP-006-DATA-ACQUIRE-1 | Acquire and verify pinned Platonov-five NPZs without tracking raw data | Engineer | EXP-006-007-IDENTITY-AUDIT-1 | Hash/shape/split/graph/license verifier and compact manifest | IN_PROGRESS |
-| EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
+| EXP-007-008-ADMISSION-CONTRACT-3 | Separate implementation parity from local equal-budget configuration provenance | Engineer | EXP-007-CHEBNET-PARITY-1 | Registry-v3 schema and adversarial migration tests | DONE |
+| EXP-006-DATA-ACQUIRE-1 | Acquire and verify pinned Platonov-five NPZs without tracking raw data | Engineer | EXP-006-007-IDENTITY-AUDIT-1 | Hash/shape/split/graph/license verifier and compact manifest | DONE |
+| EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | IN_PROGRESS |
+| EXP-008-SCREENING-CONTRACT-1 | Implement deterministic hash-bound equal-budget candidate selection | Engineer | EXP-007-008-ADMISSION-CONTRACT-3 | CPU-only screening schema, enumerator, and adversarial tests | IN_PROGRESS |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
 | EXP-010 | Run all-split, multi-seed heterophily confirmation | Engineer | EXP-009 | Primary artifacts | BACKLOG |
 | EXP-011 | Aggregate split-level statistics and compute | Engineer | EXP-010 | Primary tables/tests | BACKLOG |
