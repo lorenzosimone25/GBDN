@@ -24,7 +24,7 @@ def test_current_repository_verifier_is_read_only_and_blocked():
     assert before == after
     assert any("acceptance token is absent" in blocker for blocker in report.blockers)
     assert any("confirmatory_plan.json" in blocker for blocker in report.blockers)
-    assert any("scheduler/evaluator binding" in blocker for blocker in report.blockers)
+    assert any("operations acceptance" in blocker for blocker in report.blockers)
 
 
 def test_verify_cli_fails_loudly_with_machine_readable_inventory():

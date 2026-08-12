@@ -96,6 +96,7 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
         "src/gbdn/heterophily_contract.py",
         "src/gbdn/heterophily_evaluator.py",
         "src/gbdn/heterophily_statistics.py",
+        "src/gbdn/submission_scheduler.py",
     )
     for relative in required_files:
         path = root / relative
@@ -170,10 +171,17 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
     else:
         checks.append({"check": f"execution_input:{run_plan_relative}", "status": "FAIL"})
         execution_blockers.append(f"missing execution input: {run_plan_relative}")
-    # Execution remains unavailable until the scheduler binds the independent
-    # evaluator to verified authoritative split metadata and is reviewed.
+    worker_relative = "scripts/run_heterophily_job.py"
+    worker = root / worker_relative
+    if worker.is_file() and not worker.is_symlink():
+        checks.append({"check": f"execution_input:{worker_relative}", "status": "PASS"})
+    else:
+        checks.append({"check": f"execution_input:{worker_relative}", "status": "FAIL"})
+        execution_blockers.append(f"missing canonical training worker: {worker_relative}")
+    # The scheduler is implemented, but its worker/evaluator binding has not
+    # been independently reviewed and no canonical training worker exists.
     execution_blockers.append(
-        "claim-bearing scheduler/evaluator binding and independent operations review are not implemented"
+        "scheduler-to-authoritative-evaluator binding lacks independent operations acceptance"
     )
 
     completion_outputs = (
