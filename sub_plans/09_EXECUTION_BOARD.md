@@ -70,7 +70,9 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | OPS-VERIFY-NOTEBOOK-1 | Add read-only readiness inventory and thin fail-loud H100 operator notebook | Engineer | OPS-GATE-ACCEPTANCE-1, OPS-CPU-SMOKE-1 | Blocker-separated verifier, notebook interface, and static tests | DONE |
 | OPS-RUN-PLAN-1 | Validate immutable full-grid plan and read-only resume inventory | Engineer | EXP-007-008-ADMISSION-CONTRACT-1, OPS-RUNID-1 | Exact job-product/config/source/env validation; no launcher | DONE |
 | OPS-SCHEDULER-1 | Implement guarded sequential subprocess/failure state machine | Engineer | OPS-RUN-PLAN-1, OPS-GATE-ACCEPTANCE-1 | Refusal/resume/failure-isolation tests; canonical training worker intentionally absent | DONE |
-| REV-OPS-CPU-SMOKE-1 | Independently adversarially review CPU smoke/resume/recompute path | Reviewer | OPS-CPU-SMOKE-1 | Binary operations-safety verdict | BLOCKED |
+| REV-OPS-CPU-SMOKE-2 | Independently review diagnostic smoke and future scheduler binding separately | Reviewer | OPS-CPU-SMOKE-1, OPS-SCHEDULER-1 | CPU-smoke ACCEPT; scheduler-binding REJECT with frozen witnesses | DONE |
+| OPS-SCHEDULER-REPAIR-1 | Bind resume/completion to authoritative evaluation, current provenance, and immutable failures | Engineer | REV-OPS-CPU-SMOKE-2 | Fail-closed scheduler patch and adversarial tests | IN_PROGRESS |
+| REV-OPS-SCHEDULER-3 | Independently adjudicate repaired scheduler binding | Reviewer | OPS-SCHEDULER-REPAIR-1 | Binary operations-safety verdict | BLOCKED |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
