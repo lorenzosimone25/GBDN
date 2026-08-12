@@ -143,7 +143,7 @@ def test_reviewer_sensitive_rows_expose_their_semantic_observables():
     ga27_configuration = ga27["configuration"]["value"]
     comparator = ga27_configuration["frozen_comparator"]
     gbdn_reduction = ga27_configuration["exact_gbdn_reduction"]
-    assert comparator["schema"] == "gbdn-frozen-scalar-cayleynet-comparator-v1"
+    assert comparator["schema"] == "gbdn-frozen-scalar-cayleynet-comparator-v2"
     assert comparator["effective_order"] > 0
     assert comparator["reduced_pole_multiset"]
     assert gbdn_reduction["cancelled_pair_count"] == 0

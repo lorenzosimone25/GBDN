@@ -14,6 +14,9 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+import gbdn as gbdn_package  # noqa: E402
+import gbdn.diagnostics as diagnostics_module  # noqa: E402
+
 from gbdn import (  # noqa: E402
     ChebyshevBasis,
     GBDNTight,
@@ -731,6 +734,8 @@ def test_ga27_frozen_cayleynet_and_gbdn_reduced_pole_multisets(record_property):
         1.7,
     )
     assert comparator["declared_order"] == comparator["effective_order"] == 3
+    assert comparator["schema"] == "gbdn-frozen-scalar-cayleynet-comparator-v2"
+    assert "no caller tolerance" in comparator["reduction_policy"]
     comparator_poles = comparator["reduced_pole_multiset"]
     assert comparator_poles
     assert all(abs(entry["pole"]["real"]) <= 1e-12 for entry in comparator_poles)
@@ -738,6 +743,8 @@ def test_ga27_frozen_cayleynet_and_gbdn_reduced_pole_multisets(record_property):
 
     root = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
     gbdn = reduced_blaschke_pole_diagnostic(root)
+    assert gbdn["schema"] == "gbdn-exact-blaschke-reduced-poles-v2"
+    assert "no caller tolerance" in gbdn["reduction_policy"]
     assert gbdn["cancelled_pair_count"] == 0
     assert len(gbdn["reduced_pole_multiset"]) == 1
     gbdn_pole = gbdn["reduced_pole_multiset"][0]["pole"]
@@ -785,6 +792,70 @@ def test_ga27_reduced_pole_diagnostics_reject_invalid_comparator_inputs():
         reduced_blaschke_pole_diagnostic(
             torch.tensor([1.0 + 0.0j], dtype=torch.complex128)
         )
+
+
+@pytest.mark.parametrize(
+    "function",
+    (
+        gbdn_package.reduced_blaschke_pole_diagnostic,
+        diagnostics_module.reduced_blaschke_pole_diagnostic,
+    ),
+)
+def test_ga27_exact_blaschke_reduction_rejects_caller_tolerance(function):
+    """GA-27: the frozen far-pole witness cannot be tolerance-cancelled."""
+
+    roots = torch.tensor([0.22 + 0.17j], dtype=torch.complex128)
+    default = function(roots)
+    pole = default["reduced_pole_multiset"][0]["pole"]
+    zero = default["numerator_zero_multiset"][0]
+    distance = abs(
+        complex(pole["real"], pole["imag"])
+        - complex(zero["real"], zero["imag"])
+    )
+    assert distance == pytest.approx(2.895653538364977, abs=1e-14)
+    assert default["cancelled_pair_count"] == 0
+    assert len(default["reduced_pole_multiset"]) == 1
+
+    with pytest.raises(TypeError, match="cancellation_tolerance"):
+        function(roots, cancellation_tolerance=100.0)
+
+
+@pytest.mark.parametrize(
+    "function",
+    (
+        gbdn_package.frozen_scalar_cayleynet_comparator,
+        diagnostics_module.frozen_scalar_cayleynet_comparator,
+    ),
+)
+def test_ga27_exact_comparator_rejects_caller_tolerance(function):
+    """GA-27: a nonzero comparator term cannot be tolerance-truncated."""
+
+    coefficients = torch.tensor(
+        [0.7 + 0.2j, -0.4 + 0.3j, 0.15 - 0.25j],
+        dtype=torch.complex128,
+    )
+    default = function(0.3, coefficients, 1.7)
+    assert default["declared_order"] == default["effective_order"] == 3
+    assert len(default["reduced_pole_multiset"]) == 2
+    assert all(entry["multiplicity"] == 3 for entry in default["reduced_pole_multiset"])
+
+    with pytest.raises(TypeError, match="cancellation_tolerance"):
+        function(0.3, coefficients, 1.7, cancellation_tolerance=0.3)
+
+
+def test_ga27_exact_comparator_preserves_arbitrarily_small_nonzero_order():
+    """GA-27: exact order uses algebraic nonzero status, not magnitude."""
+
+    tiny_nonzero = torch.tensor(
+        [0.5 + 0.2j, 1e-30 + 0.0j],
+        dtype=torch.complex128,
+    )
+    diagnostic = frozen_scalar_cayleynet_comparator(0.0, tiny_nonzero, 1.0)
+    assert diagnostic["effective_order"] == 2
+    assert all(
+        entry["multiplicity"] == 2
+        for entry in diagnostic["reduced_pole_multiset"]
+    )
 
 
 @pytest.mark.parametrize("scale", [1e-4, 1e-3, 1e-2])

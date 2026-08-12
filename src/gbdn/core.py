@@ -54,8 +54,11 @@ class ValidatedLaplacian:
 
     Instances are issued only by canonical builders or by the one-time
     :func:`validate_external_laplacian` check. The wrapped tensor is cloned at
-    issuance and its mutation version is checked on every unwrap, so it cannot
-    be changed in place and silently reused.
+    issuance, public tensor access returns a detached copy, and the private
+    canonical unwrap checks both the internal mutation version and the stored
+    semantic hash.  Consequently a caller cannot retain a writable public
+    storage alias to the certified operator, and version-invisible storage
+    tampering fails closed before sparse multiplication.
     """
 
     __slots__ = (
@@ -88,34 +91,48 @@ class ValidatedLaplacian:
 
     @property
     def tensor(self) -> torch.Tensor:
-        """Return the validated tensor after detecting in-place mutation."""
+        """Return a detached copy of the certified operator.
+
+        This property intentionally does not expose the storage consumed by
+        canonical layers.  Mutating the returned tensor, including through a
+        NumPy view or ``Tensor.data``, cannot change this token.
+        """
+
+        return self._checked_internal_tensor().detach().clone()
+
+    def _checked_internal_tensor(self) -> torch.Tensor:
+        """Return internal storage after version and content checks."""
 
         if self._tensor._version != self._tensor_version:
             raise RuntimeError(
                 "validated Laplacian was modified in place; validate a fresh operator"
             )
+        if _hash_operator(self._tensor) != self.sha256:
+            raise RuntimeError(
+                "validated Laplacian storage content changed; validate a fresh operator"
+            )
         return self._tensor
 
     @property
     def shape(self) -> torch.Size:
-        return self.tensor.shape
+        return self._checked_internal_tensor().shape
 
     @property
     def layout(self) -> torch.layout:
-        return self.tensor.layout
+        return self._checked_internal_tensor().layout
 
     @property
     def dtype(self) -> torch.dtype:
-        return self.tensor.dtype
+        return self._checked_internal_tensor().dtype
 
     @property
     def device(self) -> torch.device:
-        return self.tensor.device
+        return self._checked_internal_tensor().device
 
     def to_dense(self) -> torch.Tensor:
         """Materialize a dense copy for small-graph diagnostics."""
 
-        tensor = self.tensor
+        tensor = self._checked_internal_tensor()
         return tensor.to_dense() if tensor.layout == torch.sparse_coo else tensor.clone()
 
 
@@ -282,7 +299,12 @@ def _issue_validated_laplacian(
 
 
 def require_validated_laplacian(value: object) -> torch.Tensor:
-    """Unwrap an issued Laplacian token or reject a raw external tensor."""
+    """Return a detached public copy or reject a raw external tensor.
+
+    This compatibility helper is deliberately not the canonical layer
+    unwrap.  Callers that need repeated sparse application should pass the
+    token itself to a canonical layer rather than retaining a tensor alias.
+    """
 
     if not isinstance(value, ValidatedLaplacian):
         raise TypeError(
@@ -290,6 +312,17 @@ def require_validated_laplacian(value: object) -> torch.Tensor:
             "validate_external_laplacian once before repeated forwards"
         )
     return value.tensor
+
+
+def _require_validated_laplacian_internal(value: object) -> torch.Tensor:
+    """Privately unwrap certified storage for canonical package layers."""
+
+    if not isinstance(value, ValidatedLaplacian):
+        raise TypeError(
+            "caller-supplied laplacian must be a ValidatedLaplacian; call "
+            "validate_external_laplacian once before repeated forwards"
+        )
+    return value._checked_internal_tensor()
 
 
 def validate_adjacency(
@@ -498,8 +531,9 @@ def validate_external_laplacian(operator: torch.Tensor) -> ValidatedLaplacian:
     """Perform the one-time full check required for caller-supplied operators.
 
     This path explicitly checks the spectrum in ``[0, 2]`` and clones the
-    operator into a mutation-detecting token. Repeated forwards unwrap the
-    token in constant time and do not repeat the eigendecomposition.
+    operator into a mutation-detecting token. Repeated forwards do not repeat
+    the eigendecomposition, but they do verify the stored content hash before
+    canonical multiplication.
     """
 
     if operator.layout == torch.sparse_coo:

@@ -331,35 +331,10 @@ def _polynomial_evaluate(coefficients: list[complex], point: complex) -> complex
     return result
 
 
-def _polynomial_root_multiplicity(
-    coefficients: list[complex],
-    point: complex,
-    *,
-    tolerance: float,
-) -> int:
-    derivative = list(coefficients)
-    for multiplicity in range(len(coefficients)):
-        scale = sum(
-            abs(value) * max(1.0, abs(point)) ** degree
-            for degree, value in enumerate(derivative)
-        )
-        if abs(_polynomial_evaluate(derivative, point)) > tolerance * max(1.0, scale):
-            return multiplicity
-        derivative = [
-            (degree + 1) * derivative[degree + 1]
-            for degree in range(len(derivative) - 1)
-        ]
-        if not derivative:
-            return multiplicity + 1
-    return len(coefficients)
-
-
 def frozen_scalar_cayleynet_comparator(
     c0: float,
     coefficients: torch.Tensor,
     scale: float,
-    *,
-    cancellation_tolerance: float = 1e-11,
 ) -> dict[str, object]:
     """Reduce one frozen published scalar finite-order CayleyNet response.
 
@@ -368,22 +343,21 @@ def frozen_scalar_cayleynet_comparator(
     ``c0 + sum_j [c_j q_h(z)^j + conj(c_j) q_h(z)^(-j)]`` with
     ``q_h(z)=(h z-i)/(h z+i)``.  ``h`` is learned in CayleyNet but shared by
     all powers of one scalar response.  This diagnostic evaluates no grid: it
-    constructs the exact numerator/common denominator, detects cancellations
-    at both denominator poles, and records the reduced pole multiset.
+    constructs the exact numerator/common denominator and records the reduced
+    pole multiset.  Reduction is algebraic: the highest exactly nonzero
+    coefficient fixes the pole order at both Cayley loci, so a caller cannot
+    change the exact rational object through a numerical tolerance.
     """
 
     try:
         c0 = float(c0)
         scale = float(scale)
-        cancellation_tolerance = float(cancellation_tolerance)
     except (TypeError, ValueError) as error:
-        raise TypeError("c0, scale, and tolerance must be real scalars") from error
+        raise TypeError("c0 and scale must be real scalars") from error
     if not math.isfinite(c0):
         raise ValueError("c0 must be finite")
     if not math.isfinite(scale) or scale <= 0.0:
         raise ValueError("Cayley scale h must be finite and positive")
-    if not math.isfinite(cancellation_tolerance) or cancellation_tolerance <= 0.0:
-        raise ValueError("cancellation_tolerance must be finite and positive")
     if not isinstance(coefficients, torch.Tensor):
         raise TypeError("coefficients must be a torch.Tensor")
     if coefficients.ndim != 1 or coefficients.numel() == 0:
@@ -396,7 +370,7 @@ def frozen_scalar_cayleynet_comparator(
     values = [complex(value.item()) for value in coefficients]
     effective_order = 0
     for index, value in enumerate(values, start=1):
-        if abs(value) > cancellation_tolerance:
+        if value != 0.0j:
             effective_order = index
     if effective_order == 0:
         raise ValueError("the frozen comparator must have positive effective order")
@@ -434,19 +408,12 @@ def frozen_scalar_cayleynet_comparator(
     cancellations: list[dict[str, object]] = []
     numerator_values: list[dict[str, object]] = []
     for pole in candidates:
-        numerator_multiplicity = _polynomial_root_multiplicity(
-            numerator,
-            pole,
-            tolerance=cancellation_tolerance,
-        )
-        cancelled = min(order, numerator_multiplicity)
-        remaining = order - cancelled
         unreduced.append({"pole": _complex_record(pole), "multiplicity": order})
         cancellations.append(
             {
                 "pole": _complex_record(pole),
-                "numerator_multiplicity": numerator_multiplicity,
-                "cancelled_multiplicity": cancelled,
+                "numerator_multiplicity": 0,
+                "cancelled_multiplicity": 0,
             }
         )
         numerator_values.append(
@@ -455,11 +422,10 @@ def frozen_scalar_cayleynet_comparator(
                 "value": _complex_record(_polynomial_evaluate(numerator, pole)),
             }
         )
-        if remaining:
-            reduced.append({"pole": _complex_record(pole), "multiplicity": remaining})
+        reduced.append({"pole": _complex_record(pole), "multiplicity": order})
 
     return {
-        "schema": "gbdn-frozen-scalar-cayleynet-comparator-v1",
+        "schema": "gbdn-frozen-scalar-cayleynet-comparator-v2",
         "family": "CayleyNet",
         "response_kind": "published-real-scalar-rational-continuation",
         "formula": (
@@ -468,6 +434,9 @@ def frozen_scalar_cayleynet_comparator(
         "cayley_map": "q_h(z)=(h*z-i)/(h*z+i)",
         "coefficient_convention": "c0 real; c_j complex for j>=1",
         "scale_convention": "one learned shared h>0 per scalar response",
+        "reduction_policy": (
+            "algebraic-highest-exactly-nonzero-coefficient; no caller tolerance"
+        ),
         "scale_h": scale,
         "declared_order": int(coefficients.numel()),
         "effective_order": order,
@@ -494,76 +463,51 @@ def frozen_scalar_cayleynet_comparator(
 
 def reduced_blaschke_pole_diagnostic(
     roots: torch.Tensor,
-    *,
-    cancellation_tolerance: float = 1e-11,
 ) -> dict[str, object]:
-    """Reduce mapped zero/pole multisets of an exact Blaschke product."""
+    """Return the algebraically reduced poles of an exact Blaschke product.
+
+    For admissible roots, numerator zeros correspond to disk points while
+    denominator poles correspond to reciprocal-conjugate points outside the
+    disk.  The Cayley map is injective, hence no zero--pole pair can cancel.
+    Repeated poles are grouped only when their represented roots are exactly
+    equal; no caller-controlled numerical threshold changes the exact object.
+    """
 
     roots = _validated_roots(roots)
-    cancellation_tolerance = float(cancellation_tolerance)
-    if not math.isfinite(cancellation_tolerance) or cancellation_tolerance <= 0.0:
-        raise ValueError("cancellation_tolerance must be finite and positive")
     zeros_tensor, poles_tensor = mapped_zero_pole(roots)
     zeros = [complex(value.item()) for value in zeros_tensor]
     poles = [complex(value.item()) for value in poles_tensor]
-    unused_zeros = set(range(len(zeros)))
-    reduced_poles: list[complex] = []
-    cancellations: list[dict[str, object]] = []
-    for pole_index, pole in enumerate(poles):
-        matched = next(
-            (
-                zero_index
-                for zero_index in sorted(unused_zeros)
-                if abs(pole - zeros[zero_index]) <= cancellation_tolerance
-            ),
-            None,
-        )
-        if matched is None:
-            reduced_poles.append(pole)
-        else:
-            unused_zeros.remove(matched)
-            cancellations.append(
-                {
-                    "pole_index": pole_index,
-                    "zero_index": matched,
-                    "distance": abs(pole - zeros[matched]),
-                }
-            )
+    root_values = [complex(value.item()) for value in roots]
 
-    def grouped(values: list[complex]) -> list[dict[str, object]]:
+    def grouped_by_root() -> list[dict[str, object]]:
         groups: list[dict[str, object]] = []
-        for value in values:
-            existing = next(
-                (
-                    group
-                    for group in groups
-                    if abs(
-                        value
-                        - complex(
-                            group["pole"]["real"],
-                            group["pole"]["imag"],
-                        )
-                    )
-                    <= cancellation_tolerance
-                ),
-                None,
-            )
-            if existing is None:
-                groups.append({"pole": _complex_record(value), "multiplicity": 1})
+        root_to_group: dict[complex, int] = {}
+        for root, pole in zip(root_values, poles, strict=True):
+            group_index = root_to_group.get(root)
+            if group_index is None:
+                root_to_group[root] = len(groups)
+                groups.append({"pole": _complex_record(pole), "multiplicity": 1})
             else:
-                existing["multiplicity"] = int(existing["multiplicity"]) + 1
+                groups[group_index]["multiplicity"] = (
+                    int(groups[group_index]["multiplicity"]) + 1
+                )
         return groups
 
+    grouped_poles = grouped_by_root()
     return {
-        "schema": "gbdn-exact-blaschke-reduced-poles-v1",
+        "schema": "gbdn-exact-blaschke-reduced-poles-v2",
         "family": "exact-Blaschke-Cayley-product",
         "factor_count": int(roots.numel()),
-        "root_multiset": [_complex_record(complex(value.item())) for value in roots],
+        "root_multiset": [_complex_record(value) for value in root_values],
         "numerator_zero_multiset": [_complex_record(value) for value in zeros],
-        "unreduced_pole_multiset": grouped(poles),
-        "cancellations": cancellations,
-        "cancelled_pair_count": len(cancellations),
-        "reduced_pole_multiset": grouped(reduced_poles),
+        "unreduced_pole_multiset": grouped_poles,
+        "cancellations": [],
+        "cancelled_pair_count": 0,
+        "reduced_pole_multiset": [dict(entry) for entry in grouped_poles],
+        "reduction_policy": (
+            "algebraic-admissible-disk-zero-vs-reciprocal-conjugate-pole; "
+            "no caller tolerance"
+        ),
         "realization_tag": "exact",
         "comparison_domain": "continuum-with-accumulation-point",
     }

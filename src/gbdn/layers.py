@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from gbdn.core import (
     ValidatedLaplacian,
-    require_validated_laplacian,
+    _require_validated_laplacian_internal,
     validated_normalized_laplacian,
 )
 from gbdn.spectral import (
@@ -83,7 +83,7 @@ class ChebyshevBasis(nn.Module):
                 f"laplacian shape {tuple(laplacian.shape)} does not match "
                 f"({num_nodes}, {num_nodes})"
             )
-        laplacian_tensor = require_validated_laplacian(laplacian)
+        laplacian_tensor = _require_validated_laplacian_internal(laplacian)
         laplacian_tensor = laplacian_tensor.to(device=x.device, dtype=x.dtype)
 
         bases = [x]

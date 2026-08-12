@@ -32,6 +32,7 @@ from gbdn import (  # noqa: E402
     normalized_laplacian,
     parameterize_center_width_roots,
     parameterize_roots,
+    require_validated_laplacian,
     tight_split_responses,
     validate_external_laplacian,
 )
@@ -725,8 +726,8 @@ def test_ga34_polynomial_beyond_reach_is_exactly_zero():
     assert torch.abs(polynomial[7, 0]).item() < 1e-12
 
 
-def test_external_laplacian_requires_validated_token_and_detects_mutation():
-    """Raw external operators cannot bypass the one-time [0,2] audit."""
+def test_external_laplacian_requires_validated_token_and_isolates_public_mutation():
+    """Raw operators fail and public tensor copies cannot alter a token."""
 
     edge_index, edge_weight = _path_fixture(6)
     canonical = normalized_laplacian(edge_index, edge_weight, 6)
@@ -750,9 +751,114 @@ def test_external_laplacian_requires_validated_token_and_detects_mutation():
     first = basis(signal, edge_index, edge_weight=edge_weight, laplacian=validated)
     second = basis(signal, edge_index, edge_weight=edge_weight, laplacian=validated)
     assert torch.equal(first, second)
-    validated.tensor.add_(torch.eye(6, dtype=torch.float64))
+
+    public_copy = validated.tensor
+    public_copy.add_(torch.eye(6, dtype=torch.float64))
+    assert torch.equal(
+        basis(signal, edge_index, edge_weight=edge_weight, laplacian=validated),
+        first,
+    )
+
+    # The version guard remains a defense against accidental mutation inside
+    # canonical package code, even though public access no longer aliases it.
+    validated._tensor.add_(torch.eye(6, dtype=torch.float64))
     with pytest.raises(RuntimeError, match="modified in place"):
         basis(signal, edge_index, edge_weight=edge_weight, laplacian=validated)
+
+
+def test_ga00_dense_validated_token_blocks_numpy_data_and_unwrap_aliases():
+    """GA-00: frozen NumPy/.data witnesses cannot alter canonical storage."""
+
+    raw = torch.eye(2, dtype=torch.float64)
+    token = validate_external_laplacian(raw)
+    baseline = token.to_dense()
+    stored_hash = token.sha256
+
+    numpy_copy = token.tensor
+    version_before = numpy_copy._version
+    numpy_copy.numpy()[0, 1] = 0.625
+    assert numpy_copy._version == version_before
+
+    data_copy = token.tensor
+    data_copy.data[1, 0] = 0.375
+    public_unwrap = require_validated_laplacian(token)
+    public_unwrap.data[0, 0] = -4.0
+    dense_copy = token.to_dense()
+    dense_copy.numpy()[1, 1] = 7.0
+
+    assert token.sha256 == stored_hash
+    assert torch.equal(token.to_dense(), baseline)
+    assert torch.equal(require_validated_laplacian(token), baseline)
+
+    signal = torch.tensor([[1.0], [2.0]], dtype=torch.complex128)
+    empty_edges = torch.empty((2, 0), dtype=torch.long)
+    bases = ChebyshevBasis(1)(
+        signal,
+        empty_edges,
+        num_nodes=2,
+        laplacian=token,
+    )
+    assert torch.equal(bases[0], signal)
+    assert torch.equal(bases[1], torch.zeros_like(signal))
+
+
+def test_ga00_sparse_validated_token_blocks_value_and_dense_copy_aliases():
+    """GA-00: sparse public values and to_dense outputs are independent copies."""
+
+    edge_index, edge_weight = _path_fixture(6)
+    token = normalized_laplacian(edge_index, edge_weight, 6)
+    baseline = token.to_dense()
+    signal = torch.randn(6, 2, dtype=torch.complex128)
+    basis = ChebyshevBasis(2)
+    expected = basis(
+        signal,
+        edge_index,
+        edge_weight=edge_weight,
+        laplacian=token,
+    )
+
+    sparse_copy = token.tensor.coalesce()
+    sparse_copy.values().data.add_(0.75)
+    dense_copy = token.to_dense()
+    dense_copy.data.add_(torch.eye(6, dtype=torch.float64))
+
+    assert torch.equal(token.to_dense(), baseline)
+    observed = basis(
+        signal,
+        edge_index,
+        edge_weight=edge_weight,
+        laplacian=token,
+    )
+    assert torch.equal(observed, expected)
+
+    if torch.cuda.is_available():
+        cuda_token = validate_external_laplacian(raw := baseline.cuda())
+        cuda_copy = cuda_token.tensor
+        cuda_copy.data[0, 1] = 0.625
+        assert torch.equal(cuda_token.to_dense(), raw)
+
+
+@pytest.mark.parametrize("mutation_path", ("numpy", "data"))
+def test_ga00_private_storage_tamper_fails_hash_check_before_multiply(mutation_path):
+    """GA-00: even version-invisible internal tampering fails closed."""
+
+    token = validate_external_laplacian(torch.eye(2, dtype=torch.float64))
+    version_before = token._tensor._version
+    if mutation_path == "numpy":
+        token._tensor.numpy()[0, 1] = 0.625
+    else:
+        token._tensor.data[0, 1] = 0.625
+    assert token._tensor._version == version_before
+
+    signal = torch.tensor([[1.0], [2.0]], dtype=torch.complex128)
+    empty_edges = torch.empty((2, 0), dtype=torch.long)
+    with pytest.raises(RuntimeError, match="storage content changed"):
+        ChebyshevBasis(1)(
+            signal,
+            empty_edges,
+            num_nodes=2,
+            laplacian=token,
+        )
 
 
 def test_tight_model_accepts_validated_external_laplacian_only():
@@ -765,5 +871,9 @@ def test_tight_model_accepts_validated_external_laplacian_only():
     signal = torch.randn(6, 2)
     with pytest.raises(TypeError, match="ValidatedLaplacian"):
         model.analyze(signal, edge_index, edge_weight, laplacian=raw)
-    output = model.analyze(signal, edge_index, edge_weight, laplacian=validated)
-    assert isinstance(output, TightAnalysisOutput)
+    before = model.analyze(signal, edge_index, edge_weight, laplacian=validated)
+    validated.tensor.data[0, 1] = 0.625
+    after = model.analyze(signal, edge_index, edge_weight, laplacian=validated)
+    assert isinstance(after, TightAnalysisOutput)
+    for expected, observed in zip(before.components, after.components, strict=True):
+        assert torch.equal(observed, expected)

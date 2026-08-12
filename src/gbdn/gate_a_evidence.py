@@ -24,7 +24,11 @@ from unittest.mock import patch
 
 import torch
 
-from gbdn.core import preprocess_reciprocal_mean
+from gbdn.core import (
+    preprocess_reciprocal_mean,
+    require_validated_laplacian,
+    validate_external_laplacian,
+)
 from gbdn.diagnostics import (
     approximation_configuration_diagnostic,
     fixed_root_perturbation_constant,
@@ -647,6 +651,53 @@ def _evaluate_ga00() -> dict[str, Any]:
             continue
         tolerance_override_acceptance_count += 1
 
+    alias_escape_count = 0
+    alias_token = validate_external_laplacian(
+        torch.eye(2, dtype=torch.float64)
+    )
+    alias_baseline = alias_token.to_dense()
+    numpy_copy = alias_token.tensor
+    numpy_copy.numpy()[0, 1] = 0.625
+    data_copy = alias_token.tensor
+    data_copy.data[1, 0] = 0.375
+    unwrap_copy = require_validated_laplacian(alias_token)
+    unwrap_copy.data[0, 0] = -4.0
+    dense_copy = alias_token.to_dense()
+    dense_copy.numpy()[1, 1] = 7.0
+    if not torch.equal(alias_token.to_dense(), alias_baseline):
+        alias_escape_count += 1
+    alias_signal = torch.tensor([[1.0], [2.0]], dtype=torch.complex128)
+    alias_basis = ChebyshevBasis(1)(
+        alias_signal,
+        torch.empty((2, 0), dtype=torch.long),
+        num_nodes=2,
+        laplacian=alias_token,
+    )
+    if not torch.equal(alias_basis[1], torch.zeros_like(alias_signal)):
+        alias_escape_count += 1
+
+    invisible_storage_tamper_acceptance_count = 0
+    for mutation_path in ("numpy", "data"):
+        tampered = validate_external_laplacian(
+            torch.eye(2, dtype=torch.float64)
+        )
+        version_before = tampered._tensor._version
+        if mutation_path == "numpy":
+            tampered._tensor.numpy()[0, 1] = 0.625
+        else:
+            tampered._tensor.data[0, 1] = 0.625
+        assert tampered._tensor._version == version_before
+        try:
+            ChebyshevBasis(1)(
+                alias_signal,
+                torch.empty((2, 0), dtype=torch.long),
+                num_nodes=2,
+                laplacian=tampered,
+            )
+        except RuntimeError:
+            continue
+        invisible_storage_tamper_acceptance_count += 1
+
     valid_public = blaschke_cayley_exact(
         public_eigenvalues,
         public_basis,
@@ -758,6 +809,12 @@ def _evaluate_ga00() -> dict[str, Any]:
                     "fixed dtype-aware internal threshold; no public override"
                 ),
             },
+            "validated_laplacian_boundary": {
+                "public_tensor_access": "detached-copy",
+                "public_require_helper": "detached-copy",
+                "canonical_unwrap": "private-version-and-content-hash-check",
+                "storage_alias_witnesses": ["numpy", "Tensor.data", "to_dense"],
+            },
         },
         metrics=[
             _upper_bound_metric(
@@ -795,6 +852,16 @@ def _evaluate_ga00() -> dict[str, Any]:
             _upper_bound_metric(
                 "public_exact_tolerance_override_acceptance_count",
                 tolerance_override_acceptance_count,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "validated_laplacian_public_alias_escape_count",
+                alias_escape_count,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "validated_laplacian_invisible_storage_tamper_acceptance_count",
+                invisible_storage_tamper_acceptance_count,
                 0.0,
             ),
             _error_metric(
@@ -2724,6 +2791,34 @@ def _evaluate_ga27() -> dict[str, Any]:
     off_axis = min(abs(float(entry["pole"]["real"])) for entry in gbdn_poles)
     lower_half_margin = min(-float(entry["pole"]["imag"]) for entry in gbdn_poles)
     cancellation_count = int(gbdn["cancelled_pair_count"])
+    cancellation_override_acceptance_count = 0
+    try:
+        reduced_blaschke_pole_diagnostic(
+            roots,
+            cancellation_tolerance=100.0,
+        )
+    except TypeError:
+        pass
+    else:
+        cancellation_override_acceptance_count += 1
+    try:
+        frozen_scalar_cayleynet_comparator(
+            0.3,
+            torch.tensor(
+                [0.7 + 0.2j, -0.4 + 0.3j, 0.15 - 0.25j],
+                dtype=torch.complex128,
+            ),
+            1.7,
+            cancellation_tolerance=0.3,
+        )
+    except TypeError:
+        pass
+    else:
+        cancellation_override_acceptance_count += 1
+    reduction_policy_mismatch_count = int(
+        "no caller tolerance" not in str(comparator["reduction_policy"])
+        or "no caller tolerance" not in str(gbdn["reduction_policy"])
+    )
 
     return _row(
         "GA-27",
@@ -2756,6 +2851,16 @@ def _evaluate_ga27() -> dict[str, Any]:
             _upper_bound_metric(
                 "gbdn_cancelled_zero_pole_pair_count",
                 cancellation_count,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "exact_reduction_tolerance_override_acceptance_count",
+                cancellation_override_acceptance_count,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "exact_reduction_policy_mismatch_count",
+                reduction_policy_mismatch_count,
                 0.0,
             ),
             _lower_bound_metric(
