@@ -46,6 +46,7 @@ completed_tasks:
   - OPS-VERIFY-NOTEBOOK-1
   - EXP-007-008-ADMISSION-CONTRACT-1
   - OPS-RUN-PLAN-1
+  - EXP-006-EVALUATOR-1
 active_tasks:
   - ENG-002
   - ENG-008
@@ -61,8 +62,8 @@ stop_line:
     - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, synthetic split-first statistics contract, fail-closed acceptance-token validator, thin H100 notebook, and read-only readiness inventory exist; no independent token has been issued, and the full scheduler, plan/registry semantics, official test evaluator, immutable aggregate renderer, and artifact-complete verifier are not yet implemented.
     - The official five-dataset protocol, metadata, baseline-admission, and equal-budget plan contracts are frozen, but dataset/array checksums, redistribution terms, adapter parity, actual upstream baseline version/license/wrapper/parity evidence, comparator family, and tie thresholds remain unresolved.
 current_evidence:
-  automated_tests: 632
-  automated_tests_passing: 632
+  automated_tests: 640
+  automated_tests_passing: 640
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817

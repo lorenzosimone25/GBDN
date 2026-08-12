@@ -180,3 +180,10 @@
 - Added a read-only dry-run inventory over the immutable artifact classifier. The synthetic three-method fixture reports 450 pending jobs without creating a result path.
 - Wired semantic run-plan validation and unsafe partial/corrupt/conflict detection into the readiness inventory. The isolated post-freeze evaluator and subprocess scheduler remain explicit blockers.
 - The full repository suite passes 632 tests with one platform-specific skip and three known environment warnings. No real run plan or execution command was created.
+
+## 2026-08-12 — Isolated official prediction evaluator
+
+- Added a post-freeze evaluator whose only scientific inputs are a saved prediction archive and authoritative expected run/dataset/split/index/label data supplied outside training.
+- Enforced exact archive members and size bounds, disabled object loading, bound ordered test indices and identity, enforced task-specific head shapes, and independently recomputed multiclass accuracy or tie-aware binary ROC-AUC.
+- Kept training history, validation selection, checkpoint state, and per-epoch test metrics outside the evaluator interface. Scheduler binding to verified authoritative split metadata remains unimplemented and blocked.
+- The full repository suite passes 640 tests with one platform-specific skip and three known environment warnings. No real prediction or test metric was evaluated.
