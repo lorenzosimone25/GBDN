@@ -16,8 +16,10 @@ from gbdn import (  # noqa: E402
     blaschke_cayley_exact,
     blaschke_cayley_symbol,
     blaschke_product_cheb_coeffs,
+    exact_blaschke_operator_from_eigendecomposition,
     mapped_zero_pole,
     tight_split_responses,
+    validate_exact_blaschke_eigendecomposition,
 )
 
 
@@ -85,6 +87,37 @@ def test_ga00_public_exact_rejects_frozen_nonorthogonal_counterexample():
 
     with pytest.raises(ValueError, match="not orthonormal"):
         blaschke_cayley_exact(eigenvalues, eigenvectors, roots)
+
+
+@pytest.mark.parametrize(
+    "exact_boundary",
+    (
+        blaschke_cayley_exact,
+        exact_blaschke_operator_from_eigendecomposition,
+        validate_exact_blaschke_eigendecomposition,
+    ),
+)
+def test_ga00_public_exact_boundaries_cannot_relax_orthogonality(
+    exact_boundary,
+):
+    """GA-00: no public exact alias accepts a caller relaxation knob."""
+
+    eigenvalues = torch.tensor([0.0, 1.0], dtype=torch.float64)
+    eigenvectors = torch.tensor(
+        [[1.0, 1.0], [0.0, 1.0]],
+        dtype=torch.float64,
+    )
+    roots = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
+
+    with pytest.raises(TypeError, match="orthogonality_atol"):
+        exact_boundary(
+            eigenvalues,
+            eigenvectors,
+            roots,
+            orthogonality_atol=10.0,
+        )
+    with pytest.raises(ValueError, match="not orthonormal"):
+        exact_boundary(eigenvalues, eigenvectors, roots)
 
 
 @pytest.mark.parametrize(

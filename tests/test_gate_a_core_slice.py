@@ -153,6 +153,39 @@ def test_ga00_core_rejects_invalid_self_adjoint_operators():
         validate_self_adjoint_operator(nonfinite)
 
 
+@pytest.mark.parametrize("tolerance", (10.0, float("nan"), float("inf"), -1.0))
+def test_ga00_public_graph_validators_do_not_expose_relaxation_knobs(tolerance):
+    """GA-00: canonical public validators use fixed contract tolerances."""
+
+    directed_edges = torch.tensor([[0], [1]], dtype=torch.long)
+    directed_weights = torch.ones(1, dtype=torch.float64)
+    with pytest.raises(TypeError, match="symmetry_atol"):
+        validate_adjacency(
+            directed_edges,
+            directed_weights,
+            num_nodes=2,
+            symmetry_atol=tolerance,
+        )
+
+    asymmetric = torch.tensor([[0.0, 1.0], [0.0, 0.0]], dtype=torch.float64)
+    with pytest.raises(TypeError, match="symmetry_atol"):
+        validate_self_adjoint_operator(asymmetric, symmetry_atol=tolerance)
+
+    out_of_range = torch.diag(torch.tensor([-4.0, 7.0], dtype=torch.float64))
+    with pytest.raises(TypeError, match="spectral_atol"):
+        validate_self_adjoint_operator(out_of_range, spectral_atol=tolerance)
+
+
+def test_ga00_public_graph_validator_cannot_disable_spectrum_check():
+    """GA-00: canonical validation always enforces normalized spectrum."""
+
+    out_of_range = torch.diag(torch.tensor([-4.0, 7.0], dtype=torch.float64))
+    with pytest.raises(TypeError, match="spectral_bounds"):
+        validate_self_adjoint_operator(out_of_range, spectral_bounds=None)
+    with pytest.raises(ValueError, match="outside"):
+        validate_self_adjoint_operator(out_of_range)
+
+
 def test_ga00_reciprocal_mean_policy_is_recorded_and_deterministic():
     """GA-00: reciprocal mean obeys duplicate/loop/isolate/hash conventions."""
 

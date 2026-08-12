@@ -9,7 +9,6 @@ themselves.
 from __future__ import annotations
 
 from collections.abc import Sequence
-import math
 from typing import Literal
 
 import torch
@@ -116,7 +115,6 @@ def exact_blaschke_operator_from_eigendecomposition(
     roots: torch.Tensor,
     *,
     convention: Convention = "forward",
-    orthogonality_atol: float | None = None,
 ) -> torch.Tensor:
     """Construct ``U diag(g(lambda)) U*`` from an explicit eigendecomposition."""
 
@@ -125,7 +123,6 @@ def exact_blaschke_operator_from_eigendecomposition(
         eigenvectors,
         roots,
         convention=convention,
-        orthogonality_atol=orthogonality_atol,
     )
     symbol = exact_blaschke_symbol(
         eigenvalues,
@@ -142,7 +139,6 @@ def validate_exact_blaschke_eigendecomposition(
     roots: torch.Tensor,
     *,
     convention: Convention = "forward",
-    orthogonality_atol: float | None = None,
 ) -> None:
     """Validate exact-operator inputs without performing operator arithmetic.
 
@@ -174,16 +170,10 @@ def validate_exact_blaschke_eigendecomposition(
     if not torch.isfinite(eigenvectors).all():
         raise ValueError("eigenvectors must be finite")
     _validate_roots(roots, reference=eigenvalues)
-    if orthogonality_atol is None:
-        orthogonality_atol = 100.0 * torch.finfo(eigenvalues.dtype).eps
-    if (
-        isinstance(orthogonality_atol, bool)
-        or not isinstance(orthogonality_atol, (int, float))
-        or not math.isfinite(float(orthogonality_atol))
-        or float(orthogonality_atol) < 0.0
-    ):
-        raise ValueError("orthogonality_atol must be finite and nonnegative")
-    orthogonality_atol = float(orthogonality_atol)
+    # This threshold is part of the exact-constructor contract.  It is not a
+    # caller-controlled tuning knob: relaxing it would permit a malformed
+    # eigenbasis to invalidate the unitary functional-calculus conclusion.
+    orthogonality_atol = 100.0 * torch.finfo(eigenvalues.dtype).eps
     lower = float(eigenvalues.min().item())
     upper = float(eigenvalues.max().item())
     spectral_atol = max(1e-12, 32.0 * torch.finfo(eigenvalues.dtype).eps)

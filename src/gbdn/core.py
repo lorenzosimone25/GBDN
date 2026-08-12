@@ -298,7 +298,6 @@ def validate_adjacency(
     num_nodes: int | None = None,
     *,
     device: torch.device | None = None,
-    symmetry_atol: float = DEFAULT_SYMMETRY_ATOL,
 ) -> torch.Tensor:
     """Return a coalesced adjacency or reject a noncanonical graph input.
 
@@ -319,7 +318,10 @@ def validate_adjacency(
         )
     adjacency = _coalesced_adjacency(indices, weights, num_nodes)
     residual = _symmetry_residual(adjacency)
-    if not torch.isfinite(torch.tensor(residual)) or residual > symmetry_atol:
+    if (
+        not torch.isfinite(torch.tensor(residual))
+        or residual > DEFAULT_SYMMETRY_ATOL
+    ):
         raise ValueError(
             "adjacency must be symmetric; use preprocess_reciprocal_mean "
             f"for directed input (residual={residual})"
@@ -376,7 +378,7 @@ def normalized_laplacian_from_adjacency(adjacency: torch.Tensor) -> torch.Tensor
         dtype=values.dtype,
         check_invariants=True,
     ).coalesce()
-    validate_self_adjoint_operator(laplacian, spectral_bounds=None)
+    _validate_self_adjoint_operator(laplacian, check_spectrum=False)
     return laplacian
 
 
@@ -514,19 +516,17 @@ def validate_external_laplacian(operator: torch.Tensor) -> ValidatedLaplacian:
     )
 
 
-def validate_self_adjoint_operator(
+def _validate_self_adjoint_operator(
     operator: torch.Tensor,
     *,
-    symmetry_atol: float = DEFAULT_SYMMETRY_ATOL,
-    spectral_bounds: tuple[float, float] | None = NORMALIZED_LAPLACIAN_INTERVAL,
-    spectral_atol: float = 1e-12,
+    check_spectrum: bool,
 ) -> torch.Tensor:
     """Reject a nonfinite, nonsquare, non-self-adjoint graph operator.
 
-    When ``spectral_bounds`` is provided, the full dense spectrum is checked.
-    Canonical normalized-Laplacian construction may pass ``None`` because the
-    bound follows from its validated nonnegative symmetric adjacency; dense
-    theorem/oracle paths should retain the default explicit check.
+    ``check_spectrum=False`` is private and used only immediately after the
+    canonical normalized-Laplacian construction, where the interval follows
+    from the already validated nonnegative symmetric adjacency. Public and
+    oracle validation always retain the explicit fixed-tolerance check.
     """
 
     if operator.ndim != 2 or operator.shape[0] != operator.shape[1]:
@@ -553,31 +553,45 @@ def validate_self_adjoint_operator(
             if checked._nnz() == 0
             else float((checked.values() - transpose.values()).abs().max().item())
         )
-        if residual > symmetry_atol:
+        if residual > DEFAULT_SYMMETRY_ATOL:
             raise ValueError(f"operator must be self-adjoint (residual={residual})")
-        dense = checked.to_dense() if spectral_bounds is not None else None
+        dense = checked.to_dense() if check_spectrum else None
     elif operator.layout == torch.strided:
         checked = operator
         if not torch.isfinite(checked).all():
             raise ValueError("operator entries must be finite")
         residual = float((checked - checked.mH).abs().max().item())
-        if residual > symmetry_atol:
+        if residual > DEFAULT_SYMMETRY_ATOL:
             raise ValueError(f"operator must be self-adjoint (residual={residual})")
         dense = checked
     else:
         raise TypeError("operator must be a dense or sparse COO tensor")
 
-    if spectral_bounds is not None:
+    if check_spectrum:
         assert dense is not None
-        lower, upper = spectral_bounds
+        lower, upper = NORMALIZED_LAPLACIAN_INTERVAL
         eigenvalues = torch.linalg.eigvalsh(dense)
         if not torch.isfinite(eigenvalues).all():
             raise ValueError("operator spectrum must be finite")
         observed_lower = float(eigenvalues.min().item())
         observed_upper = float(eigenvalues.max().item())
-        if observed_lower < lower - spectral_atol or observed_upper > upper + spectral_atol:
+        if (
+            observed_lower < lower - 1e-12
+            or observed_upper > upper + 1e-12
+        ):
             raise ValueError(
                 "operator spectrum lies outside "
                 f"[{lower}, {upper}]: [{observed_lower}, {observed_upper}]"
             )
     return operator
+
+
+def validate_self_adjoint_operator(operator: torch.Tensor) -> torch.Tensor:
+    """Apply the fixed canonical self-adjoint and spectral validation.
+
+    Validation tolerances and the normalized-Laplacian interval are internal
+    scientific-contract constants. Callers cannot relax them or disable the
+    spectrum check and still obtain a canonical validation result.
+    """
+
+    return _validate_self_adjoint_operator(operator, check_spectrum=True)

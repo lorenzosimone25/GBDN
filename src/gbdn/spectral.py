@@ -450,8 +450,6 @@ def blaschke_cayley_exact(
     evecs: torch.Tensor,
     alphas: torch.Tensor,
     convention: Convention = "forward",
-    *,
-    orthogonality_atol: float | None = None,
 ) -> torch.Tensor:
     """Construct a validated exact normalized-Laplacian spectral operator.
 
@@ -467,7 +465,6 @@ def blaschke_cayley_exact(
         evecs,
         alphas,
         convention=convention,
-        orthogonality_atol=orthogonality_atol,
     )
     symbol = blaschke_cayley_symbol(evals, alphas, convention=convention)
     vectors = evecs.to(dtype=symbol.dtype)

@@ -44,6 +44,7 @@ from gbdn.oracle import (
     exact_blaschke_operator_from_eigendecomposition,
     exact_blaschke_symbol,
     tight_analysis_matrix,
+    validate_exact_blaschke_eigendecomposition,
 )
 from gbdn.spectral import (
     blaschke_cayley_exact,
@@ -628,6 +629,24 @@ def _evaluate_ga00() -> dict[str, Any]:
             continue
         public_invalid_acceptance_count += 1
 
+    public_exact_boundaries = (
+        blaschke_cayley_exact,
+        exact_blaschke_operator_from_eigendecomposition,
+        validate_exact_blaschke_eigendecomposition,
+    )
+    tolerance_override_acceptance_count = 0
+    for exact_boundary in public_exact_boundaries:
+        try:
+            exact_boundary(
+                public_eigenvalues,
+                public_invalid_cases[0][1],
+                public_roots,
+                orthogonality_atol=10.0,
+            )
+        except TypeError:
+            continue
+        tolerance_override_acceptance_count += 1
+
     valid_public = blaschke_cayley_exact(
         public_eigenvalues,
         public_basis,
@@ -735,6 +754,9 @@ def _evaluate_ga00() -> dict[str, Any]:
                 "arithmetic_paths": (
                     "shared validation; separate production and oracle assembly"
                 ),
+                "orthogonality_tolerance": (
+                    "fixed dtype-aware internal threshold; no public override"
+                ),
             },
         },
         metrics=[
@@ -768,6 +790,11 @@ def _evaluate_ga00() -> dict[str, Any]:
             _upper_bound_metric(
                 "public_exact_invalid_acceptance_count",
                 public_invalid_acceptance_count,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "public_exact_tolerance_override_acceptance_count",
+                tolerance_override_acceptance_count,
                 0.0,
             ),
             _error_metric(
