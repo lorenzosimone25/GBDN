@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import gbdn.operations_acceptance as operations_acceptance
 from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes
 from gbdn.operations_acceptance import (
     OPERATIONS_ACCEPTANCE_PATH,
@@ -16,6 +17,29 @@ from gbdn.operations_acceptance import (
     PROTECTED_OPERATIONS_PATHS,
     validate_operations_acceptance,
 )
+
+
+_TEST_SIGNING_KEY: Path | None = None
+
+
+@pytest.fixture(autouse=True)
+def _test_review_key(tmp_path, monkeypatch):
+    global _TEST_SIGNING_KEY
+    key = tmp_path / "review-key"
+    subprocess.run(
+        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "test-reviewer", "-f", str(key)],
+        check=True,
+    )
+    public = key.with_suffix(".pub").read_text(encoding="utf-8").split()
+    fingerprint = subprocess.run(
+        ["ssh-keygen", "-lf", str(key.with_suffix(".pub"))],
+        check=True, capture_output=True, text=True,
+    ).stdout.split()[1]
+    monkeypatch.setattr(operations_acceptance, "REVIEWER_PUBLIC_KEY", " ".join(public[:2]))
+    monkeypatch.setattr(operations_acceptance, "REVIEWER_KEY_FINGERPRINT", fingerprint)
+    _TEST_SIGNING_KEY = key
+    yield
+    _TEST_SIGNING_KEY = None
 
 
 def _git(root: Path, *args: str, check: bool = True) -> str:
@@ -43,6 +67,10 @@ def _repository(
     _git(root, "init")
     _git(root, "config", "user.name", "Independent Reviewer")
     _git(root, "config", "user.email", "review@example.org")
+    assert _TEST_SIGNING_KEY is not None
+    _git(root, "config", "gpg.format", "ssh")
+    _git(root, "config", "user.signingkey", str(_TEST_SIGNING_KEY))
+    _git(root, "config", "commit.gpgsign", "true")
     for relative in PROTECTED_OPERATIONS_PATHS:
         _write(root / relative, f"protected:{relative}\n".encode())
     _git(root, "add", ".")
@@ -219,4 +247,54 @@ def test_review_commit_must_directly_follow_reviewed_source(tmp_path):
     _git(root, "add", token_path.relative_to(root).as_posix())
     _git(root, "commit", "-m", "bind late review")
     with pytest.raises(ArtifactValidationError, match="directly follow"):
+        validate_operations_acceptance(root)
+
+
+def test_unsigned_self_issued_review_is_rejected(tmp_path):
+    root, token_path, token, _ = _repository(tmp_path)
+    reviewed = token["reviewed_source"]["repository_commit"]
+    _git(root, "checkout", reviewed)
+    _git(root, "config", "commit.gpgsign", "false")
+    review_path = Path(token["review"]["path"])
+    handoff_path = Path(token["review"]["handoff_path"])
+    review_payload = canonical_json_bytes(
+        {
+            "blockers": [],
+            "decision": "ACCEPT",
+            "protected_paths": list(PROTECTED_OPERATIONS_PATHS),
+            "reviewed_source": token["reviewed_source"],
+            "schema_version": OPERATIONS_REVIEW_SCHEMA,
+            "scope": OPERATIONS_REVIEW_SCOPE,
+        }
+    )
+    handoff_payload = b"Self-issued review.\n"
+    _write(root / review_path, review_payload)
+    _write(root / handoff_path, handoff_payload)
+    _git(root, "add", review_path.as_posix(), handoff_path.as_posix())
+    _git(root, "commit", "-m", "unsigned self review")
+    token["review"].update(
+        commit=_git(root, "rev-parse", "HEAD"),
+        sha256=hashlib.sha256(review_payload).hexdigest(),
+        handoff_sha256=hashlib.sha256(handoff_payload).hexdigest(),
+    )
+    _write(token_path, canonical_json_bytes(token))
+    _git(root, "add", token_path.relative_to(root).as_posix())
+    _git(root, "commit", "-m", "self-issued token")
+    with pytest.raises(ArtifactValidationError, match="signature"):
+        validate_operations_acceptance(root)
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        "results_submission/reports/./operations_review.json",
+        "results_submission//reports/operations_review.json",
+        "results_submission/reports/operations_review.json/",
+    ],
+)
+def test_operations_acceptance_rejects_noncanonical_path_aliases(tmp_path, alias):
+    root, token_path, token, _ = _repository(tmp_path)
+    token["review"]["path"] = alias
+    token_path.write_bytes(canonical_json_bytes(token))
+    with pytest.raises(ArtifactValidationError, match="path"):
         validate_operations_acceptance(root)

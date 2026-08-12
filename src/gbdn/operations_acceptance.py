@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Final, Mapping
@@ -26,23 +27,37 @@ PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "results_submission/run_plan.json",
     "scripts/run_heterophily_job.py",
     "scripts/run_submission.py",
+    "src/gbdn/__init__.py",
     "src/gbdn/artifacts.py",
     "src/gbdn/baseline_contract.py",
+    "src/gbdn/baselines/__init__.py",
     "src/gbdn/baselines/chebnet.py",
+    "src/gbdn/coefficient_artifacts.py",
     "src/gbdn/core.py",
+    "src/gbdn/diagnostics.py",
+    "src/gbdn/gate_a_evidence.py",
+    "src/gbdn/gate_a_report.py",
+    "src/gbdn/gate_acceptance.py",
     "src/gbdn/heterophily_contract.py",
     "src/gbdn/heterophily_evaluator.py",
+    "src/gbdn/heterophily_statistics.py",
     "src/gbdn/heterophily_training.py",
     "src/gbdn/heterophily_worker.py",
     "src/gbdn/layers.py",
     "src/gbdn/model.py",
     "src/gbdn/operations_acceptance.py",
+    "src/gbdn/oracle.py",
+    "src/gbdn/paper_results.py",
+    "src/gbdn/peel.py",
     "src/gbdn/provenance.py",
     "src/gbdn/run_plan.py",
     "src/gbdn/seed.py",
     "src/gbdn/spectral.py",
+    "src/gbdn/submission.py",
     "src/gbdn/submission_scheduler.py",
     "src/gbdn/submission_verify.py",
+    "src/gbdn/synthetic.py",
+    "src/gbdn/viz.py",
     "tests/test_artifact_core.py",
     "tests/test_baseline_contract.py",
     "tests/test_chebnet_baseline.py",
@@ -54,6 +69,13 @@ PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "tests/test_run_plan.py",
     "tests/test_submission_scheduler.py",
     "tests/test_submission_verify.py",
+)
+REVIEWER_PRINCIPAL: Final[str] = "gbdn-independent-operations-review"
+REVIEWER_PUBLIC_KEY: Final[str] = (
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHPXlfQwFGHMVE/sZuROb6HjTMsaDeUG1gmcx4sHTj21"
+)
+REVIEWER_KEY_FINGERPRINT: Final[str] = (
+    "SHA256:25CtFgz2KnzGOIfQNrvGrem/Sbt0wOTgc6e9mBAZ21s"
 )
 _GIT = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -81,7 +103,11 @@ def _safe_path(value: Any, label: str) -> PurePosixPath:
     if not isinstance(value, str) or not value or "\\" in value or ":" in value:
         raise ArtifactValidationError(f"{label} must be a POSIX relative path")
     path = PurePosixPath(value)
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    if (
+        path.is_absolute()
+        or any(part in {"", ".", ".."} for part in value.split("/"))
+        or value != path.as_posix()
+    ):
         raise ArtifactValidationError(f"{label} contains an unsafe path segment")
     return path
 
@@ -144,6 +170,44 @@ def _require_clean_regular_paths(root: Path, paths: tuple[str, ...], label: str)
         except ValueError as exc:
             raise ArtifactValidationError(f"{label} path escapes repository: {relative}") from exc
         _regular_blob_at(root, "HEAD", relative, label)
+
+
+def _require_complete_canonical_package(root: Path) -> None:
+    tracked = {
+        line
+        for line in _git(root, "ls-files", "src/gbdn/*.py", "src/gbdn/**/*.py")
+        .stdout.decode()
+        .splitlines()
+        if line
+    }
+    frozen = {path for path in PROTECTED_OPERATIONS_PATHS if path.startswith("src/gbdn/")}
+    if tracked != frozen:
+        missing = sorted(tracked - frozen)
+        stale = sorted(frozen - tracked)
+        raise ArtifactValidationError(
+            f"canonical package is outside frozen operations closure: extra={missing}, absent={stale}"
+        )
+
+
+def _verify_review_signature(root: Path, review_commit: str) -> None:
+    allowed = f"{REVIEWER_PRINCIPAL} {REVIEWER_PUBLIC_KEY}\n"
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", newline="\n", suffix=".allowed_signers", delete=False
+    ) as stream:
+        stream.write(allowed)
+        allowed_path = Path(stream.name)
+    try:
+        verified = _git(
+            root,
+            "-c", f"gpg.ssh.allowedSignersFile={allowed_path}",
+            "verify-commit", "--raw", review_commit,
+            check=False,
+        )
+    finally:
+        allowed_path.unlink(missing_ok=True)
+    output = (verified.stdout + verified.stderr).decode("utf-8", errors="replace")
+    if verified.returncode != 0 or REVIEWER_KEY_FINGERPRINT not in output:
+        raise ArtifactValidationError("independent review commit lacks the frozen reviewer signature")
 
 
 def _validate_machine_review(
@@ -221,6 +285,7 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
     parents = _git(root, "show", "-s", "--format=%P", review_commit).stdout.decode().split()
     if parents != [commit]:
         raise ArtifactValidationError("independent review commit must directly follow reviewed source")
+    _verify_review_signature(root, review_commit)
     for ancestor, descendant, label in (
         (commit, review_commit, "review commit does not descend from reviewed source"),
         (review_commit, "HEAD", "review commit is not an ancestor of HEAD"),
@@ -265,6 +330,7 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
 
     if _git(root, "merge-base", "--is-ancestor", commit, "HEAD", check=False).returncode:
         raise ArtifactValidationError("operations reviewed commit is not an ancestor")
+    _require_complete_canonical_package(root)
     changed = _git(root, "diff", "--name-only", commit, "HEAD", "--", *PROTECTED_OPERATIONS_PATHS)
     if changed.stdout.strip():
         raise ArtifactValidationError("protected operations surface changed after review")
@@ -288,6 +354,9 @@ __all__ = [
     "OPERATIONS_REVIEW_SCHEMA",
     "OPERATIONS_REVIEW_SCOPE",
     "PROTECTED_OPERATIONS_PATHS",
+    "REVIEWER_KEY_FINGERPRINT",
+    "REVIEWER_PRINCIPAL",
+    "REVIEWER_PUBLIC_KEY",
     "OperationsAcceptance",
     "validate_operations_acceptance",
 ]
