@@ -31,10 +31,11 @@ completed_tasks:
   - ENG-GATEA-PROVENANCE-1
   - REV-GATEA-FINAL-1
   - OPS-RUNID-1
+  - ENG-GATEA-SEMANTIC-REPAIR-1
 active_tasks:
   - ENG-002
   - ENG-008
-  - ENG-GATEA-SEMANTIC-REPAIR-1
+  - REV-GATEA-REVIEW-2
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
@@ -47,12 +48,12 @@ stop_line:
     - Finite-realization semantic defects in GA-22, GA-24, GA-29, and GA-30 were repaired but still require independent final review.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 456
-  automated_tests_passing: 456
+  automated_tests: 503
+  automated_tests_passing: 503
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
-  gate_a_evidence_value_fields: 703
-  gate_a_evidence_typed_na_fields: 59
+  gate_a_evidence_value_fields: 735
+  gate_a_evidence_typed_na_fields: 57
   immutable_artifact_core_tests_passing: 41
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
