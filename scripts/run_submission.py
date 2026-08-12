@@ -28,6 +28,7 @@ from gbdn.submission import (  # noqa: E402
     require_canonical_output_root,
     run_smoke_subprocess,
 )
+from gbdn.submission_verify import verify_submission_readiness  # noqa: E402
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -60,12 +61,20 @@ def _parser() -> argparse.ArgumentParser:
     worker = subparsers.add_parser("run-job", help=argparse.SUPPRESS)
     _add_common(worker)
     worker.add_argument("--run-id", required=True)
+    verify = subparsers.add_parser(
+        "verify", help="read-only fail-loud submission readiness inventory"
+    )
+    verify.add_argument("--repository-root", type=Path, default=ROOT)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     root = args.repository_root.resolve(strict=True)
+    if args.command == "verify":
+        report = verify_submission_readiness(root)
+        print(json.dumps(report.to_dict(), sort_keys=True))
+        return 0 if report.submission_complete else 2
     require_canonical_output_root(root, args.output_root)
     plan = build_smoke_plan(
         repository_root=root,
