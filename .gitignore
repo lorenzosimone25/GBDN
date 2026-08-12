@@ -52,6 +52,13 @@
 !/configs/*.md
 !/configs/**/*.md
 
+# License notices required by admitted third-party implementations.
+!/licenses/
+/licenses/*
+!/licenses/third_party/
+/licenses/third_party/*
+!/licenses/third_party/*.txt
+
 # The legacy notebook remains provenance-only. The submission notebook is the
 # sole canonical operator notebook admitted by this policy.
 !/notebooks/
