@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -68,12 +70,16 @@ def test_canonical_writer_accepts_only_submission_descendants(tmp_path):
     (
         "results_submission",
         "results_submission_backup/run.json",
+        "results_submission/../results/run.json",
+        "results_submission/../../outside/run.json",
         "artifacts/run.json",
         "paper/generated/table.tex",
     ),
 )
 def test_canonical_writer_rejects_non_submission_paths(tmp_path, invalid):
-    with pytest.raises(RepositoryBoundaryError, match="results_submission"):
+    with pytest.raises(
+        RepositoryBoundaryError, match="results_submission|frozen legacy tree"
+    ):
         canonical_output_path(invalid, repository_root=tmp_path)
 
 
@@ -85,3 +91,47 @@ def test_canonical_writer_never_overwrites_a_completed_identity(tmp_path):
         write_new_canonical_artifact(target, b"changed", repository_root=tmp_path)
 
     assert (tmp_path / target).read_bytes() == b"first"
+
+
+def _symlink_or_skip(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError as exc:
+        if os.name == "nt":
+            junction = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if junction.returncode == 0:
+                return
+        pytest.skip(f"directory symlinks/junctions are unavailable: {exc}")
+
+
+def test_canonical_writer_rejects_symlink_escape_inside_submission(tmp_path):
+    canonical = tmp_path / "results_submission"
+    outside = tmp_path / "outside"
+    canonical.mkdir()
+    outside.mkdir()
+    _symlink_or_skip(canonical / "escape", outside)
+
+    with pytest.raises(RepositoryBoundaryError, match="results_submission"):
+        canonical_output_path(
+            "results_submission/escape/result.json",
+            repository_root=tmp_path,
+        )
+
+
+def test_canonical_writer_rejects_symlinked_submission_root(tmp_path):
+    repository = tmp_path / "repository"
+    outside = tmp_path / "outside"
+    repository.mkdir()
+    outside.mkdir()
+    _symlink_or_skip(repository / "results_submission", outside)
+
+    with pytest.raises(RepositoryBoundaryError, match="outside the repository"):
+        canonical_output_path(
+            "results_submission/raw/result.json",
+            repository_root=repository,
+        )

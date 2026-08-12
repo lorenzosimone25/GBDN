@@ -58,6 +58,10 @@ def canonical_output_path(
             )
 
     canonical_root = (root / CANONICAL_RESULT_DIR).resolve(strict=False)
+    if canonical_root == root or not _is_within(canonical_root, root):
+        raise RepositoryBoundaryError(
+            f"{CANONICAL_RESULT_DIR}/ cannot resolve outside the repository"
+        )
     if target == canonical_root or not _is_within(target, canonical_root):
         raise RepositoryBoundaryError(
             f"canonical outputs must be files below {CANONICAL_RESULT_DIR}/"
