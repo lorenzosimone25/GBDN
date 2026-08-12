@@ -1,0 +1,65 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{Tight GBDN analysis and synthesis}
+\label{sec:method-tight}
+
+For a root multiset $\mathcal R_\ell$ at level $\ell$, define the complementary operators
+\begin{equation}
+  P_\ell^{+}=\frac{I+\Tcal_{\mathcal R_\ell}}{2},
+  \qquad
+  P_\ell^{-}=\frac{I-\Tcal_{\mathcal R_\ell}}{2}.
+  \label{eq:tight-channels}
+\end{equation}
+Starting from a complex feature signal $h_0$, Tight GBDN emits and carries
+\begin{equation}
+  r_\ell=P_\ell^-h_\ell,
+  \qquad
+  h_{\ell+1}=P_\ell^+h_\ell,
+  \qquad \ell=0,\ldots,D-1.
+  \label{eq:analysis-recursion}
+\end{equation}
+The complete coefficient representation is
+\begin{equation}
+  \Acal_Dh_0=(r_0,\ldots,r_{D-1},h_D).
+  \label{eq:analysis-map}
+\end{equation}
+A downstream predictor concatenates the real and imaginary parts of every coefficient. The readout is separate from the analysis guarantee.
+
+Given analyzed coefficients, synthesis proceeds backward:
+\begin{equation}
+  h_\ell=(P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}.
+  \label{eq:synthesis-recursion}
+\end{equation}
+The exact recursion reconstructs the analyzed signal $h_0$. It does not imply
+that the preceding learned lift is invertible or that the original real feature
+matrix can be recovered. With finite Chebyshev factors, the same code applies
+the adjoint of the approximate analysis and reports the resulting reconstruction
+error.
+
+\subsection{Product-sum GBDN}
+\label{sec:method-product-sum}
+
+The expressive variant defines cumulative products
+\begin{equation}
+  Q_0=I,
+  \qquad
+  Q_\ell=\Tcal_{\mathcal R_\ell}Q_{\ell-1},
+\end{equation}
+and a learned complex scalar-weighted sum
+\begin{equation}
+  H_{\mathrm{PS}}h=\sum_{\ell=0}^{D}c_\ell Q_\ell h,
+  \qquad c_\ell\in\C.
+  \label{eq:product-sum}
+\end{equation}
+Each exact factor remains unitary, but the learned sum is not generally unitary or tight. A real-valued predictor reads the real and imaginary parts of $H_{\mathrm{PS}}h$. This variant is BDN-inspired rather than equivalent to BDN.
+
+\subsection{GBDN+: empirical relaxation}
+\label{sec:method-relaxed}
+
+GBDN+ applies several parallel root-parameterized filters to the same lifted input. Each branch adds an unconstrained Chebyshev correction, and a learned skip mixture combines the branch sum with the input. These corrections increase flexibility but remove exact all-pass, tightness, and reconstruction guarantees. We evaluate GBDN+ only as an empirical architecture.
+
+\subsection{Sparse realization and graph identity}
+\label{sec:method-cheb}
+
+All variants evaluate \cref{eq:cheb-realization} with a sparse recurrence. A caller may pass a precomputed Laplacian for a fixed graph. Otherwise the implementation rebuilds the normalized Laplacian from the supplied edge indices and weights. It never reuses an operator solely because two graphs have the same number of vertices.

@@ -1,0 +1,31 @@
+\section{Related-work positioning}
+\label{sec:related-work}
+
+\begin{table*}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Positioning by spectral construction, learned selection, and structural guarantee. A missing guarantee means that the cited method does not claim it, not that it cannot be extended.}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth}XXX@{}}
+\toprule
+Family & Spectral construction & Learned selection & Guarantee and realization \\
+\midrule
+ChebNet/II~\cite{defferrard2016chebnet,he2022chebnetii} & Chebyshev polynomial or interpolant & Direct coefficients; no learned roots & No intrinsic tightness or depth guarantee; sparse recurrence \\
+CayleyNets~\cite{levie2019cayleynets} & Rational Cayley polynomial & Complex coefficients and a Cayley scale; no free roots & No reconstruction or depth guarantee; rational iteration \\
+Stable-ChebNet~\cite{hariri2025stablechebnet} & Chebyshev dynamics & Direct polynomial channels; no learned roots & Stable, non-dissipative dynamics; sparse recurrence \\
+WaveGC~\cite{liu2025wavegc} & Learned graph-wavelet bases & Matrix-valued kernel; no learned roots & Receptive-field analysis; Chebyshev orders \\
+Tight GBDN & Blaschke factors after the Cayley map & Learned roots and $I\!\pm\!\Tcal$ interference & Exact analysis--synthesis and coefficient isometry; sparse Chebyshev \\
+Product-sum GBDN & Cumulative all-pass products & Learned roots and complex output sum & Unitary factors but no general reconstruction; sparse Chebyshev \\
+GBDN+ & All-pass branch plus polynomial correction & Learned roots and a parallel mixture & No strict structural guarantee; sparse Chebyshev \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Polynomial graph filters learn direct amplitude responses through coefficients of a Laplacian polynomial. ChebNet realizes localized filters with a Chebyshev recurrence~\cite{defferrard2016chebnet}, while ChebNetII replaces unconstrained coefficient learning with Chebyshev interpolation~\cite{he2022chebnetii}. CayleyNets instead use complex rational Cayley polynomials that specialize to spectral bands~\cite{levie2019cayleynets}. GBDN does not claim polynomial or complex rational filtering as new. Its distinction is to learn all-pass roots, convert their phase geometry into complementary amplitude-selective channels, and retain a reconstructing multilevel coefficient map.
+
+Stable-ChebNet casts high-order Chebyshev propagation as a stable, non-dissipative dynamical system~\cite{hariri2025stablechebnet}; A-DGN derives stability and non-dissipation from antisymmetric graph dynamics~\cite{gravina2023adgn}. These guarantees concern different objects from tight coefficient analysis. GBDN therefore separates factor unitarity, carried-path contraction, complete coefficient-map isometry, and nonlinear optimization behavior.
+
+Graph wavelet methods provide multiresolution spectral constructions: diffusion scattering builds stable graph representations from diffusion wavelets~\cite{gama2019diffusion}, whereas WaveGC learns admissible graph wavelets by separating odd and even Chebyshev orders~\cite{liu2025wavegc}. Neither citation is used to assert the exact perfect-reconstruction theorem proved here. Classical PDU~\cite{coifman2025pdu} and BDN~\cite{zhang2025bdn} also use Blaschke geometry, but include analytic-signal, inner--outer, selection, or product-sum machinery not supplied by an undirected Laplacian alone. Product-sum GBDN is consequently BDN-inspired rather than equivalent; the cited BDN record is explicitly a withdrawn ICLR submission.
+
+For evaluation, the heterophily suite and its fixed splits follow the audit of Platonov et al.~\cite{platonov2023heterophily}. LRGB~\cite{dwivedi2022lrgb} is reserved for a separate graph-level pipeline; GraphGPS~\cite{rampasek2022graphgps} supplies the upstream framework used by the official WaveGC implementation. These datasets motivate tests, not claims that GBDN already resolves long-range propagation.

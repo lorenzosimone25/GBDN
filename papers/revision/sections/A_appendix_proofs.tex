@@ -1,0 +1,110 @@
+\section{Proofs}
+\label{app:proofs}
+
+\begin{proof}[Proof of \cref{prop:phase-pole}]
+For $|z|=1$,
+\begin{equation}
+ |z-\alpha|^2=(z-\alpha)(\overline z-\overline\alpha)
+ =(1-\overline\alpha z)(1-\alpha\overline z),
+\end{equation}
+so $|B_\alpha(z)|=1$. Writing $z=e^{i\theta}$ and differentiating a continuous argument gives the classical Poisson kernel
+\begin{equation}
+ \frac{d}{d\theta}\arg B_\alpha(e^{i\theta})
+ =\frac{1-|\alpha|^2}{|e^{i\theta}-\alpha|^2}.
+\end{equation}
+The unwrapped argument of $\cayley(\lambda)$ has derivative
+$2/(1+\lambda^2)$, so the chain rule yields \cref{eq:phase-law}.
+
+Substituting \cref{eq:definitions} and clearing $\lambda+i$ yields
+\cref{eq:rational-form}. Setting its numerator and denominator to zero gives
+\cref{eq:mapped-zero-pole}. The Cayley transform maps the unit disk to the upper half-plane, hence $\operatorname{Im}z_\alpha>0$. Conjugacy gives
+$\operatorname{Im}p_\alpha<0$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:tight-split}]
+In the eigenbasis of $L$, every diagonal entry of $\Tcal_{\mathcal R}$ has unit modulus by \cref{prop:phase-pole}. Therefore
+$\Tcal_{\mathcal R}^*\Tcal_{\mathcal R}=I$. Direct expansion gives
+\begin{align}
+ (P^+)^*P^+ +(P^-)^*P^-
+ &=\frac14(I+\Tcal^*)(I+\Tcal)\notag\\
+ &\quad+\frac14(I-\Tcal^*)(I-\Tcal)\\
+ &=\frac12(I+\Tcal^*\Tcal)=I.
+\end{align}
+Taking the quadratic form with $h$ proves \cref{eq:one-level-energy}. On an eigenmode with phase $e^{i\psi}$, the carried gain is
+$|(1+e^{i\psi})/2|=|\cos(\psi/2)|\leq1$, proving contraction.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:multilevel-pr}]
+Apply \cref{eq:one-level-energy} to $h_\ell$ at each level:
+\begin{equation}
+ \norm{h_\ell}_2^2=\norm{r_\ell}_2^2+\norm{h_{\ell+1}}_2^2.
+\end{equation}
+Summing and cancelling intermediate carry energies gives
+\cref{eq:multilevel-isometry}.
+
+For analyzed coefficients, one synthesis step gives
+\begin{align}
+ (P_\ell^-)^*r_\ell+(P_\ell^+)^*h_{\ell+1}
+ &=\bigl[(P_\ell^-)^*P_\ell^-+(P_\ell^+)^*P_\ell^+\bigr]h_\ell\\
+ &=h_\ell.
+\end{align}
+Backward induction reconstructs $h_0$. The same identity shows that synthesis is the adjoint of the nested analysis map and that
+$\Acal_D^*\Acal_D=I$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:energy-separation}]
+In the graph Fourier basis,
+\begin{equation}
+ \Pi_Sr=\sum_{i\in S}q(\lambda_i)\widehat h_i u_i,
+ \qquad
+ \Pi_{S^c}r=\sum_{i\notin S}q(\lambda_i)\widehat h_i u_i.
+\end{equation}
+Orthonormality and \cref{eq:energy-hypotheses} give the two norm bounds in
+\cref{eq:energy-separation}. Squaring their quotient gives
+\cref{eq:leakage-ratio}.
+\end{proof}
+
+\begin{proof}[Proof of \cref{cor:complex-recovery}]
+Orthonormality gives the exact decomposition
+\begin{equation}
+ \norm{r-h_S}_2^2
+ =\sum_{i\in S}|q(\lambda_i)-1|^2|\widehat h_i|^2
+ +\sum_{i\notin S}|q(\lambda_i)|^2|\widehat h_i|^2.
+\end{equation}
+Applying the two hypotheses proves \cref{eq:complex-recovery}. For the approximate channel,
+$\widetilde q(L)-q(L)=-(\widetilde\Tcal-\Tcal)/2$, so its operator norm is at most $\epsilon_K/2$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:pole-distance-cheb}]
+By \cref{eq:rational-form}, $g$ is rational and its only singularities are the mapped poles $p_r$. After the affine change $x=\lambda-1$, the largest open Bernstein ellipse that avoids all poles is determined by the minimum of the parameters $\chi(\xi_r)$. For any strictly smaller $\varrho$, $g$ is analytic on and inside the ellipse. The classical Chebyshev interpolation estimate at first-kind nodes gives
+\begin{equation}
+ \sup_{x\in[-1,1]}|g(x+1)-p_K(x+1)|
+ \leq\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
+\end{equation}
+The spectral theorem converts uniform scalar error into the stated operator-norm error.
+
+The parallelogram identity gives
+\begin{equation}
+ \norm{\widetilde P^+h}_2^2+\norm{\widetilde P^-h}_2^2
+ =\frac12\bigl(\norm h_2^2+\norm{\widetilde\Tcal h}_2^2\bigr).
+\end{equation}
+Since $\Tcal$ is unitary and
+$\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon$,
+\begin{equation}
+ (1-\epsilon)\norm h_2\leq\norm{\widetilde\Tcal h}_2
+ \leq(1+\epsilon)\norm h_2.
+\end{equation}
+Substitution proves \cref{eq:approx-frame-bound}.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:product-sum-vandermonde}]
+Let $z_j=\cayley(\mu_j)$. The Cayley map is injective on the real line, so the $z_j$ are distinct. First consider the disk-center witness $\alpha_t=0$ for every factor. Since $B_0(z)=z$,
+\begin{equation}
+ q_\ell(\mu_j)=z_j^\ell.
+\end{equation}
+The evaluation matrix is Vandermonde, with determinant
+\begin{equation}
+ \det V=\prod_{1\leq j<k\leq m}(z_k-z_j)\neq0.
+\end{equation}
+Thus the cumulative products span every complex-valued function on the distinct eigenvalues. By continuity, the determinant remains nonzero for sufficiently small nonzero roots, which may be chosen with modulus below any fixed $r_{\max}>0$ and represented by \cref{eq:radial-root}. The determinant for general roots is real-analytic in their real and imaginary parts and is not identically zero because it is nonzero at the center witness. Its zero set has measure zero, proving generic full rank on the punctured parameter domain. Repeated eigenvalues necessarily share a multiplier value, as for every function of $L$.
+\end{proof}

@@ -1,0 +1,34 @@
+\section{Preliminaries and convention}
+\label{sec:preliminaries}
+
+Let $G=(V,E)$ be a finite undirected weighted graph and let $L=U\Lambda U^*$ be its symmetric normalized Laplacian. Its eigenvalues satisfy $0\leq\lambda_i\leq2$. For $h\in\C^{|V|\times d}$, the graph Fourier coefficients are $\widehat h=U^*h$. Every scalar function $g$ on the spectrum defines the normal graph spectral operator $g(L)=U g(\Lambda)U^*$. Signal norms are Frobenius norms, and $\norm{\cdot}_{\op}$ denotes the induced spectral norm.
+
+We use the Cayley map and elementary Blaschke factor
+\begin{equation}
+  \cayley(\lambda)=\frac{\lambda-i}{\lambda+i},
+  \qquad
+  B_\alpha(z)=\frac{z-\alpha}{1-\overline\alpha z},
+  \qquad |\alpha|<1.
+  \label{eq:definitions}
+\end{equation}
+For a root multiset $\mathcal R=(\alpha_1,\ldots,\alpha_R)$, write $B_{\mathcal R}=\prod_{r=1}^R B_{\alpha_r}$. The canonical convention throughout the paper and implementation is
+\begin{equation}
+  \Tcal_{\mathcal R}=B_{\mathcal R}(\cayley(L)).
+  \label{eq:forward-convention}
+\end{equation}
+The inverse convention is the complex conjugate multiplier. It is not used implicitly.
+
+Every learned root is parameterized by
+\begin{equation}
+  \alpha=r_{\max}\sigma(s)e^{i\theta},
+  \qquad 0<r_{\max}<1,
+  \label{eq:radial-root}
+\end{equation}
+which enforces $|\alpha|<r_{\max}$. Independent Cartesian constraints are insufficient because their joint modulus can exceed one.
+
+The sparse realization approximates a multiplier $g(\lambda)$ by
+\begin{equation}
+  p_K(L)=\sum_{k=0}^{K}c_k T_k(L-I),
+  \label{eq:cheb-realization}
+\end{equation}
+where $T_k$ is the Chebyshev polynomial of degree $k$. We distinguish exact spectral operators from their finite-degree realizations in every result.

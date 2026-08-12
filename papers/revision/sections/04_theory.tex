@@ -1,0 +1,167 @@
+\section{Theory}
+\label{sec:theory}
+
+The analysis first treats exact spectral operators and then quantifies the finite Chebyshev realization. Proofs are in \cref{app:proofs}. Each result states the observable that its corresponding experiment tests.
+
+\begin{proposition}[Phase and mapped pole geometry]
+\label{prop:phase-pole}
+Let $|\alpha|<1$. For every real $\lambda$,
+$|B_\alpha(\cayley(\lambda))|=1$. If
+$\alpha=\rho e^{i\theta_\alpha}$ and a continuous phase branch is used, then
+\begin{equation}
+ \frac{d}{d\lambda}\arg B_\alpha(\cayley(\lambda))
+ =\frac{1-\rho^2}{|\cayley(\lambda)-\alpha|^2}
+  \frac{2}{1+\lambda^2}>0.
+ \label{eq:phase-law}
+\end{equation}
+Moreover,
+\begin{equation}
+ B_\alpha(\cayley(\lambda))
+ =\frac{(1-\alpha)\lambda-i(1+\alpha)}
+ {(1-\overline\alpha)\lambda+i(1+\overline\alpha)},
+ \label{eq:rational-form}
+\end{equation}
+with zero and pole
+\begin{equation}
+ z_\alpha=i\frac{1+\alpha}{1-\alpha},
+ \qquad
+ p_\alpha=-i\frac{1+\overline\alpha}{1-\overline\alpha}
+ =\overline{z_\alpha}.
+ \label{eq:mapped-zero-pole}
+\end{equation}
+The zero lies in the upper half-plane and the pole lies in the lower half-plane.
+\end{proposition}
+
+This proposition predicts the measured phase derivative and shows why root angle and radius jointly control polynomial approximation.
+
+\begin{theorem}[Exact unitary factor and tight split]
+\label{thm:tight-split}
+Let $L$ be self-adjoint and let every root of $\mathcal R$ lie in $\D$. Then
+$\Tcal_{\mathcal R}^*\Tcal_{\mathcal R}=I$. For
+$P^\pm=(I\pm\Tcal_{\mathcal R})/2$,
+\begin{equation}
+  (P^+)^*P^+ +(P^-)^*P^-=I
+  \label{eq:parseval-operator}
+\end{equation}
+and
+\begin{equation}
+  \norm{P^+h}_2^2+\norm{P^-h}_2^2=\norm h_2^2.
+  \label{eq:one-level-energy}
+\end{equation}
+The carried operator is contractive: $\norm{P^+}_{\op}\leq1$.
+\end{theorem}
+
+The experiment must report factor unitarity, channel-energy error, and carried-path norm separately.
+
+\begin{theorem}[Isometric multilevel analysis and perfect reconstruction]
+\label{thm:multilevel-pr}
+Let \cref{eq:analysis-recursion} use exact operators at $D$ levels. Then
+\begin{equation}
+  \norm{\Acal_Dh_0}_{\oplus}^2
+  =\sum_{\ell=0}^{D-1}\norm{r_\ell}_2^2+\norm{h_D}_2^2
+  =\norm{h_0}_2^2.
+  \label{eq:multilevel-isometry}
+\end{equation}
+The analysis map is therefore an isometry. The adjoint synthesis recursion in
+\cref{eq:synthesis-recursion} reconstructs every analyzed signal, so
+$\Acal_D^*\Acal_D=I$.
+\end{theorem}
+
+The experiment must measure coefficient-energy and reconstruction errors across graph families and depths.
+
+\begin{theorem}[Spectral energy separation]
+\label{thm:energy-separation}
+Let $q(\lambda)=(1-B_{\mathcal R}(\cayley(\lambda)))/2$ and let
+$r=q(L)h$. For a target eigenmode set $S$, suppose
+\begin{equation}
+ |q(\lambda_i)|\geq1-\delta\quad(i\in S),
+ \qquad
+ |q(\lambda_i)|\leq\eta\quad(i\notin S),
+ \label{eq:energy-hypotheses}
+\end{equation}
+where $0\leq\delta<1$ and $\eta\geq0$. Then
+\begin{equation}
+ \norm{\Pi_Sr}_2\geq(1-\delta)\norm{h_S}_2,
+ \qquad
+ \norm{\Pi_{S^c}r}_2\leq\eta\norm{h_{S^c}}_2.
+ \label{eq:energy-separation}
+\end{equation}
+If $h_S\neq0$, the leakage ratio satisfies
+\begin{equation}
+ \frac{\norm{\Pi_{S^c}r}_2^2}{\norm{\Pi_Sr}_2^2}
+ \leq
+ \frac{\eta^2\norm{h_{S^c}}_2^2}
+ {(1-\delta)^2\norm{h_S}_2^2}.
+ \label{eq:leakage-ratio}
+\end{equation}
+\end{theorem}
+
+This result supports band-energy separation only; it does not control target phase.
+
+\begin{corollary}[Complex spectral packet recovery]
+\label{cor:complex-recovery}
+Under the setting of \cref{thm:energy-separation}, replace the on-target assumption by
+\begin{equation}
+  |q(\lambda_i)-1|\leq\delta\quad(i\in S).
+  \label{eq:complex-hypothesis}
+\end{equation}
+Then
+\begin{equation}
+  \norm{r-h_S}_2^2
+  \leq\delta^2\norm{h_S}_2^2+\eta^2\norm{h_{S^c}}_2^2.
+  \label{eq:complex-recovery}
+\end{equation}
+If $\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon_K$, the corresponding approximate minus channel adds at most
+$\epsilon_K\norm h_2/2$ in signal norm.
+\end{corollary}
+
+The experiment must compare magnitude-only fitting with complex response fitting and report both leakage and complex reconstruction error.
+
+\begin{theorem}[Chebyshev error from mapped-pole distance]
+\label{thm:pole-distance-cheb}
+Let $g(\lambda)=B_{\mathcal R}(\cayley(\lambda))$, and map
+$\lambda\in[0,2]$ to $x=\lambda-1\in[-1,1]$. For each pole $p_r$ in
+\cref{eq:mapped-zero-pole}, set $\xi_r=p_r-1$ and
+\begin{equation}
+ \chi(\xi_r)=\max_{\pm}\left|\xi_r\pm\sqrt{\xi_r^2-1}\right|.
+\end{equation}
+For any Bernstein ellipse parameter
+$1<\varrho<\min_r\chi(\xi_r)$, let $M_\varrho$ bound $|g|$ on that ellipse.
+Then the degree-$K$ Chebyshev interpolant $p_K$ at the $K+1$ first-kind nodes satisfies
+\begin{equation}
+ \sup_{\lambda\in[0,2]}|g(\lambda)-p_K(\lambda)|
+ \leq\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
+ \label{eq:cheb-bound}
+\end{equation}
+For self-adjoint $L$, the same quantity bounds
+$\norm{g(L)-p_K(L)}_{\op}$.
+
+If $\norm{\widetilde\Tcal-\Tcal}_{\op}\leq\epsilon<1$ and
+$\widetilde P^\pm=(I\pm\widetilde\Tcal)/2$, then
+\begin{align}
+ \frac{1+(1-\epsilon)^2}{2}\norm h_2^2
+ &\leq \norm{\widetilde P^+h}_2^2+\norm{\widetilde P^-h}_2^2 \notag\\
+ &\leq \frac{1+(1+\epsilon)^2}{2}\norm h_2^2.
+ \label{eq:approx-frame-bound}
+\end{align}
+\end{theorem}
+
+The experiment must vary root angle and radius independently and compare error prediction by radius against mapped-pole distance.
+
+\begin{theorem}[Finite-spectrum product-sum interpolation]
+\label{thm:product-sum-vandermonde}
+Suppose $L$ has $m$ distinct eigenvalues $\mu_1,\ldots,\mu_m$. For every $r_{\max}\in(0,1)$, there exist roots satisfying $0<|\alpha_t|<r_{\max}$ for which the cumulative products
+\begin{equation}
+ q_0(\lambda)=1,
+ \qquad
+ q_\ell(\lambda)=\prod_{t=1}^{\ell}B_{\alpha_t}(\cayley(\lambda)),
+ \quad \ell=1,\ldots,m-1,
+\end{equation}
+form a basis for all complex multipliers on that finite spectrum. Full rank also holds for generic choices in the punctured radius-$r_{\max}$ disk outside the zero set of the evaluation determinant.
+\end{theorem}
+
+This theorem establishes finite-graph interpolation with up to $m$ terms. It does not establish graph-size-independent approximation or parameter efficiency.
+
+\begin{remark}[Scope of stability]
+Exact factor products are unitary, the complete exact coefficient map is isometric, and the carried path is contractive. If each approximate factor has operator error at most $\epsilon$, an approximate product has norm at most $(1+\epsilon)^D$. These facts do not imply stable nonlinear optimization, resistance to oversmoothing, or mitigation of oversquashing.
+\end{remark}

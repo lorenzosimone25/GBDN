@@ -1,0 +1,85 @@
+\section{Experiments and validation}
+\label{sec:experiments}
+
+The experimental program follows the claim hierarchy. Exact correctness tests precede mechanism studies, and mechanism studies precede downstream benchmarks. This ordering prevents benchmark performance from masking a failure of the stated spectral construction.
+
+\subsection{Gate A: correctness criteria}
+
+The current implementation passes all 20 automated tests, including nine tests of the mathematical contract and 11 compatibility and reproduction-pipeline tests. The contract suite uses double precision for exact operators and checks radial root admissibility, the forward phase derivative, mapped zero--pole conjugacy, exact unitarity, one-level tightness, depth-16 coefficient isometry, adjoint perfect reconstruction, energy-separation inequalities, complex-recovery inequalities, sparse Chebyshev agreement, graph identity, and nondegenerate depth behavior. Exact unitarity and reconstruction use a tolerance of $10^{-10}$; sparse operator comparisons use $10^{-8}$. These tests validate numerical consistency, not empirical usefulness.
+
+\subsection{Mechanism studies}
+
+The first mechanism study compares a magnitude-only band objective with a complex response objective. On a seeded 600-node sphere graph, we fit eight roots from five initializations for each objective. The input combines equal-energy low-frequency and localized packet components. Complex fitting reduces recovery NMSE from $0.673\pm0.271$ to $0.360\pm0.207$ and leakage from $0.323\pm0.176$ to $0.156\pm0.151$. It increases target-band energy retention from $0.666\pm0.099$ to $0.834\pm0.011$. Uncertainty is the standard deviation across initializations. \Cref{fig:sphere-decomposition} shows the graph, components, learned channels, spectral response, and root--pole trajectories. These results support the distinction between energy selection and phase-sensitive recovery; they do not establish superiority to external methods.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_sphere_decomposition.pdf}
+\caption{Phase-sensitive recovery on a 600-node sphere kNN graph. (A) The symmetric 12-nearest-neighbor graph. (B--D) The equal-energy mixture and its true low-frequency and localized packet components. (E--F) The Tight GBDN minus and plus channels for the best of five complex-response fits. (G) The target, real learned, and magnitude responses on the graph spectrum. (H) Learned root trajectories and mapped poles. The inset metrics use the displayed run. Across all runs, exact frame and synthesis errors remain at numerical precision.}
+\label{fig:sphere-decomposition}
+\end{figure*}
+
+The second mechanism study sweeps four root radii, four root angles, and Chebyshev degrees from 4 to 64. At degree 16, the rank correlation between log error and root radius is $0.873$, while the correlation with the mapped-pole ellipse parameter is $-1.000$. The sign reflects faster convergence for a more distant pole. \Cref{fig:pole-distance} reports the full degree sweep and the mapped-pole ordering. This controlled study supports the pole-distance formulation and shows why radius alone is incomplete.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.88\textwidth]{fig_pole_distance.pdf}
+\caption{Chebyshev realization depends on mapped-pole geometry. (A) Maximum symbol error over $[0,2]$ for four radii and four angles. Line style distinguishes angles at a fixed color-coded radius. (B) At degree 16, the Bernstein-ellipse parameter induced by the mapped pole orders all tested approximation errors monotonically.}
+\label{fig:pole-distance}
+\end{figure*}
+
+The matched response-efficiency study remains open. It will compare Tight GBDN, Product-sum GBDN, GBDN+, CayleyNet, ChebNetII, and a verified WaveGC implementation at matched parameters and sparse matrix-vector products. Gate C remains partial until those external implementations are verified and run.
+
+\subsection{Preliminary legacy H100 reproduction}
+\label{sec:legacy-h100}
+
+We reran the preserved legacy notebook pipeline to diagnose portability on an NVIDIA H100 80GB HBM3. This pipeline predates the revised Tight GBDN implementation; its GBDN+ row evaluates only the relaxed legacy architecture. For heterophily, every method uses seed 25, split column 0, normalized features, hidden width 64, 1,000 epochs, and validation-AUROC checkpoint selection. Roman-empire and Amazon-ratings are reported with accuracy, while Minesweeper, Tolokers, and Questions use macro one-versus-rest ROC-AUC. We recompute ROC-AUC from the archived test probabilities with tie-aware average ranks because the legacy scalar routine resolves equal scores by implementation-dependent sort order.
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{6.5pt}
+\caption{Preliminary single-run heterophily results on one H100. Values are proportions on split 0 with seed 25; each method--dataset cell has $n=1$, so no uncertainty or significance claim is available. Bold marks the largest descriptive value in a column. $\dagger$ marks a rerun whose task metric differs from the archived legacy artifact by more than 0.02. These local implementations are not verified upstream baselines.}
+\label{tab:legacy-heterophily}
+\begin{tabular}{lccccc}
+\toprule
+Method & Roman-empire & Amazon-ratings & Minesweeper & Tolokers & Questions \\
+ & Acc.$\uparrow$ & Acc.$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ \\
+\midrule
+GBDN+        & \textbf{0.5687}$^{\dagger}$ & \textbf{0.3699} & 0.9110 & \textbf{0.8466} & 0.6501 \\
+ChebNet      & 0.2838 & 0.3678 & \textbf{0.9337} & 0.8392 & 0.6261 \\
+ChebNetII    & 0.2737 & 0.3665 & 0.9008 & 0.7755 & 0.6185 \\
+H2GCN        & 0.1396 & 0.3680 & 0.8388$^{\dagger}$ & 0.7294 & 0.3739 \\
+FAGCN        & 0.1585 & 0.3680 & 0.7870 & 0.7327 & 0.6216 \\
+MLP          & 0.1396 & 0.3680 & 0.5259 & 0.7120 & 0.6460 \\
+MixHop       & 0.1396 & 0.3680 & 0.8812 & 0.7845 & 0.6131 \\
+GAT          & 0.1382 & 0.3680 & 0.7126 & 0.6913 & \textbf{0.6632} \\
+GraphSAGE    & 0.1382 & 0.3680 & 0.8974 & 0.7761 & 0.6562 \\
+A-DGN        & 0.2215 & 0.3680 & 0.8735 & 0.7510 & 0.6471 \\
+ResNet       & 0.1396 & 0.3680 & 0.5096 & 0.7316 & 0.6410 \\
+ResNet+SGC   & 0.2058 & 0.3680 & 0.6802 & 0.7145 & 0.6464 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+All 60 heterophily artifacts were produced, but the rerun does not pass the prespecified reproduction criterion. GBDN+ on Roman-empire changes by 0.2963 accuracy and H2GCN on Minesweeper changes by 0.0353 ROC-AUC relative to the archived artifacts. The run also lacks the CLI manifest. Accordingly, \cref{tab:legacy-heterophily} is a diagnostic snapshot rather than evidence of comparative superiority.
+
+The same legacy run produced both Peptides-func artifacts using the official split objects, seed 25, hidden width 256, batch size 128, and 100 epochs. Average precision was saved without test predictions, so it cannot be independently recomputed from the artifacts. \Cref{tab:legacy-lrgb} shows that the two test values tie to four decimals, while GBDN+ uses 5.15 times the peak memory of ChebNet at $K=10$.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Preliminary single-run Peptides-func reproduction on one H100. Runtime and peak allocated CUDA memory refer to one training run. Bold marks the best value; tied rounded values are both bold.}
+\label{tab:legacy-lrgb}
+\begin{tabular}{lrrrr}
+\toprule
+Method & Val. AP$\uparrow$ & Test AP$\uparrow$ & Time (s)$\downarrow$ & MiB$\downarrow$ \\
+\midrule
+ChebNet ($K=10$) & \textbf{0.6969} & \textbf{0.6745} & \textbf{255.1} & \textbf{530.3} \\
+GBDN+             & 0.6922 & \textbf{0.6745} & 287.6 & 2731.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Downstream evaluation gate}
+
+Confirmatory downstream claims remain deferred. Heterophily experiments will use all official splits and metrics, at least three training seeds per split, equal hyperparameter-search trials, and confidence intervals that respect the split--seed dependence. LRGB results require a verified graph-level pipeline and official evaluators. The single-run values above do not satisfy this gate and are excluded from the paper's contribution claims.
