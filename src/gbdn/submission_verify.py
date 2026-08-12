@@ -94,6 +94,7 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
         "scripts/run_submission.py",
         "src/gbdn/artifacts.py",
         "src/gbdn/heterophily_contract.py",
+        "src/gbdn/heterophily_evaluator.py",
         "src/gbdn/heterophily_statistics.py",
     )
     for relative in required_files:
@@ -169,9 +170,11 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
     else:
         checks.append({"check": f"execution_input:{run_plan_relative}", "status": "FAIL"})
         execution_blockers.append(f"missing execution input: {run_plan_relative}")
-    # Execution remains unavailable until the isolated scheduler and official
-    # post-freeze evaluator are implemented and independently reviewed.
-    execution_blockers.append("claim-bearing scheduler and isolated test evaluator are not implemented")
+    # Execution remains unavailable until the scheduler binds the independent
+    # evaluator to verified authoritative split metadata and is reviewed.
+    execution_blockers.append(
+        "claim-bearing scheduler/evaluator binding and independent operations review are not implemented"
+    )
 
     completion_outputs = (
         "results_submission/aggregate/split_level_metrics.csv",
