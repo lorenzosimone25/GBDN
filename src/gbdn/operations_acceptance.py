@@ -32,6 +32,7 @@ PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "src/gbdn/baseline_contract.py",
     "src/gbdn/baselines/__init__.py",
     "src/gbdn/baselines/chebnet.py",
+    "src/gbdn/baselines/chebnet_oracle.py",
     "src/gbdn/coefficient_artifacts.py",
     "src/gbdn/core.py",
     "src/gbdn/diagnostics.py",
@@ -181,9 +182,15 @@ def _require_complete_canonical_package(root: Path) -> None:
         if line
     }
     frozen = {path for path in PROTECTED_OPERATIONS_PATHS if path.startswith("src/gbdn/")}
-    if tracked != frozen:
-        missing = sorted(tracked - frozen)
-        stale = sorted(frozen - tracked)
+    source_root = root / "src" / "gbdn"
+    filesystem: set[str] = set()
+    for path in source_root.rglob("*.py"):
+        if path.is_symlink() or not path.is_file():
+            raise ArtifactValidationError("canonical package contains an unsafe Python path")
+        filesystem.add(path.relative_to(root).as_posix())
+    if tracked != frozen or filesystem != frozen:
+        missing = sorted((tracked | filesystem) - frozen)
+        stale = sorted(frozen - (tracked & filesystem))
         raise ArtifactValidationError(
             f"canonical package is outside frozen operations closure: extra={missing}, absent={stale}"
         )

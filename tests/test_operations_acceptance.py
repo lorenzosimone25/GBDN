@@ -284,6 +284,13 @@ def test_unsigned_self_issued_review_is_rejected(tmp_path):
         validate_operations_acceptance(root)
 
 
+def test_untracked_canonical_module_is_rejected(tmp_path):
+    root, _, _, _ = _repository(tmp_path)
+    _write(root / "src/gbdn/unreviewed_runtime.py", b"VALUE = 1\n")
+    with pytest.raises(ArtifactValidationError, match="closure"):
+        validate_operations_acceptance(root)
+
+
 @pytest.mark.parametrize(
     "alias",
     [
