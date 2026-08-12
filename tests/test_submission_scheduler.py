@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -414,13 +415,24 @@ def test_execution_identity_recaptures_source_environment_and_input_hashes(tmp_p
         "worker": worker,
     }
     frozen = _capture_input_hashes(tmp_path.resolve(), **paths)
+    acceptance = SimpleNamespace(reviewed_source_metadata=job.source)
     with (
-        patch("gbdn.submission_scheduler.capture_source_metadata", return_value=job.source) as source,
+        patch("gbdn.submission_scheduler.validate_operations_acceptance", return_value=acceptance) as source,
         patch("gbdn.submission_scheduler.capture_environment_metadata", return_value=job.environment) as environment,
     ):
         _validate_execution_identity(job, tmp_path.resolve(), frozen, **paths)
-    source.assert_called_once_with(tmp_path.resolve(), full_run=True)
+    source.assert_called_once_with(tmp_path.resolve())
     environment.assert_called_once()
+
+    wrong_acceptance = SimpleNamespace(
+        reviewed_source_metadata=replace(job.source, repository_commit="f" * 40)
+    )
+    with patch(
+        "gbdn.submission_scheduler.validate_operations_acceptance",
+        return_value=wrong_acceptance,
+    ):
+        with pytest.raises(ArtifactValidationError, match="reviewed executable source"):
+            _validate_execution_identity(job, tmp_path.resolve(), frozen, **paths)
 
     worker.write_text("raise SystemExit(7)\n", encoding="utf-8")
     with pytest.raises(ArtifactValidationError, match="changed"):

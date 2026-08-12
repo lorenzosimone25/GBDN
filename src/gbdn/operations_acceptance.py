@@ -11,7 +11,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Final, Mapping
 
-from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes, sha256_file
+from gbdn.artifacts import (
+    ArtifactValidationError,
+    SourceMetadata,
+    canonical_json_bytes,
+    canonical_json_sha256,
+    sha256_file,
+)
 
 
 OPERATIONS_ACCEPTANCE_SCHEMA: Final[str] = "gbdn-operations-acceptance-v2"
@@ -257,6 +263,26 @@ class OperationsAcceptance:
     review_sha256: str
     handoff_path: str
     handoff_sha256: str
+
+    @property
+    def reviewed_source_metadata(self) -> SourceMetadata:
+        """Return the clean executable source identity frozen before review evidence."""
+
+        source_sha256 = canonical_json_sha256(
+            {
+                "dirty_fingerprint_sha256": "clean",
+                "repository_commit": self.reviewed_commit,
+                "repository_tree": self.reviewed_tree,
+            }
+        )
+        return SourceMetadata(
+            self.reviewed_commit,
+            self.reviewed_tree,
+            source_sha256,
+            False,
+            None,
+            False,
+        )
 
 
 def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcceptance:

@@ -38,7 +38,6 @@ from gbdn.artifacts import (
     RunResultRecord,
     canonical_json_bytes,
     capture_environment_metadata,
-    capture_source_metadata,
     sha256_file,
 )
 from gbdn.baseline_contract import VerifiedBaseline
@@ -46,6 +45,7 @@ from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, resolve
 from gbdn.heterophily_evaluator import PREDICTION_FORMAT
 from gbdn.heterophily_training import official_training_loss
 from gbdn.model import GBDNProductSum, GBDNRelaxed, GBDNTight
+from gbdn.operations_acceptance import validate_operations_acceptance
 from gbdn.run_plan import ValidatedRunPlan, validate_run_plan
 
 
@@ -942,9 +942,9 @@ def _load_planned_job(
 
 
 def _validate_runtime_identity(root: Path, job: RunConfigRecord) -> None:
-    observed_source = capture_source_metadata(root, full_run=True)
-    if observed_source != job.source:
-        raise ArtifactValidationError("worker source differs from frozen job source")
+    accepted = validate_operations_acceptance(root)
+    if accepted.reviewed_source_metadata != job.source:
+        raise ArtifactValidationError("worker reviewed source differs from frozen job source")
     lock = root / job.environment.dependency_lock_path
     observed_environment = capture_environment_metadata(lock, repository_root=root)
     if observed_environment != job.environment:

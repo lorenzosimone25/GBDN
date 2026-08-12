@@ -145,6 +145,9 @@ def test_valid_operations_acceptance_is_review_commit_and_source_bound(tmp_path)
     accepted = validate_operations_acceptance(root)
     assert accepted.review_commit == review_commit
     assert accepted.review_path == "results_submission/reports/operations_review.json"
+    assert accepted.reviewed_source_metadata.repository_commit == accepted.reviewed_commit
+    assert accepted.reviewed_source_metadata.repository_tree == accepted.reviewed_tree
+    assert accepted.reviewed_source_metadata.dirty is False
 
 
 @pytest.mark.parametrize("staged", [False, True])

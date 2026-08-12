@@ -21,13 +21,13 @@ from gbdn.artifacts import (
     canonical_json_bytes,
     canonical_json_sha256,
     capture_environment_metadata,
-    capture_source_metadata,
     classify_resume,
     sha256_file,
     utc_now_iso,
     write_failure_record,
 )
 from gbdn.gate_acceptance import validate_gate_a_acceptance
+from gbdn.operations_acceptance import validate_operations_acceptance
 from gbdn.heterophily_evaluator import (
     evaluation_attestation,
     evaluate_prediction_bytes,
@@ -98,9 +98,9 @@ def _validate_execution_identity(job, root: Path, frozen_hashes: dict[str, str],
                              confirmatory_plan_path=paths["confirmatory_plan_path"],
                              baseline_registry_path=paths["baseline_registry_path"]) != frozen_hashes:
         raise ArtifactValidationError("scheduler input or worker changed after plan validation")
-    observed_source = capture_source_metadata(root, full_run=True)
-    if observed_source != job.source:
-        raise ArtifactValidationError("current source differs from the frozen job source")
+    accepted = validate_operations_acceptance(root)
+    if accepted.reviewed_source_metadata != job.source:
+        raise ArtifactValidationError("reviewed executable source differs from the frozen job source")
     lock = root / job.environment.dependency_lock_path
     observed_environment = capture_environment_metadata(lock, repository_root=root)
     if observed_environment != job.environment:
