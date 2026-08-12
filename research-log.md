@@ -145,3 +145,10 @@
 - The hardened operations/boundary/contract slice passes 67 tests with one platform skip. The complete suite passes 592 tests with the same platform skip and three known environment warnings. Independent operations review remains pending because the delegated reviewer exhausted its service quota without producing evidence.
 - Executed the permitted synthetic diagnostic smoke from clean detached commit `b4d751c`: run ID `84e410613b7c03cb2efe420fd537e31633de71343d67fb32b1bae911cbced57d` completed with the fixed `4/6` accuracy fixture, and the second invocation returned `skipped` with the identical worker PID. Config/result/bundle hashes, clean source commit, dependency lock, and `CUDA_VISIBLE_DEVICES=-1` were verified.
 - Git detached the temporary smoke worktree but Windows could not remove its directory because of long path names. The explicit external path was left untouched rather than using an unsafe recursive workaround; it is outside the repository and excluded from publication.
+
+## 2026-08-12 — Split-first statistical contract
+
+- Added independent task-specific metric recomputation: multiclass accuracy for Roman-empire/Amazon-ratings and a tie-aware rank-based binary ROC-AUC for Minesweeper/Tolokers/Questions.
+- Required the complete frozen `10 splits × seeds [0,1,2]` grid, independent metric verification, frozen configurations, and no test exposure before averaging training seeds within each split.
+- Implemented Student-t uncertainty over the ten split means, exact two-sided paired sign-flip comparisons, standardized paired effects when defined, win/tie/loss, and Holm correction for a predeclared comparison family.
+- The full repository suite passes 603 tests with one platform-specific skip and three known environment warnings. This is synthetic protocol infrastructure only: no real prediction, test metric, significance claim, or table was produced.

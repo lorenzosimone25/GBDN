@@ -78,6 +78,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-006 | Implement official heterophily task contract | Engineer | OPS-002 | Protocol tests | BACKLOG |
 | EXP-006-PREFLIGHT | Freeze official five-dataset task, split, metric, provenance, and baseline-admission contract | Reviewer | ORCH-001 | Primary-source protocol audit and manifest | DONE |
 | EXP-006-CONTRACT-1 | Implement declarative official dataset/task registry and leakage-safe metadata validation | Engineer | EXP-006-PREFLIGHT | CPU-only registry and contract tests | DONE |
+| EXP-011-STATISTICS-CONTRACT-1 | Implement task-specific metric recomputation and split-first statistical contract | Engineer | EXP-006-CONTRACT-1 | Synthetic-only metric, aggregation, paired-test, and multiplicity tests | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
@@ -113,10 +114,10 @@ Record each decision before dependent full runs.
 | Primary baseline tier | minimum / extended | UNDECIDED |
 | Tuning policy | upstream / equal-budget / both labeled | UNDECIDED |
 | Trial budget | integer per model–dataset | UNDECIDED |
-| Training seeds | fixed list | UNDECIDED |
+| Training seeds | fixed list | `[0,1,2]` FROZEN by official confirmatory contract |
 | LRGB scope | none / subset / full | UNDECIDED |
 | Application extension | none / 3D / medical graph | UNDECIDED |
-| Primary statistical test | paired randomization / alternative | UNDECIDED |
+| Primary statistical test | paired randomization / alternative | Exact two-sided paired sign-flip over ten seed-averaged split means; Holm within predeclared family |
 
 ## Phase exit records
 

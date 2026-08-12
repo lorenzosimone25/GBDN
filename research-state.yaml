@@ -41,6 +41,7 @@ completed_tasks:
   - OPS-CPU-SMOKE-1
   - ENG-GATEA-TOLERANCE-3
   - EXP-006-CONTRACT-1
+  - EXP-011-STATISTICS-CONTRACT-1
 active_tasks:
   - ENG-002
   - ENG-008
@@ -53,11 +54,11 @@ stop_line:
     - The third independent review accepted 35 of 36 mandatory rows and rejected GA-00 for a caller-controlled exactness tolerance. That escape is repaired with fixed fail-closed validation, but fourth independent acceptance is unavailable because reviewer service quota was exhausted before producing evidence.
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
-    - The diagnostic CPU CLI, immutable one-job plan, and independent smoke-metric recomputation exist; the full scheduler, acceptance token, official test evaluator, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
+    - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, and synthetic split-first statistics contract exist; the full scheduler, acceptance token, official test evaluator, immutable aggregate renderer/verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol and metadata contract are frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
-  automated_tests: 592
-  automated_tests_passing: 592
+  automated_tests: 603
+  automated_tests_passing: 603
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817
@@ -74,10 +75,11 @@ next_dependency_chain:
   - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
   - Obtain independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
   - Independently review the CPU-only official task registry before any dataset acquisition or evaluation code.
+  - Independently review the metric/statistics contract and freeze comparison families and practical tie thresholds before confirmatory evaluation.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.
   - Optional unitary routing scope.
   - Matched baseline tier and tuning budget.
-  - Final heterophily training-seed list.
+  - Primary comparator family and dataset-specific practical tie thresholds.
   - LRGB scope after core gates.
