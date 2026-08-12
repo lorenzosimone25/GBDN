@@ -40,3 +40,14 @@ copied back into the revision:
 
 Any new claim-bearing citation must repeat this audit rather than inherit
 metadata from the preserved draft.
+
+## 2026-08-12 local re-scan
+
+The citation-verifier local scan reports 12 bibliography keys, 17 citation
+occurrences, no placeholder keys, and no duplicate BibTeX keys. This is a
+syntax and hygiene result, not a claim-verification result. The independent
+primary-source novelty audit identifies mandatory missing families, including
+graph-QMF, undecimated graph framelets, BernNet, GPR-GNN, UniFilter, SLOG,
+HeroFilter, and Unitary Convolutions. Those entries must be fetched from
+verified publisher/proceedings records and claim-checked before Related Work is
+submission-ready; no BibTeX entry may be written from memory.
