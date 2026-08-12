@@ -19,6 +19,7 @@
 
 !/notebooks/
 /notebooks/*
+!/notebooks/BlanshkeGraphs.ipynb
 !/notebooks/reproduce_legacy.ipynb
 
 !/tests/
