@@ -7,9 +7,12 @@ import pytest
 
 from gbdn.artifacts import ArtifactValidationError, sha256_file
 from gbdn.baseline_contract import (
+    LOCAL_SEARCH,
     PARITY_EVIDENCE_SCHEMA,
     PLAN_SCHEMA,
     REGISTRY_SCHEMA,
+    SEARCH_SPACE_SCHEMA,
+    SELECTION_EVIDENCE_SCHEMA,
     validate_baseline_registry,
     validate_confirmatory_plan,
     validate_plan_registry_binding,
@@ -17,117 +20,180 @@ from gbdn.baseline_contract import (
 from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
 
 
-BASELINES = ("CayleyNet", "ChebNetII", "WaveGC")
+BASELINE = "ChebNet"
 
 
-def _files(root: Path) -> None:
-    for name in BASELINES:
-        slug = name.lower()
-        for relative in (
-            f"licenses/{slug}.txt",
-            f"src/baselines/{slug}.py",
-            f"configs/baselines/{slug}.json",
-            f"docs/baselines/{slug}_provenance.md",
-            f"tests/oracles/{slug}_oracle.py",
-            f"results_submission/reports/{slug}_parity.json",
-        ):
-            path = root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"{name}\n", encoding="utf-8")
+def _write(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")), encoding="utf-8")
 
 
-def _registry(root: Path, *, status: str = "VERIFIED") -> dict:
-    _files(root)
-    records = []
-    for index, name in enumerate(BASELINES):
-        slug = name.lower()
-        evidence_path = root / f"results_submission/reports/{slug}_parity.json"
+def _dataset_bindings() -> dict[str, dict[str, str]]:
+    return {
+        name: {"selection_metric": spec.selection_metric, "task_type": spec.task_type}
+        for name, spec in DATASET_REGISTRY.items()
+    }
+
+
+def _search_space() -> dict:
+    return {
+        "method": BASELINE,
+        "parameters": {
+            "model.K": {"role": "TUNED", "values": [2, 4]},
+            "model.dropout": {"role": "FIXED", "values": [0.0]},
+        },
+        "schema_version": SEARCH_SPACE_SCHEMA,
+        "status": "FROZEN_PRESPECIFIED",
+    }
+
+
+def _files(root: Path) -> dict[str, str]:
+    paths = {
+        "license": "licenses/chebnet.txt",
+        "wrapper": "src/baselines/chebnet.py",
+        "provenance": "docs/baselines/chebnet.md",
+        "oracle": "tests/oracles/chebnet.py",
+        "search": "configs/search/chebnet.json",
+        "parity": "results_submission/reports/chebnet_operator_parity.json",
+        "final": "configs/frozen/chebnet.json",
+        "selection": "results_submission/reports/chebnet_selection.json",
+        "test": "tests/test_chebnet.py",
+    }
+    for key in ("license", "wrapper", "provenance", "oracle", "test"):
+        target = root / paths[key]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"{key}\n", encoding="utf-8")
+    _write(root / paths["search"], _search_space())
+    checks = {
+        name: {"evidence": f"tests::{name}", "status": "PASS"}
+        for name in (
+            "independent_dense_operator_forward",
+            "independent_dense_operator_gradients",
+            "official_task_head_dispatch",
+            "parameter_count",
+            "spmv_count",
+            "upstream_composition_forward",
+            "upstream_composition_gradients",
+        )
+    }
+    _write(
+        root / paths["parity"],
+        {
+            "baseline": BASELINE,
+            "checks": checks,
+            "implementation_kind": "UPSTREAM_CODE",
+            "independent_oracle_sha256": sha256_file(root / paths["oracle"]),
+            "scope": "OPERATOR_COMPOSITION",
+            "schema_version": PARITY_EVIDENCE_SCHEMA,
+            "source_commit": "1" * 40,
+            "status": "PASS",
+            "test_command": "python -m pytest -q tests/test_chebnet.py",
+            "test_path": paths["test"],
+            "test_result": "7 passed",
+            "test_sha256": sha256_file(root / paths["test"]),
+            "wrapper_sha256": sha256_file(root / paths["wrapper"]),
+        },
+    )
+    return paths
+
+
+def _registry(root: Path, *, finalized: bool = False, trial_budget: int = 10) -> dict:
+    paths = _files(root)
+    final = None
+    status = "IMPLEMENTATION_VERIFIED"
+    if finalized:
         _write(
-            evidence_path,
+            root / paths["final"],
             {
-                "baseline": name,
-                "dataset": "upstream-fixture",
-                "expected": 0.8,
-                "implementation_kind": "UPSTREAM_CODE",
-                "independent_oracle_sha256": sha256_file(
-                    root / f"tests/oracles/{slug}_oracle.py"
-                ),
-                "metric": "accuracy",
-                "observed": 0.8 + index * 0.001,
-                "reference_config_sha256": sha256_file(
-                    root / f"configs/baselines/{slug}.json"
-                ),
-                "schema_version": PARITY_EVIDENCE_SCHEMA,
-                "source_commit": f"{index + 1:040x}",
-                "status": "PASS",
-                "tolerance": 0.01,
-                "wrapper_sha256": sha256_file(root / f"src/baselines/{slug}.py"),
+                "datasets": {
+                    name: {"model": {}, "optimizer": {}, "training": {}}
+                    for name in DATASET_REGISTRY
+                },
+                "method": BASELINE,
+                "schema_version": "gbdn-heterophily-method-config-v1",
             },
         )
-        records.append(
+        _write(
+            root / paths["selection"],
             {
-                "implementation": {
-                    "equation_locator": "Eq. (3), p. 4",
-                    "independent_oracle_path": f"tests/oracles/{slug}_oracle.py",
-                    "independent_oracle_sha256": sha256_file(
-                        root / f"tests/oracles/{slug}_oracle.py"
-                    ),
-                    "kind": "UPSTREAM_CODE",
-                    "paper_url": f"https://papers.example.org/{slug}",
-                    "provenance_path": f"docs/baselines/{slug}_provenance.md",
-                    "provenance_sha256": sha256_file(
-                        root / f"docs/baselines/{slug}_provenance.md"
-                    ),
-                    "source_commit": f"{index + 1:040x}",
-                    "source_repository_url": f"https://example.org/{slug}",
-                    "upstream_code_used": True,
-                },
-                "license": {
-                    "notice_path": f"licenses/{slug}.txt",
-                    "notice_sha256": sha256_file(root / f"licenses/{slug}.txt"),
-                    "spdx": "MIT",
-                },
-                "name": name,
-                "parity": {
-                    "dataset": "upstream-fixture",
-                    "evidence_path": f"results_submission/reports/{slug}_parity.json",
-                    "evidence_sha256": sha256_file(
-                        root / f"results_submission/reports/{slug}_parity.json"
-                    ),
-                    "expected": 0.8,
-                    "metric": "accuracy",
-                    "observed": 0.8 + index * 0.001,
-                    "status": "PASS",
-                    "tolerance": 0.01,
-                },
-                "protocols": ["heterophily"],
-                "status": status,
-                "verification": {
-                    "independent_operator_oracle": True,
-                    "official_task_contract": True,
-                    "parameter_count": True,
-                    "spmv_count": True,
-                },
-                "wrapper": {
-                    "path": f"src/baselines/{slug}.py",
-                    "reference_config_path": f"configs/baselines/{slug}.json",
-                    "reference_config_sha256": sha256_file(
-                        root / f"configs/baselines/{slug}.json"
-                    ),
-                    "source_sha256": sha256_file(root / f"src/baselines/{slug}.py"),
-                },
-            }
+                "baseline": BASELINE,
+                "configuration_kind": LOCAL_SEARCH,
+                "final_config_sha256": sha256_file(root / paths["final"]),
+                "schema_version": SELECTION_EVIDENCE_SCHEMA,
+                "search_space_sha256": sha256_file(root / paths["search"]),
+                "selection_partition": "validation",
+                "status": "PASS",
+                "test_used_for_selection": False,
+                "trial_budget_per_dataset": trial_budget,
+            },
         )
-    return {"baselines": records, "schema_version": REGISTRY_SCHEMA}
+        final = {
+            "path": paths["final"],
+            "selection_evidence_path": paths["selection"],
+            "selection_evidence_sha256": sha256_file(root / paths["selection"]),
+            "sha256": sha256_file(root / paths["final"]),
+        }
+        status = "CONFIRMATORY_READY"
+    record = {
+        "configuration": {
+            "budget_binding": "CONFIRMATORY_PLAN_EQUAL_TRIAL_BUDGET",
+            "final_configuration": final,
+            "kind": LOCAL_SEARCH,
+            "search_space_path": paths["search"],
+            "search_space_sha256": sha256_file(root / paths["search"]),
+            "selection": {
+                "dataset_bindings": _dataset_bindings(),
+                "partition": "validation",
+                "test_used_for_selection": False,
+            },
+        },
+        "implementation": {
+            "equation_locator": "Eq. (5)",
+            "independent_oracle_path": paths["oracle"],
+            "independent_oracle_sha256": sha256_file(root / paths["oracle"]),
+            "kind": "UPSTREAM_CODE",
+            "paper_url": "https://papers.example.org/chebnet",
+            "provenance_path": paths["provenance"],
+            "provenance_sha256": sha256_file(root / paths["provenance"]),
+            "source_commit": "1" * 40,
+            "source_repository_url": "https://example.org/chebnet",
+            "upstream_code_used": True,
+        },
+        "license": {
+            "notice_path": paths["license"],
+            "notice_sha256": sha256_file(root / paths["license"]),
+            "spdx": "MIT",
+        },
+        "name": BASELINE,
+        "operator_parity": {
+            "evidence_path": paths["parity"],
+            "evidence_sha256": sha256_file(root / paths["parity"]),
+            "scope": "OPERATOR_COMPOSITION",
+            "status": "PASS",
+        },
+        "protocols": ["heterophily"],
+        "status": status,
+        "verification": {
+            "independent_operator_oracle": True,
+            "official_task_contract": True,
+            "parameter_count": True,
+            "spmv_count": True,
+        },
+        "wrapper": {
+            "path": paths["wrapper"],
+            "source_sha256": sha256_file(root / paths["wrapper"]),
+        },
+    }
+    return {"baselines": [record], "schema_version": REGISTRY_SCHEMA}
 
 
-def _plan(registry_hash: str) -> dict:
+def _plan(registry_hash: str, *, budget: int = 10) -> dict:
     return {
         "baseline_registry_sha256": registry_hash,
         "datasets": list(DATASET_REGISTRY),
-        "methods": ["TightGBDN", *BASELINES],
+        "methods": ["TightGBDN", BASELINE],
         "official_splits": list(OFFICIAL_SPLITS),
-        "primary_baselines": list(BASELINES),
+        "primary_baselines": [BASELINE],
         "practical_tie_thresholds": {name: 0.005 for name in DATASET_REGISTRY},
         "schema_version": PLAN_SCHEMA,
         "selection": {
@@ -137,142 +203,128 @@ def _plan(registry_hash: str) -> dict:
             "test_used_for_selection": False,
         },
         "training_seeds": list(TRAINING_SEEDS),
-        "trial_budget_per_method_dataset": 20,
+        "trial_budget_per_method_dataset": budget,
     }
 
 
-def _write(path: Path, value: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, sort_keys=True), encoding="utf-8")
+def test_implementation_verified_candidate_passes_screening_but_not_confirmatory(tmp_path):
+    path = tmp_path / "registry.json"
+    _write(path, _registry(tmp_path))
+    records = validate_baseline_registry(
+        path,
+        repository_root=tmp_path,
+        required_methods=(BASELINE,),
+        admission="screening",
+    )
+    assert records[0].admission_status == "IMPLEMENTATION_VERIFIED"
+    assert records[0].operator_parity_scope == "OPERATOR_COMPOSITION"
+    assert records[0].configuration_provenance == LOCAL_SEARCH
+    assert records[0].final_config_path is None
+    with pytest.raises(ArtifactValidationError, match="not confirmatory-ready"):
+        validate_baseline_registry(
+            path, repository_root=tmp_path, required_methods=(BASELINE,)
+        )
 
 
-def test_verified_registry_and_equal_budget_plan_bind_by_hash(tmp_path):
-    registry_path = tmp_path / "baseline_registry.json"
-    _write(registry_path, _registry(tmp_path))
-    plan_path = tmp_path / "confirmatory_plan.json"
-    _write(plan_path, _plan(sha256_file(registry_path)))
-    plan, baselines = validate_plan_registry_binding(
+def test_finalized_validation_only_config_and_equal_budget_admit_confirmatory(tmp_path):
+    registry_path = tmp_path / "registry.json"
+    _write(registry_path, _registry(tmp_path, finalized=True, trial_budget=10))
+    plan_path = tmp_path / "plan.json"
+    _write(plan_path, _plan(sha256_file(registry_path), budget=10))
+    plan, records = validate_plan_registry_binding(
         plan_path, registry_path, repository_root=tmp_path
     )
-    assert plan.primary_baselines == BASELINES
-    assert plan.trial_budget_per_method_dataset == 20
-    assert tuple(item.name for item in baselines) == BASELINES
+    assert plan.trial_budget_per_method_dataset == 10
+    assert records[0].reference_config_path == "configs/frozen/chebnet.json"
 
 
-def test_blocked_or_missing_baseline_cannot_enter_primary_scope(tmp_path):
-    path = tmp_path / "registry.json"
-    _write(path, _registry(tmp_path, status="BLOCKED"))
-    with pytest.raises(ArtifactValidationError, match="not VERIFIED"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-    _write(path, _registry(tmp_path))
-    with pytest.raises(ArtifactValidationError, match="scope mismatch"):
-        validate_baseline_registry(
-            path,
-            repository_root=tmp_path,
-            required_methods=(*BASELINES, "UniFilter"),
-        )
+def test_plan_rejects_final_config_selected_with_different_trial_budget(tmp_path):
+    registry_path = tmp_path / "registry.json"
+    _write(registry_path, _registry(tmp_path, finalized=True, trial_budget=9))
+    plan_path = tmp_path / "plan.json"
+    _write(plan_path, _plan(sha256_file(registry_path), budget=10))
+    with pytest.raises(ArtifactValidationError, match="selection provenance"):
+        validate_plan_registry_binding(plan_path, registry_path, repository_root=tmp_path)
 
 
 @pytest.mark.parametrize(
     ("mutation", "match"),
     (
-        (lambda record: record["license"].update(spdx="NOASSERTION"), "license"),
-        (lambda record: record["parity"].update(observed=0.95), "exceeds"),
-        (lambda record: record["verification"].update(spmv_count=False), "resource"),
-        (lambda record: record["protocols"].clear(), "protocols"),
-        (lambda record: record["implementation"].update(source_commit="abc"), "full 40-hex"),
+        (lambda r: r["implementation"].update(source_commit="abc"), "full 40-hex"),
+        (lambda r: r["operator_parity"].update(scope="FULL_MODEL_ACCURACY"), "operator-composition"),
+        (lambda r: r["verification"].update(spmv_count=False), "resource/task"),
+        (lambda r: r["configuration"]["selection"].update(test_used_for_selection=True), "validation-only"),
+        (lambda r: r["configuration"].update(kind="UPSTREAM_REFERENCE_CONFIG"), "upstream configuration"),
     ),
 )
-def test_registry_rejects_unresolved_provenance_parity_and_accounting(tmp_path, mutation, match):
+def test_registry_rejects_identity_parity_resource_and_configuration_laundering(
+    tmp_path, mutation, match
+):
     registry = _registry(tmp_path)
     mutation(registry["baselines"][0])
     path = tmp_path / "registry.json"
     _write(path, registry)
     with pytest.raises(ArtifactValidationError, match=match):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
+        validate_baseline_registry(
+            path,
+            repository_root=tmp_path,
+            required_methods=(BASELINE,),
+            admission="screening",
+        )
 
 
-def test_registry_rejects_missing_evidence_and_duplicate_names(tmp_path):
+def test_operator_evidence_and_search_space_are_independently_hash_bound(tmp_path):
     registry = _registry(tmp_path)
-    (tmp_path / registry["baselines"][0]["wrapper"]["path"]).unlink()
     path = tmp_path / "registry.json"
+    parity = tmp_path / registry["baselines"][0]["operator_parity"]["evidence_path"]
+    parity.write_text("tampered\n", encoding="utf-8")
     _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="missing regular.*wrapper source"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
+    with pytest.raises(ArtifactValidationError, match="operator parity evidence hash"):
+        validate_baseline_registry(
+            path, repository_root=tmp_path, required_methods=(BASELINE,), admission="screening"
+        )
+
+    registry = _registry(tmp_path / "search")
+    root = tmp_path / "search"
+    search = root / registry["baselines"][0]["configuration"]["search_space_path"]
+    data = json.loads(search.read_text(encoding="utf-8"))
+    data["parameters"]["model.K"] = {"role": "FIXED", "values": [2, 4]}
+    _write(search, data)
+    registry["baselines"][0]["configuration"]["search_space_sha256"] = sha256_file(search)
+    _write(root / "registry.json", registry)
+    with pytest.raises(ArtifactValidationError, match="values/role"):
+        validate_baseline_registry(
+            root / "registry.json",
+            repository_root=root,
+            required_methods=(BASELINE,),
+            admission="screening",
+        )
 
 
-def test_clean_room_equation_implementation_is_explicit_and_admissible(tmp_path):
-    registry = _registry(tmp_path)
-    record = registry["baselines"][0]
-    record["implementation"].update(
-        kind="CLEAN_ROOM_EQUATIONS", upstream_code_used=False
+def test_registry_v2_cannot_silently_migrate(tmp_path):
+    path = tmp_path / "registry.json"
+    _write(path, {"baselines": [], "schema_version": "gbdn-baseline-registry-v2"})
+    with pytest.raises(ArtifactValidationError, match="schema"):
+        validate_baseline_registry(
+            path, repository_root=tmp_path, required_methods=(), admission="screening"
+        )
+
+
+def test_repository_chebnet_candidate_is_truthful_and_screening_only():
+    root = Path(__file__).parents[1]
+    registry = root / "results_submission" / "baseline_registry.json"
+    records = validate_baseline_registry(
+        registry,
+        repository_root=root,
+        required_methods=(BASELINE,),
+        admission="screening",
     )
-    evidence_path = tmp_path / record["parity"]["evidence_path"]
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    evidence["implementation_kind"] = "CLEAN_ROOM_EQUATIONS"
-    _write(evidence_path, evidence)
-    record["parity"]["evidence_sha256"] = sha256_file(evidence_path)
-    path = tmp_path / "registry.json"
-    _write(path, registry)
-    validated = validate_baseline_registry(
-        path, repository_root=tmp_path, required_methods=BASELINES
-    )
-    assert validated[0].implementation_kind == "CLEAN_ROOM_EQUATIONS"
-    assert validated[0].upstream_code_used is False
-
-
-def test_implementation_kind_cannot_launder_upstream_code(tmp_path):
-    registry = _registry(tmp_path)
-    registry["baselines"][0]["implementation"].update(
-        kind="CLEAN_ROOM_EQUATIONS", upstream_code_used=True
-    )
-    path = tmp_path / "registry.json"
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="contradicts"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-
-def test_registry_rejects_tampered_parity_evidence_and_oracle_absence(tmp_path):
-    registry = _registry(tmp_path)
-    record = registry["baselines"][0]
-    evidence = tmp_path / record["parity"]["evidence_path"]
-    evidence.write_text("tampered\n", encoding="utf-8")
-    path = tmp_path / "registry.json"
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="evidence hash"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-    registry = _registry(tmp_path)
-    oracle = tmp_path / registry["baselines"][0]["implementation"]["independent_oracle_path"]
-    oracle.unlink()
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="missing regular.*independent oracle"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-    registry = _registry(tmp_path)
-    provenance = tmp_path / registry["baselines"][0]["implementation"]["provenance_path"]
-    provenance.write_text("drifted provenance\n", encoding="utf-8")
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="provenance hash"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-    registry = _registry(tmp_path)
-    record = registry["baselines"][0]
-    evidence_path = tmp_path / record["parity"]["evidence_path"]
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    evidence["observed"] = 0.81
-    _write(evidence_path, evidence)
-    record["parity"]["evidence_sha256"] = sha256_file(evidence_path)
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="registry- and implementation-bound"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
-
-    registry = _registry(tmp_path)
-    registry["baselines"][1]["name"] = registry["baselines"][0]["name"]
-    _write(path, registry)
-    with pytest.raises(ArtifactValidationError, match="duplicate"):
-        validate_baseline_registry(path, repository_root=tmp_path, required_methods=BASELINES)
+    assert records[0].source_commit == "726310a486eae37a89cd6359072b82bbbbb71579"
+    assert records[0].configuration_provenance == LOCAL_SEARCH
+    with pytest.raises(ArtifactValidationError, match="not confirmatory-ready"):
+        validate_baseline_registry(
+            registry, repository_root=root, required_methods=(BASELINE,)
+        )
 
 
 @pytest.mark.parametrize(
@@ -286,19 +338,10 @@ def test_registry_rejects_tampered_parity_evidence_and_oracle_absence(tmp_path):
         (lambda plan: plan.update(primary_baselines=[]), "primary baselines"),
     ),
 )
-def test_plan_rejects_incomplete_grid_leakage_unfair_budget_and_unfrozen_analysis(tmp_path, mutation, match):
+def test_plan_rejects_incomplete_grid_leakage_and_unfair_budget(tmp_path, mutation, match):
     plan = _plan("a" * 64)
     mutation(plan)
     path = tmp_path / "plan.json"
     _write(path, plan)
     with pytest.raises(ArtifactValidationError, match=match):
         validate_confirmatory_plan(path)
-
-
-def test_plan_rejects_registry_drift(tmp_path):
-    registry_path = tmp_path / "registry.json"
-    _write(registry_path, _registry(tmp_path))
-    plan_path = tmp_path / "plan.json"
-    _write(plan_path, _plan("f" * 64))
-    with pytest.raises(ArtifactValidationError, match="hash mismatch"):
-        validate_plan_registry_binding(plan_path, registry_path, repository_root=tmp_path)

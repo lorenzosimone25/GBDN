@@ -18,7 +18,14 @@ from gbdn.artifacts import (
     canonical_json_sha256,
     sha256_file,
 )
-from gbdn.baseline_contract import PARITY_EVIDENCE_SCHEMA, PLAN_SCHEMA, REGISTRY_SCHEMA
+from gbdn.baseline_contract import (
+    LOCAL_SEARCH,
+    PARITY_EVIDENCE_SCHEMA,
+    PLAN_SCHEMA,
+    REGISTRY_SCHEMA,
+    SEARCH_SPACE_SCHEMA,
+    SELECTION_EVIDENCE_SCHEMA,
+)
 from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
 from gbdn.run_plan import RUN_PLAN_SCHEMA, inventory_run_plan, validate_run_plan
 
@@ -35,68 +42,142 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
     records = []
     for index, method in enumerate(BASELINES):
         slug = method.lower()
-        paths = (
-            f"licenses/{slug}.txt",
-            f"src/baselines/{slug}.py",
-            f"configs/baselines/{slug}.json",
-            f"docs/baselines/{slug}_provenance.md",
-            f"tests/oracles/{slug}_oracle.py",
-            f"tests/fixtures/baselines/{slug}_parity.json",
-        )
-        for relative in paths:
+        paths = {
+            "license": f"licenses/{slug}.txt",
+            "wrapper": f"src/baselines/{slug}.py",
+            "final": f"configs/baselines/{slug}.json",
+            "provenance": f"docs/baselines/{slug}_provenance.md",
+            "oracle": f"tests/oracles/{slug}_oracle.py",
+            "parity": f"tests/fixtures/baselines/{slug}_parity.json",
+            "search": f"configs/search/{slug}.json",
+            "selection": f"tests/fixtures/baselines/{slug}_selection.json",
+            "test": f"tests/test_{slug}.py",
+        }
+        for relative in (
+            paths["license"],
+            paths["wrapper"],
+            paths["provenance"],
+            paths["oracle"],
+            paths["test"],
+        ):
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"{method}:{relative}\n", encoding="utf-8")
         _write(
-            root / paths[5],
+            root / paths["final"],
+            {
+                "datasets": {
+                    dataset: {"model": {}, "optimizer": {}, "training": {}}
+                    for dataset in DATASET_REGISTRY
+                },
+                "method": method,
+                "schema_version": "gbdn-heterophily-method-config-v1",
+            },
+        )
+        _write(
+            root / paths["search"],
+            {
+                "method": method,
+                "parameters": {"model.K": {"role": "TUNED", "values": [2, 4]}},
+                "schema_version": SEARCH_SPACE_SCHEMA,
+                "status": "FROZEN_PRESPECIFIED",
+            },
+        )
+        checks = {
+            name: {"evidence": f"tests::{name}", "status": "PASS"}
+            for name in (
+                "independent_dense_operator_forward",
+                "independent_dense_operator_gradients",
+                "official_task_head_dispatch",
+                "parameter_count",
+                "spmv_count",
+                "upstream_composition_forward",
+                "upstream_composition_gradients",
+            )
+        }
+        _write(
+            root / paths["parity"],
             {
                 "baseline": method,
-                "dataset": "upstream-fixture",
-                "expected": 0.8,
+                "checks": checks,
                 "implementation_kind": "UPSTREAM_CODE",
-                "independent_oracle_sha256": sha256_file(root / paths[4]),
-                "metric": "accuracy",
-                "observed": 0.8,
-                "reference_config_sha256": sha256_file(root / paths[2]),
+                "independent_oracle_sha256": sha256_file(root / paths["oracle"]),
+                "scope": "OPERATOR_COMPOSITION",
                 "schema_version": PARITY_EVIDENCE_SCHEMA,
                 "source_commit": f"{index + 1:040x}",
                 "status": "PASS",
-                "tolerance": 0.001,
-                "wrapper_sha256": sha256_file(root / paths[1]),
+                "test_command": f"python -m pytest -q {paths['test']}",
+                "test_path": paths["test"],
+                "test_result": "7 passed",
+                "test_sha256": sha256_file(root / paths["test"]),
+                "wrapper_sha256": sha256_file(root / paths["wrapper"]),
+            },
+        )
+        _write(
+            root / paths["selection"],
+            {
+                "baseline": method,
+                "configuration_kind": LOCAL_SEARCH,
+                "final_config_sha256": sha256_file(root / paths["final"]),
+                "schema_version": SELECTION_EVIDENCE_SCHEMA,
+                "search_space_sha256": sha256_file(root / paths["search"]),
+                "selection_partition": "validation",
+                "status": "PASS",
+                "test_used_for_selection": False,
+                "trial_budget_per_dataset": 10,
             },
         )
         records.append(
             {
+                "configuration": {
+                    "budget_binding": "CONFIRMATORY_PLAN_EQUAL_TRIAL_BUDGET",
+                    "final_configuration": {
+                        "path": paths["final"],
+                        "selection_evidence_path": paths["selection"],
+                        "selection_evidence_sha256": sha256_file(root / paths["selection"]),
+                        "sha256": sha256_file(root / paths["final"]),
+                    },
+                    "kind": LOCAL_SEARCH,
+                    "search_space_path": paths["search"],
+                    "search_space_sha256": sha256_file(root / paths["search"]),
+                    "selection": {
+                        "dataset_bindings": {
+                            dataset: {
+                                "selection_metric": spec.selection_metric,
+                                "task_type": spec.task_type,
+                            }
+                            for dataset, spec in DATASET_REGISTRY.items()
+                        },
+                        "partition": "validation",
+                        "test_used_for_selection": False,
+                    },
+                },
                 "implementation": {
                     "equation_locator": "Eq. (3), p. 4",
-                    "independent_oracle_path": paths[4],
-                    "independent_oracle_sha256": sha256_file(root / paths[4]),
+                    "independent_oracle_path": paths["oracle"],
+                    "independent_oracle_sha256": sha256_file(root / paths["oracle"]),
                     "kind": "UPSTREAM_CODE",
                     "paper_url": f"https://papers.example.org/{slug}",
-                    "provenance_path": paths[3],
-                    "provenance_sha256": sha256_file(root / paths[3]),
+                    "provenance_path": paths["provenance"],
+                    "provenance_sha256": sha256_file(root / paths["provenance"]),
                     "source_commit": f"{index + 1:040x}",
                     "source_repository_url": f"https://example.org/{slug}",
                     "upstream_code_used": True,
                 },
                 "license": {
-                    "notice_path": paths[0],
-                    "notice_sha256": sha256_file(root / paths[0]),
+                    "notice_path": paths["license"],
+                    "notice_sha256": sha256_file(root / paths["license"]),
                     "spdx": "MIT",
                 },
                 "name": method,
-                "parity": {
-                    "dataset": "upstream-fixture",
-                    "evidence_path": paths[5],
-                    "evidence_sha256": sha256_file(root / paths[5]),
-                    "expected": 0.8,
-                    "metric": "accuracy",
-                    "observed": 0.8,
+                "operator_parity": {
+                    "evidence_path": paths["parity"],
+                    "evidence_sha256": sha256_file(root / paths["parity"]),
+                    "scope": "OPERATOR_COMPOSITION",
                     "status": "PASS",
-                    "tolerance": 0.001,
                 },
                 "protocols": ["heterophily"],
-                "status": "VERIFIED",
+                "status": "CONFIRMATORY_READY",
                 "verification": {
                     "independent_operator_oracle": True,
                     "official_task_contract": True,
@@ -104,10 +185,8 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
                     "spmv_count": True,
                 },
                 "wrapper": {
-                    "path": paths[1],
-                    "reference_config_path": paths[2],
-                    "reference_config_sha256": sha256_file(root / paths[2]),
-                    "source_sha256": sha256_file(root / paths[1]),
+                    "path": paths["wrapper"],
+                    "source_sha256": sha256_file(root / paths["wrapper"]),
                 },
             }
         )

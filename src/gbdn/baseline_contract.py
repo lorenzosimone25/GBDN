@@ -1,4 +1,14 @@
-"""Baseline-admission and equal-budget confirmatory-plan contracts."""
+"""Baseline implementation, configuration-provenance, and plan contracts.
+
+Registry v3 deliberately separates two scientific questions:
+
+* does the executed implementation match its claimed operator; and
+* where did the benchmark configuration come from?
+
+An implementation may be verified before tuning.  It cannot enter a
+confirmatory plan until a validation-only final configuration and its
+selection provenance are hash-bound to the registry.
+"""
 
 from __future__ import annotations
 
@@ -7,15 +17,19 @@ import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
-from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes, sha256_file
+from gbdn.artifacts import ArtifactValidationError, sha256_file
 from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
 
 
-REGISTRY_SCHEMA = "gbdn-baseline-registry-v2"
-PARITY_EVIDENCE_SCHEMA = "gbdn-baseline-parity-evidence-v1"
+REGISTRY_SCHEMA = "gbdn-baseline-registry-v3"
+PARITY_EVIDENCE_SCHEMA = "gbdn-baseline-operator-parity-v2"
+SEARCH_SPACE_SCHEMA = "gbdn-baseline-search-space-v1"
+SELECTION_EVIDENCE_SCHEMA = "gbdn-baseline-selection-evidence-v1"
 PLAN_SCHEMA = "gbdn-confirmatory-plan-v1"
+LOCAL_SEARCH = "LOCAL_EQUAL_BUDGET_VALIDATION_SEARCH"
+UPSTREAM_CONFIG = "UPSTREAM_REFERENCE_CONFIG"
 _SHA = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _SPDX = re.compile(r"[A-Za-z0-9][A-Za-z0-9.+-]*(?:-[A-Za-z0-9.+-]+)*")
@@ -39,6 +53,12 @@ def _relative(value: Any, field: str) -> str:
     if path.is_absolute() or ".." in path.parts or "\\" in text or ":" in text:
         raise ArtifactValidationError(f"{field} must be a safe repository-relative path")
     return path.as_posix()
+
+
+def _sha256(value: Any, field: str) -> str:
+    if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+        raise ArtifactValidationError(f"{field} hash is invalid")
+    return value
 
 
 def _regular_repository_file(root: Path, relative: str, field: str) -> Path:
@@ -83,9 +103,31 @@ def _load_json(path: str | Path) -> Mapping[str, Any]:
     return value
 
 
+def _bound_file(
+    root: Path, raw_path: Any, raw_hash: Any, field: str
+) -> tuple[str, str]:
+    relative = _relative(raw_path, f"{field} path")
+    expected = _sha256(raw_hash, field)
+    artifact = _regular_repository_file(root, relative, field)
+    if sha256_file(artifact) != expected:
+        raise ArtifactValidationError(f"{field} hash does not match artifact")
+    return relative, expected
+
+
+def _dataset_bindings() -> dict[str, dict[str, str]]:
+    return {
+        name: {
+            "selection_metric": spec.selection_metric,
+            "task_type": spec.task_type,
+        }
+        for name, spec in DATASET_REGISTRY.items()
+    }
+
+
 @dataclass(frozen=True)
 class VerifiedBaseline:
     name: str
+    admission_status: str
     implementation_kind: str
     source_repository_url: str
     source_commit: str
@@ -100,20 +142,372 @@ class VerifiedBaseline:
     license_notice_path: str
     license_notice_sha256: str
     wrapper_path: str
-    reference_config_path: str
-    reference_config_sha256: str
     source_sha256: str
     protocols: tuple[str, ...]
-    parity_dataset: str
-    parity_metric: str
-    parity_expected: float
-    parity_observed: float
-    parity_tolerance: float
+    operator_parity_scope: str
     parity_evidence_path: str
+    parity_evidence_sha256: str
+    configuration_provenance: str
+    search_space_path: str | None
+    search_space_sha256: str | None
+    final_config_path: str | None
+    final_config_sha256: str | None
+    selection_evidence_path: str | None
+    selection_evidence_sha256: str | None
     parameter_count_verified: bool
     spmv_count_verified: bool
     independent_operator_oracle_verified: bool
     official_task_contract_verified: bool
+
+    @property
+    def reference_config_path(self) -> str:
+        """Compatibility name used by the worker; only final configs qualify."""
+
+        if self.final_config_path is None:
+            raise ArtifactValidationError(
+                f"baseline {self.name} has no finalized validation-only configuration"
+            )
+        return self.final_config_path
+
+    @property
+    def reference_config_sha256(self) -> str:
+        if self.final_config_sha256 is None:
+            raise ArtifactValidationError(
+                f"baseline {self.name} has no finalized validation-only configuration"
+            )
+        return self.final_config_sha256
+
+
+def _validate_operator_evidence(
+    *,
+    root: Path,
+    name: str,
+    kind: str,
+    source_commit: str,
+    wrapper_sha256: str,
+    oracle_sha256: str,
+    parity: Mapping[str, Any],
+) -> tuple[str, str, str]:
+    _exact_keys(
+        parity,
+        {"evidence_path", "evidence_sha256", "scope", "status"},
+        f"baseline {name} operator parity",
+    )
+    if parity["scope"] != "OPERATOR_COMPOSITION" or parity["status"] != "PASS":
+        raise ArtifactValidationError(
+            f"baseline {name} operator-composition parity did not pass"
+        )
+    path, digest = _bound_file(
+        root,
+        parity["evidence_path"],
+        parity["evidence_sha256"],
+        f"baseline {name} operator parity evidence",
+    )
+    evidence = _load_json(root / path)
+    _exact_keys(
+        evidence,
+        {
+            "baseline",
+            "checks",
+            "implementation_kind",
+            "independent_oracle_sha256",
+            "scope",
+            "schema_version",
+            "source_commit",
+            "status",
+            "test_command",
+            "test_path",
+            "test_result",
+            "test_sha256",
+            "wrapper_sha256",
+        },
+        f"baseline {name} operator parity evidence",
+    )
+    if (
+        evidence["schema_version"] != PARITY_EVIDENCE_SCHEMA
+        or evidence["baseline"] != name
+        or evidence["implementation_kind"] != kind
+        or evidence["source_commit"] != source_commit
+        or evidence["wrapper_sha256"] != wrapper_sha256
+        or evidence["independent_oracle_sha256"] != oracle_sha256
+        or evidence["scope"] != parity["scope"]
+        or evidence["status"] != parity["status"]
+        or not isinstance(evidence["test_command"], str)
+        or not evidence["test_command"]
+        or not isinstance(evidence["test_result"], str)
+        or not evidence["test_result"]
+    ):
+        raise ArtifactValidationError(
+            f"baseline {name} operator parity evidence is not implementation-bound"
+        )
+    _bound_file(
+        root,
+        evidence["test_path"],
+        evidence["test_sha256"],
+        f"baseline {name} operator parity test source",
+    )
+    checks = evidence["checks"]
+    if not isinstance(checks, dict):
+        raise ArtifactValidationError(f"baseline {name} operator checks must be an object")
+    mandatory = {
+        "independent_dense_operator_forward",
+        "independent_dense_operator_gradients",
+        "official_task_head_dispatch",
+        "parameter_count",
+        "spmv_count",
+    }
+    if kind == "UPSTREAM_CODE":
+        mandatory |= {
+            "upstream_composition_forward",
+            "upstream_composition_gradients",
+        }
+    if set(checks) != mandatory or any(
+        not isinstance(value, dict)
+        or set(value) != {"evidence", "status"}
+        or value.get("status") != "PASS"
+        or not isinstance(value.get("evidence"), str)
+        or not value["evidence"]
+        for key, value in checks.items()
+        if key in mandatory
+    ):
+        raise ArtifactValidationError(
+            f"baseline {name} lacks mandatory passing operator checks"
+        )
+    return str(parity["scope"]), path, digest
+
+
+def _validate_configuration(
+    *,
+    root: Path,
+    name: str,
+    status: str,
+    raw: Mapping[str, Any],
+    admission: Literal["screening", "confirmatory"],
+    expected_trial_budget: int | None,
+) -> tuple[str, str | None, str | None, str | None, str | None, str | None, str | None]:
+    _exact_keys(
+        raw,
+        {
+            "budget_binding",
+            "final_configuration",
+            "kind",
+            "search_space_path",
+            "search_space_sha256",
+            "selection",
+        },
+        f"baseline {name} configuration",
+    )
+    kind = raw["kind"]
+    if kind not in {LOCAL_SEARCH, UPSTREAM_CONFIG}:
+        raise ArtifactValidationError(f"baseline {name} configuration provenance is invalid")
+    selection = raw["selection"]
+    if not isinstance(selection, dict):
+        raise ArtifactValidationError(f"baseline {name} selection must be an object")
+    _exact_keys(
+        selection,
+        {"dataset_bindings", "partition", "test_used_for_selection"},
+        f"baseline {name} selection",
+    )
+    if selection != {
+        "dataset_bindings": _dataset_bindings(),
+        "partition": "validation",
+        "test_used_for_selection": False,
+    }:
+        raise ArtifactValidationError(
+            f"baseline {name} selection is not official-task and validation-only bound"
+        )
+
+    search_path: str | None = None
+    search_hash: str | None = None
+    if kind == LOCAL_SEARCH:
+        if raw["budget_binding"] != "CONFIRMATORY_PLAN_EQUAL_TRIAL_BUDGET":
+            raise ArtifactValidationError(
+                f"baseline {name} local search is not equal-budget plan-bound"
+            )
+        search_path, search_hash = _bound_file(
+            root,
+            raw["search_space_path"],
+            raw["search_space_sha256"],
+            f"baseline {name} search space",
+        )
+        search = _load_json(root / search_path)
+        _exact_keys(
+            search,
+            {"method", "parameters", "schema_version", "status"},
+            f"baseline {name} search space",
+        )
+        if (
+            search["schema_version"] != SEARCH_SPACE_SCHEMA
+            or search["method"] != name
+            or search["status"] != "FROZEN_PRESPECIFIED"
+            or not isinstance(search["parameters"], dict)
+            or not search["parameters"]
+        ):
+            raise ArtifactValidationError(f"baseline {name} search space is invalid")
+        tuned = 0
+        for parameter, specification in search["parameters"].items():
+            if not isinstance(parameter, str) or not parameter or not isinstance(
+                specification, dict
+            ):
+                raise ArtifactValidationError(
+                    f"baseline {name} search parameter is invalid"
+                )
+            _exact_keys(
+                specification,
+                {"role", "values"},
+                f"baseline {name} search parameter {parameter}",
+            )
+            values = specification["values"]
+            if (
+                specification["role"] not in {"FIXED", "TUNED"}
+                or not isinstance(values, list)
+                or not values
+                or any(
+                    isinstance(value, (list, dict))
+                    or (isinstance(value, float) and not math.isfinite(value))
+                    for value in values
+                )
+                or len({json.dumps(value, sort_keys=True) for value in values})
+                != len(values)
+                or (specification["role"] == "FIXED" and len(values) != 1)
+                or (specification["role"] == "TUNED" and len(values) < 2)
+            ):
+                raise ArtifactValidationError(
+                    f"baseline {name} search parameter values/role are invalid"
+                )
+            tuned += specification["role"] == "TUNED"
+        if tuned == 0:
+            raise ArtifactValidationError(
+                f"baseline {name} local search has no prespecified tuned parameter"
+            )
+    else:
+        if (
+            raw["budget_binding"] != "NOT_APPLICABLE_UPSTREAM_REFERENCE"
+            or raw["search_space_path"] is not None
+            or raw["search_space_sha256"] is not None
+        ):
+            raise ArtifactValidationError(
+                f"baseline {name} upstream configuration cannot claim a local search"
+            )
+
+    final = raw["final_configuration"]
+    final_path: str | None = None
+    final_hash: str | None = None
+    selection_path: str | None = None
+    selection_hash: str | None = None
+    if final is not None:
+        if not isinstance(final, dict):
+            raise ArtifactValidationError(
+                f"baseline {name} final configuration must be an object or null"
+            )
+        _exact_keys(
+            final,
+            {
+                "path",
+                "selection_evidence_path",
+                "selection_evidence_sha256",
+                "sha256",
+            },
+            f"baseline {name} final configuration",
+        )
+        final_path, final_hash = _bound_file(
+            root, final["path"], final["sha256"], f"baseline {name} final configuration"
+        )
+        frozen = _load_json(root / final_path)
+        _exact_keys(
+            frozen,
+            {"datasets", "method", "schema_version"},
+            f"baseline {name} final configuration",
+        )
+        if (
+            frozen["schema_version"] != "gbdn-heterophily-method-config-v1"
+            or frozen["method"] != name
+            or not isinstance(frozen["datasets"], dict)
+            or set(frozen["datasets"]) != set(DATASET_REGISTRY)
+            or any(
+                not isinstance(value, dict)
+                or set(value) != {"model", "optimizer", "training"}
+                for value in frozen["datasets"].values()
+            )
+        ):
+            raise ArtifactValidationError(
+                f"baseline {name} final configuration does not freeze all official tasks"
+            )
+        selection_path, selection_hash = _bound_file(
+            root,
+            final["selection_evidence_path"],
+            final["selection_evidence_sha256"],
+            f"baseline {name} selection evidence",
+        )
+        evidence = _load_json(root / selection_path)
+        _exact_keys(
+            evidence,
+            {
+                "baseline",
+                "configuration_kind",
+                "final_config_sha256",
+                "schema_version",
+                "search_space_sha256",
+                "selection_partition",
+                "status",
+                "test_used_for_selection",
+                "trial_budget_per_dataset",
+            },
+            f"baseline {name} selection evidence",
+        )
+        if kind == LOCAL_SEARCH:
+            if expected_trial_budget is None:
+                if admission == "confirmatory":
+                    raise ArtifactValidationError(
+                        "confirmatory baseline validation requires the plan trial budget"
+                    )
+                budget_ok = type(evidence["trial_budget_per_dataset"]) is int and evidence[
+                    "trial_budget_per_dataset"
+                ] > 0
+            else:
+                budget_ok = evidence["trial_budget_per_dataset"] == expected_trial_budget
+            expected_search_hash: str | None = search_hash
+        else:
+            budget_ok = evidence["trial_budget_per_dataset"] is None
+            expected_search_hash = None
+        if (
+            evidence["schema_version"] != SELECTION_EVIDENCE_SCHEMA
+            or evidence["baseline"] != name
+            or evidence["configuration_kind"] != kind
+            or evidence["final_config_sha256"] != final_hash
+            or evidence["search_space_sha256"] != expected_search_hash
+            or evidence["selection_partition"] != "validation"
+            or evidence["test_used_for_selection"] is not False
+            or evidence["status"] != "PASS"
+            or not budget_ok
+        ):
+            raise ArtifactValidationError(
+                f"baseline {name} final configuration lacks valid selection provenance"
+            )
+
+    if status == "IMPLEMENTATION_VERIFIED" and final is not None:
+        raise ArtifactValidationError(
+            f"baseline {name} status understates its populated final configuration"
+        )
+    if status == "CONFIRMATORY_READY" and final is None:
+        raise ArtifactValidationError(
+            f"baseline {name} is missing a finalized validation-only configuration"
+        )
+    if admission == "confirmatory" and (
+        status != "CONFIRMATORY_READY" or final is None
+    ):
+        raise ArtifactValidationError(
+            f"baseline {name} is not confirmatory-ready with a finalized configuration"
+        )
+    return (
+        str(kind),
+        search_path,
+        search_hash,
+        final_path,
+        final_hash,
+        selection_path,
+        selection_hash,
+    )
 
 
 def validate_baseline_registry(
@@ -121,9 +515,13 @@ def validate_baseline_registry(
     *,
     repository_root: str | Path,
     required_methods: Sequence[str],
+    admission: Literal["screening", "confirmatory"] = "confirmatory",
+    expected_trial_budget: int | None = None,
 ) -> tuple[VerifiedBaseline, ...]:
-    """Admit only complete, hash-bound, independently checked baseline records."""
+    """Validate implementation evidence and, when requested, final admission."""
 
+    if admission not in {"screening", "confirmatory"}:
+        raise ArtifactValidationError("baseline admission stage is invalid")
     root = Path(repository_root).resolve(strict=True)
     data = _load_json(path)
     _exact_keys(data, {"baselines", "schema_version"}, "baseline registry")
@@ -136,10 +534,11 @@ def validate_baseline_registry(
         _exact_keys(
             raw,
             {
+                "configuration",
                 "implementation",
                 "license",
                 "name",
-                "parity",
+                "operator_parity",
                 "protocols",
                 "status",
                 "verification",
@@ -150,13 +549,15 @@ def validate_baseline_registry(
         name = _label(raw["name"], "baseline name")
         if name in records:
             raise ArtifactValidationError(f"duplicate baseline name: {name}")
-        if raw["status"] != "VERIFIED":
-            raise ArtifactValidationError(f"baseline {name} is not VERIFIED")
+        status = raw["status"]
+        if status not in {"IMPLEMENTATION_VERIFIED", "CONFIRMATORY_READY"}:
+            raise ArtifactValidationError(f"baseline {name} status is invalid")
         implementation = raw["implementation"]
         license_record = raw["license"]
         wrapper = raw["wrapper"]
-        parity = raw["parity"]
+        parity = raw["operator_parity"]
         verification = raw["verification"]
+        configuration = raw["configuration"]
         for value, keys, label in (
             (
                 implementation,
@@ -175,30 +576,7 @@ def validate_baseline_registry(
                 "implementation",
             ),
             (license_record, {"notice_path", "notice_sha256", "spdx"}, "license"),
-            (
-                wrapper,
-                {
-                    "path",
-                    "reference_config_path",
-                    "reference_config_sha256",
-                    "source_sha256",
-                },
-                "wrapper",
-            ),
-            (
-                parity,
-                {
-                    "dataset",
-                    "evidence_path",
-                    "evidence_sha256",
-                    "expected",
-                    "metric",
-                    "observed",
-                    "status",
-                    "tolerance",
-                },
-                "parity",
-            ),
+            (wrapper, {"path", "source_sha256"}, "wrapper"),
             (
                 verification,
                 {
@@ -213,12 +591,12 @@ def validate_baseline_registry(
             if not isinstance(value, dict):
                 raise ArtifactValidationError(f"baseline {name} {label} must be an object")
             _exact_keys(value, keys, f"baseline {name} {label}")
+        if not isinstance(parity, dict) or not isinstance(configuration, dict):
+            raise ArtifactValidationError(f"baseline {name} parity/configuration must be objects")
         kind = implementation["kind"]
         if kind not in {"UPSTREAM_CODE", "CLEAN_ROOM_EQUATIONS"}:
             raise ArtifactValidationError(f"baseline {name} implementation kind is invalid")
-        source_url = _label(
-            implementation["source_repository_url"], "source_repository_url"
-        )
+        source_url = _label(implementation["source_repository_url"], "source_repository_url")
         paper_url = _label(implementation["paper_url"], "paper_url")
         if not source_url.startswith("https://") or not paper_url.startswith("https://"):
             raise ArtifactValidationError(f"baseline {name} source and paper must use HTTPS")
@@ -227,9 +605,7 @@ def validate_baseline_registry(
             raise ArtifactValidationError(
                 f"baseline {name} needs a full 40-hex implementation source commit"
             )
-        equation_locator = _label(
-            implementation["equation_locator"], "equation_locator"
-        )
+        equation_locator = _label(implementation["equation_locator"], "equation_locator")
         upstream_used = implementation["upstream_code_used"]
         if type(upstream_used) is not bool:
             raise ArtifactValidationError(f"baseline {name} upstream_code_used must be boolean")
@@ -240,39 +616,27 @@ def validate_baseline_registry(
         spdx = _label(license_record["spdx"], "license SPDX")
         if _SPDX.fullmatch(spdx) is None or spdx == "NOASSERTION":
             raise ArtifactValidationError(f"baseline {name} license is unresolved")
-        evidence_specs = (
-            (license_record["notice_path"], license_record["notice_sha256"], "license notice"),
-            (wrapper["path"], wrapper["source_sha256"], "wrapper source"),
-            (
-                wrapper["reference_config_path"],
-                wrapper["reference_config_sha256"],
-                "reference config",
-            ),
-            (
-                implementation["provenance_path"],
-                implementation["provenance_sha256"],
-                "implementation provenance",
-            ),
-            (
-                implementation["independent_oracle_path"],
-                implementation["independent_oracle_sha256"],
-                "independent oracle",
-            ),
-            (parity["evidence_path"], parity["evidence_sha256"], "parity evidence"),
+        license_path, license_hash = _bound_file(
+            root,
+            license_record["notice_path"],
+            license_record["notice_sha256"],
+            f"baseline {name} license notice",
         )
-        paths: list[str] = []
-        hashes: list[str] = []
-        for raw_path, raw_hash, field in evidence_specs:
-            relative = _relative(raw_path, f"baseline {name} {field} path")
-            if not isinstance(raw_hash, str) or _SHA256.fullmatch(raw_hash) is None:
-                raise ArtifactValidationError(f"baseline {name} {field} hash is invalid")
-            artifact = _regular_repository_file(root, relative, f"baseline {name} {field}")
-            if sha256_file(artifact) != raw_hash:
-                raise ArtifactValidationError(
-                    f"baseline {name} {field} hash does not match artifact"
-                )
-            paths.append(relative)
-            hashes.append(raw_hash)
+        wrapper_path, wrapper_hash = _bound_file(
+            root, wrapper["path"], wrapper["source_sha256"], f"baseline {name} wrapper source"
+        )
+        provenance_path, provenance_hash = _bound_file(
+            root,
+            implementation["provenance_path"],
+            implementation["provenance_sha256"],
+            f"baseline {name} implementation provenance",
+        )
+        oracle_path, oracle_hash = _bound_file(
+            root,
+            implementation["independent_oracle_path"],
+            implementation["independent_oracle_sha256"],
+            f"baseline {name} independent oracle",
+        )
         protocols = raw["protocols"]
         if (
             not isinstance(protocols, list)
@@ -283,66 +647,67 @@ def validate_baseline_registry(
             raise ArtifactValidationError(f"baseline {name} protocols must be unique and nonempty")
         if "heterophily" not in protocols:
             raise ArtifactValidationError(f"baseline {name} lacks heterophily protocol verification")
-        if parity["status"] != "PASS":
-            raise ArtifactValidationError(f"baseline {name} parity did not pass")
-        numeric = (parity["expected"], parity["observed"], parity["tolerance"])
-        if any(type(value) not in (int, float) or not math.isfinite(float(value)) for value in numeric):
-            raise ArtifactValidationError(f"baseline {name} parity numbers must be finite")
-        if float(parity["tolerance"]) < 0 or abs(float(parity["observed"]) - float(parity["expected"])) > float(parity["tolerance"]):
-            raise ArtifactValidationError(f"baseline {name} parity exceeds tolerance")
         if verification != {
             "independent_operator_oracle": True,
             "official_task_contract": True,
             "parameter_count": True,
             "spmv_count": True,
         }:
-            raise ArtifactValidationError(f"baseline {name} resource counts are unverified")
-        parity_evidence = _load_json(root / paths[5])
-        expected_evidence = {
-            "baseline": name,
-            "dataset": parity["dataset"],
-            "expected": parity["expected"],
-            "implementation_kind": kind,
-            "independent_oracle_sha256": hashes[4],
-            "metric": parity["metric"],
-            "observed": parity["observed"],
-            "reference_config_sha256": hashes[2],
-            "schema_version": PARITY_EVIDENCE_SCHEMA,
-            "source_commit": commit,
-            "status": parity["status"],
-            "tolerance": parity["tolerance"],
-            "wrapper_sha256": hashes[1],
-        }
-        if parity_evidence != expected_evidence:
-            raise ArtifactValidationError(
-                f"baseline {name} parity evidence is not registry- and implementation-bound"
-            )
+            raise ArtifactValidationError(f"baseline {name} resource/task checks are unverified")
+        parity_scope, parity_path, parity_hash = _validate_operator_evidence(
+            root=root,
+            name=name,
+            kind=kind,
+            source_commit=commit,
+            wrapper_sha256=wrapper_hash,
+            oracle_sha256=oracle_hash,
+            parity=parity,
+        )
+        (
+            configuration_kind,
+            search_path,
+            search_hash,
+            final_path,
+            final_hash,
+            selection_path,
+            selection_hash,
+        ) = _validate_configuration(
+            root=root,
+            name=name,
+            status=status,
+            raw=configuration,
+            admission=admission,
+            expected_trial_budget=expected_trial_budget,
+        )
         records[name] = VerifiedBaseline(
             name=name,
-            implementation_kind=kind,
+            admission_status=status,
+            implementation_kind=str(kind),
             source_repository_url=source_url,
             source_commit=commit,
             paper_url=paper_url,
             equation_locator=equation_locator,
             upstream_code_used=upstream_used,
-            provenance_path=paths[3],
-            provenance_sha256=hashes[3],
-            independent_oracle_path=paths[4],
-            independent_oracle_sha256=hashes[4],
+            provenance_path=provenance_path,
+            provenance_sha256=provenance_hash,
+            independent_oracle_path=oracle_path,
+            independent_oracle_sha256=oracle_hash,
             spdx_license=spdx,
-            license_notice_path=paths[0],
-            license_notice_sha256=hashes[0],
-            wrapper_path=paths[1],
-            reference_config_path=paths[2],
-            reference_config_sha256=hashes[2],
-            source_sha256=hashes[1],
+            license_notice_path=license_path,
+            license_notice_sha256=license_hash,
+            wrapper_path=wrapper_path,
+            source_sha256=wrapper_hash,
             protocols=tuple(protocols),
-            parity_dataset=_label(parity["dataset"], "parity dataset"),
-            parity_metric=_label(parity["metric"], "parity metric"),
-            parity_expected=float(parity["expected"]),
-            parity_observed=float(parity["observed"]),
-            parity_tolerance=float(parity["tolerance"]),
-            parity_evidence_path=paths[5],
+            operator_parity_scope=parity_scope,
+            parity_evidence_path=parity_path,
+            parity_evidence_sha256=parity_hash,
+            configuration_provenance=configuration_kind,
+            search_space_path=search_path,
+            search_space_sha256=search_hash,
+            final_config_path=final_path,
+            final_config_sha256=final_hash,
+            selection_evidence_path=selection_path,
+            selection_evidence_sha256=selection_hash,
             parameter_count_verified=True,
             spmv_count_verified=True,
             independent_operator_oracle_verified=True,
@@ -351,7 +716,9 @@ def validate_baseline_registry(
     missing = sorted(set(required_methods) - set(records))
     extra = sorted(set(records) - set(required_methods))
     if missing or extra:
-        raise ArtifactValidationError(f"baseline registry scope mismatch; missing={missing}, extra={extra}")
+        raise ArtifactValidationError(
+            f"baseline registry scope mismatch; missing={missing}, extra={extra}"
+        )
     return tuple(records[name] for name in required_methods)
 
 
@@ -412,11 +779,14 @@ def validate_confirmatory_plan(path: str | Path) -> ConfirmatoryPlan:
     thresholds = data["practical_tie_thresholds"]
     if not isinstance(thresholds, dict) or set(thresholds) != set(DATASET_REGISTRY):
         raise ArtifactValidationError("practical tie thresholds must cover all official datasets exactly")
-    if any(type(value) not in (int, float) or not math.isfinite(float(value)) or not 0 <= float(value) < 1 for value in thresholds.values()):
+    if any(
+        type(value) not in (int, float)
+        or not math.isfinite(float(value))
+        or not 0 <= float(value) < 1
+        for value in thresholds.values()
+    ):
         raise ArtifactValidationError("practical tie thresholds must be finite in [0,1)")
-    registry_hash = data["baseline_registry_sha256"]
-    if not isinstance(registry_hash, str) or _SHA256.fullmatch(registry_hash) is None:
-        raise ArtifactValidationError("baseline registry SHA-256 is invalid")
+    registry_hash = _sha256(data["baseline_registry_sha256"], "baseline registry")
     return ConfirmatoryPlan(tuple(methods), tuple(primary), budget, thresholds, registry_hash)
 
 
@@ -433,15 +803,21 @@ def validate_plan_registry_binding(
         registry_path,
         repository_root=repository_root,
         required_methods=plan.primary_baselines,
+        admission="confirmatory",
+        expected_trial_budget=plan.trial_budget_per_method_dataset,
     )
     return plan, baselines
 
 
 __all__ = [
     "ConfirmatoryPlan",
+    "LOCAL_SEARCH",
     "PARITY_EVIDENCE_SCHEMA",
     "PLAN_SCHEMA",
     "REGISTRY_SCHEMA",
+    "SEARCH_SPACE_SCHEMA",
+    "SELECTION_EVIDENCE_SCHEMA",
+    "UPSTREAM_CONFIG",
     "VerifiedBaseline",
     "validate_baseline_registry",
     "validate_confirmatory_plan",

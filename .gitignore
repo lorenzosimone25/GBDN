@@ -132,6 +132,7 @@
 # explicitly admits them.
 !/results_submission/
 /results_submission/*
+!/results_submission/baseline_registry.json
 !/results_submission/reports/
 /results_submission/reports/*
 !/results_submission/reports/*.json

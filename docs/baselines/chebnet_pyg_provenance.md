@@ -1,6 +1,6 @@
 # ChebNet PyG adapter provenance
 
-Status: **PARITY PREFLIGHT PASSED; NOT ADMITTED** to confirmatory scope.
+Status: **IMPLEMENTATION VERIFIED; NOT CONFIRMATORY READY**.
 
 ## Implementation identity
 
@@ -55,20 +55,28 @@ This adapter is a **ChebNet** comparator. It is not ChebNetII and must never be
 reported under that name. No dataset benchmark, hyperparameter tuning, or
 paper-result claim was produced by this preflight.
 
-## Remaining admission blockers
+## Configuration provenance and remaining admission blocker
 
-The adapter remains outside `results_submission/baseline_registry.json`.
-Although source, license, operator parity, gradients, task-head dispatch, and
-resource formulas are now checkable, PyG does not provide an upstream
-heterophily ChebNet model or an official configuration for the five Platonov
-datasets. Inventing a local configuration and calling it an upstream reference
-would make the registry-v2 `reference_config` attestation misleading.
+PyG does not publish a complete heterophily ChebNet model or configurations
+for the five Platonov datasets. The registry therefore does not make that
+claim. Registry v3 records the architecture and future hyperparameters as
+`LOCAL_EQUAL_BUDGET_VALIDATION_SEARCH`, independently of the verified
+upstream-layer/operator evidence.
 
-Before admission, the experiment plan must freeze a clearly labeled
-validation-only, equal-budget local configuration (not an upstream
-configuration), and an independent review must accept how that local
-configuration is represented by the registry-v2 record. Only then may a
-hash-bound parity evidence object and registry record be created.
+The prespecified candidate space is frozen at
+`configs/submission/search_spaces/ChebNet.json`. It is explicitly marked not
+executed. Its choices are local experimental design choices, not published
+ChebNet or PyG recommendations. The same confirmatory-plan trial count must be
+used for every method--dataset pair, and the official task-specific validation
+metric is the only permitted selection signal.
+
+Consequently, the candidate record in
+`results_submission/baseline_registry.json` may be validated only in
+implementation-screening mode. Confirmatory validation must fail until the
+equal-budget search has actually run, a final five-dataset method
+configuration has been frozen, validation-only selection evidence has been
+recorded, and an independent reviewer has accepted that evidence. No such
+final configuration or tuning result exists yet.
 
 No upstream ChebNetII, BernNet, GPR-GNN, CayleyNet, or WaveGC source code was
 copied into this adapter.
