@@ -125,12 +125,14 @@ def test_registry_freezes_exact_five_dataset_task_dispatches():
         resolve_dataset("roman empire maybe")
 
 
-def test_registry_unresolved_checksums_and_terms_are_explicit_hard_blockers():
+def test_registry_pins_byte_identity_but_terms_remain_explicit_hard_blockers():
     for spec in DATASET_REGISTRY.values():
-        assert spec.npz_sha256 == UNRESOLVED
+        assert len(spec.npz_sha256) == 64
+        assert len(spec.git_blob_sha1) == 40
+        assert spec.npz_size_bytes > 0
         assert spec.redistribution_terms == UNRESOLVED
         assert spec.ready_for_acquisition is False
-        assert len(spec.blockers) == 2
+        assert spec.blockers == ("dataset-specific redistribution terms are unresolved",)
 
 
 @pytest.mark.parametrize("dataset", ("Minesweeper", "Tolokers", "Questions"))

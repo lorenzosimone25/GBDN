@@ -29,6 +29,7 @@ TaskType = Literal["multiclass", "binary"]
 LossId = Literal["cross_entropy", "binary_cross_entropy_with_logits"]
 MetricId = Literal["accuracy", "binary_roc_auc"]
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_GIT_BLOB = re.compile(r"[0-9a-f]{40}")
 _ARRAY_NAMES: Final[frozenset[str]] = frozenset(
     {
         "node_features",
@@ -75,6 +76,8 @@ class DatasetTaskSpec:
     source_commit: str = OFFICIAL_SOURCE_COMMIT
     official_splits: tuple[int, ...] = OFFICIAL_SPLITS
     training_seeds: tuple[int, ...] = TRAINING_SEEDS
+    npz_size_bytes: int = 0
+    git_blob_sha1: str = UNRESOLVED
     npz_sha256: str = UNRESOLVED
     redistribution_terms: str = UNRESOLVED
 
@@ -98,6 +101,11 @@ class DatasetTaskSpec:
             raise ProtocolContractError("training seeds must be the frozen set [0,1,2]")
         if self.source_url != OFFICIAL_SOURCE_URL or self.source_commit != OFFICIAL_SOURCE_COMMIT:
             raise ProtocolContractError("dataset source URL/commit differs from frozen source")
+        if self.npz_size_bytes <= 0:
+            raise ProtocolContractError("npz_size_bytes must be positive")
+        if not isinstance(self.git_blob_sha1, str) or _GIT_BLOB.fullmatch(self.git_blob_sha1) is None:
+            raise ProtocolContractError("git_blob_sha1 must be the pinned 40-hex Git blob ID")
+        _require_sha256(self.npz_sha256, "npz_sha256")
         if self.task_type == "multiclass":
             expected = (self.class_count, "cross_entropy", "accuracy")
         elif self.task_type == "binary":
@@ -112,13 +120,11 @@ class DatasetTaskSpec:
 
     @property
     def ready_for_acquisition(self) -> bool:
-        return self.npz_sha256 != UNRESOLVED and self.redistribution_terms != UNRESOLVED
+        return self.redistribution_terms != UNRESOLVED
 
     @property
     def blockers(self) -> tuple[str, ...]:
         blockers: list[str] = []
-        if self.npz_sha256 == UNRESOLVED:
-            blockers.append("official NPZ SHA-256 is unresolved")
         if self.redistribution_terms == UNRESOLVED:
             blockers.append("dataset-specific redistribution terms are unresolved")
         return tuple(blockers)
@@ -133,6 +139,9 @@ def _spec(
     features: int,
     classes: int,
     task: TaskType,
+    npz_size_bytes: int,
+    git_blob_sha1: str,
+    npz_sha256: str,
 ) -> DatasetTaskSpec:
     multiclass = task == "multiclass"
     return DatasetTaskSpec(
@@ -148,15 +157,18 @@ def _spec(
         loss_id="cross_entropy" if multiclass else "binary_cross_entropy_with_logits",
         selection_metric="accuracy" if multiclass else "binary_roc_auc",
         test_metric="accuracy" if multiclass else "binary_roc_auc",
+        npz_size_bytes=npz_size_bytes,
+        git_blob_sha1=git_blob_sha1,
+        npz_sha256=npz_sha256,
     )
 
 
 _SPECS: Final[tuple[DatasetTaskSpec, ...]] = (
-    _spec("Roman-empire", ("roman-empire", "roman_empire"), "data/roman_empire.npz", 22662, 32927, 300, 18, "multiclass"),
-    _spec("Amazon-ratings", ("amazon-ratings", "amazon_ratings"), "data/amazon_ratings.npz", 24492, 93050, 300, 5, "multiclass"),
-    _spec("Minesweeper", ("minesweeper",), "data/minesweeper.npz", 10000, 39402, 7, 2, "binary"),
-    _spec("Tolokers", ("tolokers",), "data/tolokers.npz", 11758, 519000, 10, 2, "binary"),
-    _spec("Questions", ("questions",), "data/questions.npz", 48921, 153540, 301, 2, "binary"),
+    _spec("Roman-empire", ("roman-empire", "roman_empire"), "data/roman_empire.npz", 22662, 32927, 300, 18, "multiclass", 20401489, "1f9bae5e95b28e529015269e98acb237b65d8d3b", "a58ba741d123bf892fe5c872138d07463d75a2e9012360b8dd78ac2d4766d428"),
+    _spec("Amazon-ratings", ("amazon-ratings", "amazon_ratings"), "data/amazon_ratings.npz", 24492, 93050, 300, 5, "multiclass", 27744018, "29647a8b0ff0ef856d73d683a8c3595bd5efbd38", "4c3a3e3b9d9f6cba0fede4625a00aad8c5721c1a36ed771367f446763241c7dd"),
+    _spec("Minesweeper", ("minesweeper",), "data/minesweeper.npz", 10000, 39402, 7, 2, "binary", 135045, "cc2387032c65b92a5c520c473db1527cbb329d32", "e664c8dacf1e8ac466c2c09ed4b237bd2c5541f47a6eae9c6092cb87f16412b3"),
+    _spec("Tolokers", ("tolokers",), "data/tolokers.npz", 11758, 519000, 10, 2, "binary", 1329769, "b8375a91a8f3c9e32c84fed7c151bbaf6ea6f0c7", "dacf3ac94cec53d03cd2adb5255c08b33dee1656c33ca8164a464bd9450a1667"),
+    _spec("Questions", ("questions",), "data/questions.npz", 48921, 153540, 301, 2, "binary", 47369919, "4c7cb65057dbc9771af00fdfdee64a41b3875079", "757ebd772bab1475c4dd951ca9e364400c6db161656cff9d21780ee874cf3074"),
 )
 
 DATASET_REGISTRY: Final[Mapping[str, DatasetTaskSpec]] = MappingProxyType(
