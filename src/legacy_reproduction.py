@@ -66,6 +66,11 @@ LRGB_MODELS = ("ChebNet_K10", "GBDN+")
 HETERO_CONFIG = {"hidden_dim": 64, "lr": 0.01, "epochs": 1000, "seed": 25, "split_id": 0}
 LRGB_CONFIG = {"batch_size": 128, "hidden_dim": 256, "lr": 0.001, "epochs": 100, "seed": 25}
 
+# The preserved ``LRGB_MODELS`` constant above describes the original two-run
+# legacy artifact set.  The H100 extension is implemented in
+# ``extended_legacy_reproduction`` and re-exported at the end of this module,
+# keeping old callers and frozen artifacts intact.
+
 
 def configure_faithful_math() -> None:
     """Keep the legacy computation in strict FP32 on Ampere/Hopper GPUs."""
@@ -392,11 +397,11 @@ class RelaxedGBDN(nn.Module):
             Linear(hidden_channels, out_channels),
         )
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, edge_weight=None):
         x_lift = self.lifting(x)
         half = x_lift.shape[1] // 2
         h = torch.complex(x_lift[:, :half], x_lift[:, half:])
-        basis = self.cheb_computer(h, edge_index)
+        basis = self.cheb_computer(h, edge_index, edge_weight=edge_weight)
         h_accum = sum((layer(h, basis) for layer in self.layers), start=torch.zeros_like(h))
         final = (1 - self.skip_weight) * h + self.skip_weight * h_accum
         return self.readout(torch.cat([final.real, final.imag], dim=-1)), []
@@ -1328,3 +1333,49 @@ Each cell is `reproduced (original; delta)`.
     temporary.write_text(report, encoding="utf-8")
     temporary.replace(output_path)
     return output_path
+
+
+# Local import avoids changing the legacy model definitions while exposing the
+# extended public workflow from the module requested by the reproduction CLI.
+DEFAULT_SPLITS = (0, 1, 2)
+DEFAULT_SEED = 25
+PEPTIDE_DATASETS = ("Peptides-func", "Peptides-struct")
+EXTENDED_LRGB_MODELS = ("GCN", "GINE", "GAT", "ChebNet_K10", "GBDN+")
+
+
+def _extended(name: str):
+    import extended_legacy_reproduction as module
+
+    return getattr(module, name)
+
+
+def run_heterophily_split(*args, **kwargs):
+    return _extended("run_heterophily_split")(*args, **kwargs)
+
+
+def run_peptide(*args, **kwargs):
+    return _extended("run_peptide")(*args, **kwargs)
+
+
+def aggregate_heterophily(*args, **kwargs):
+    return _extended("aggregate_heterophily")(*args, **kwargs)
+
+
+def aggregate_peptides(*args, **kwargs):
+    return _extended("aggregate_peptides")(*args, **kwargs)
+
+
+def verify_extended_results(*args, **kwargs):
+    return _extended("verify_extended_results")(*args, **kwargs)
+
+
+def generate_extended_report(*args, **kwargs):
+    return _extended("generate_extended_report")(*args, **kwargs)
+
+
+def expected_counts(*args, **kwargs):
+    return _extended("expected_counts")(*args, **kwargs)
+
+
+def prepare_extended_datasets(*args, **kwargs):
+    return _extended("prepare_extended_datasets")(*args, **kwargs)

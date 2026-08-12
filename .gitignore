@@ -10,6 +10,7 @@
 !/src/
 /src/*
 !/src/legacy_reproduction.py
+!/src/extended_legacy_reproduction.py
 
 !/scripts/
 /scripts/*
@@ -25,6 +26,7 @@
 /tests/*
 !/tests/test_legacy_reproduction.py
 !/tests/test_reproduction_pipeline.py
+!/tests/test_extended_legacy_reproduction.py
 
 !/results/
 /results/*
@@ -46,3 +48,14 @@
 !/results_LRGB_repro/
 /results_LRGB_repro/*
 !/results_LRGB_repro/*.json
+
+# New H100 outputs are local artifacts and must not be committed.
+/results_multisplit/**
+/results_LRGB_extended/**
+/h100_multisplit_report.md
+/data/**
+/reproduction_state/**
+/reproduction_logs/**
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
