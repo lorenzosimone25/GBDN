@@ -77,3 +77,33 @@ This does not prove that no permission can be obtained; it means no license was
 published at the audited first-party roots. The code may not be vendored or
 marked `VERIFIED` without author clarification or a separately licensed
 upstream implementation, plus wrapper parity and resource accounting.
+
+## Baseline admission decision
+
+The canonical registry is now frozen at `gbdn-baseline-registry-v2`. An
+implementation may enter the confirmatory primary scope through exactly one
+of two declared routes:
+
+1. `UPSTREAM_CODE`: the executed implementation is from a pinned source
+   repository with a resolved SPDX license and preserved notice; or
+2. `CLEAN_ROOM_EQUATIONS`: no upstream implementation code is used, the local
+   implementation is derived from a pinpointed primary-paper equation, and an
+   independent operator oracle and parity record verify it.
+
+Both routes require a full source commit, paper URL and equation locator,
+official-task verification, parameter and sparse-operator accounting, and
+SHA-256 bindings for the license notice, implementation provenance, wrapper,
+reference configuration, independent oracle, and typed parity evidence. The
+parity evidence itself must agree exactly with the registry's method,
+implementation kind, source commit, wrapper/oracle/configuration hashes,
+dataset, metric, values, tolerance, and pass status.
+
+PyTorch Geometric 2.8.0 is pinned in `requirements.lock` and provides a
+licensed `ChebConv` implementation under MIT. It is therefore a viable route
+for a **ChebNet** comparator after adapter, task, resource, and parity
+verification. It must not be labeled ChebNetII. PyTorch Geometric 2.8.0 does
+not supply the audited ChebNetII, BernNet, GPR-GNN, CayleyNet, or WaveGC model
+implementations, so their prior license blockers are unchanged. A clean-room
+route is permitted by the schema but does not become `VERIFIED` merely because
+its files exist; the independent oracle and typed parity artifact remain
+mandatory.

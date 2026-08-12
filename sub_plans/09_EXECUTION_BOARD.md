@@ -60,7 +60,9 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | DONE |
 | REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | DONE |
 | ENG-GATEA-TOLERANCE-3 | Remove caller-controlled exactness tolerance escape and add frozen regressions | Engineer | REV-GATEA-REVIEW-3 | Fixed public validation boundary, tests, and clean evidence | DONE |
-| REV-GATEA-REVIEW-4 | Independently adjudicate the fixed public validation boundary and complete Gate A | Reviewer | ENG-GATEA-TOLERANCE-3 | Clean-commit row-by-row and binary Gate-A decision | BLOCKED |
+| REV-GATEA-REVIEW-4 | Independently adjudicate the fixed public validation boundary and complete Gate A | Reviewer | ENG-GATEA-TOLERANCE-3 | Clean-commit row-by-row and binary Gate-A decision | REJECTED |
+| ENG-GATEA-BOUNDARY-REPAIR-2 | Close validated-tensor storage aliases and exact pole-cancellation tolerance escapes | Engineer | REV-GATEA-REVIEW-4 | Fail-closed public boundaries, frozen counterexample regressions, clean Gate evidence | IN_PROGRESS |
+| REV-GATEA-REVIEW-5 | Independently adjudicate both fourth-review boundary repairs | Reviewer | ENG-GATEA-BOUNDARY-REPAIR-2 | Clean-commit package-boundary review and binary Gate-A decision | BLOCKED |
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
 | OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | DONE |
 | OPS-GATE-ACCEPTANCE-1 | Implement fail-closed validation of future independent Gate-A acceptance | Engineer | ENG-GATEA-TOLERANCE-3 | Source/report/review-bound token schema and adversarial tests; no token issued | DONE |
@@ -85,6 +87,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-006-EVALUATOR-1 | Implement isolated post-freeze task-specific prediction evaluator | Engineer | EXP-006-CONTRACT-1, EXP-011-STATISTICS-CONTRACT-1 | Synthetic-only identity/index/head/archive/metric verification | DONE |
 | EXP-011-STATISTICS-CONTRACT-1 | Implement task-specific metric recomputation and split-first statistical contract | Engineer | EXP-006-CONTRACT-1 | Synthetic-only metric, aggregation, paired-test, and multiplicity tests | DONE |
 | EXP-007-008-ADMISSION-CONTRACT-1 | Implement baseline-admission and equal-budget confirmatory-plan schemas | Engineer | EXP-006-PREFLIGHT | Synthetic-only provenance/parity/resource/budget/grid validators; no baseline admitted | DONE |
+| EXP-007-008-ADMISSION-CONTRACT-2 | Distinguish licensed upstream code from clean-room equations and hash-bind every admission artifact | Orchestrator | EXP-006-007-IDENTITY-AUDIT-1 | Registry v2, typed parity binding, run-plan integration, adversarial tests | DONE |
 | EXP-006-007-IDENTITY-AUDIT-1 | Pin official NPZ byte identity and audit comparator root licenses | Orchestrator | EXP-006-PREFLIGHT | Five size/blob/SHA records; four pinned spectral baselines remain BLOCKED | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |

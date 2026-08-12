@@ -93,7 +93,7 @@ The acquisition/verification step must replace every blocker below without editi
 
 The official Platonov standard-baseline source is pinned to `a431395582e929d88271309716bea4fe24ce6318` under MIT. The officially linked specialized-model evaluation source is pinned to `10d0637688570824f6c54960b86e061b883af0f4`, but its root license is unresolved. LINKX, CayleyNet, ChebNetII, BernNet, UniFilter, and WaveGC have no frozen first-party URL/version/license record in the local submission infrastructure.
 
-Before any baseline becomes a primary comparator, `results_submission/baseline_registry.json` must contain a first-party URL, full commit/tag, SPDX license and notice, upstream config, local patch hash, protocol adapter description, parameter/operator counts, tuning budget, and parity evidence. Missing any field is a hard blocker.
+Before any baseline becomes a primary comparator, `results_submission/baseline_registry.json` must satisfy `gbdn-baseline-registry-v2`. The record must explicitly declare either licensed pinned upstream code or a clean-room primary-equation implementation, and must bind the source/paper/equation locator, SPDX notice, implementation provenance, wrapper, reference configuration, independent operator oracle, official-task contract, parameter/operator counts, and typed parity evidence by commit and SHA-256. Missing or inconsistent evidence is a hard blocker.
 
 ## Fail-loud conditions
 
