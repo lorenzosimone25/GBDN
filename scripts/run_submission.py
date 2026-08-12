@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Safe command-line entry point for the Stage-1 CPU submission smoke."""
+"""Fail-closed submission entry point for diagnostics and confirmatory runs."""
 
 from __future__ import annotations
 
@@ -10,26 +10,14 @@ import sys
 from pathlib import Path
 
 
-# Stage-1 is CPU-only. This must precede importing gbdn, whose package imports
-# PyTorch. The later H100 interface will isolate one selected GPU separately.
+# Device isolation is established in ``main`` before importing gbdn/Torch.
 if "torch" in sys.modules:
-    raise RuntimeError("PyTorch was imported before CPU device isolation")
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    raise RuntimeError("PyTorch was imported before device isolation")
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
-from gbdn.artifacts import RunMode  # noqa: E402
-from gbdn.submission import (  # noqa: E402
-    build_smoke_plan,
-    execute_smoke_job,
-    require_canonical_output_root,
-    run_smoke_subprocess,
-)
-from gbdn.submission_verify import verify_submission_readiness  # noqa: E402
-
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repository-root", type=Path, default=ROOT)
@@ -41,8 +29,8 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output-root", type=Path, default=Path("results_submission"))
     parser.add_argument(
         "--mode",
-        choices=(RunMode.SMOKE.value, RunMode.FULL.value),
-        default=RunMode.SMOKE.value,
+        choices=("smoke", "full"),
+        default="smoke",
         help="full is blocked until an independently reviewed Gate-A token exists",
     )
 
@@ -65,12 +53,78 @@ def _parser() -> argparse.ArgumentParser:
         "verify", help="read-only fail-loud submission readiness inventory"
     )
     verify.add_argument("--repository-root", type=Path, default=ROOT)
+    confirm = subparsers.add_parser(
+        "confirm", help="run or resume the independently accepted confirmatory grid"
+    )
+    confirm.add_argument("--repository-root", type=Path, default=ROOT)
+    confirm.add_argument(
+        "--run-plan", type=Path, default=Path("results_submission/run_plan.json")
+    )
+    confirm.add_argument(
+        "--confirmatory-plan",
+        type=Path,
+        default=Path("configs/submission/frozen/confirmatory_plan.json"),
+    )
+    confirm.add_argument(
+        "--baseline-registry",
+        type=Path,
+        default=Path("results_submission/baseline_registry.json"),
+    )
+    confirm.add_argument(
+        "--worker", type=Path, default=Path("scripts/run_heterophily_job.py")
+    )
+    confirm.add_argument(
+        "--authoritative-dataset-root", type=Path, default=Path("data")
+    )
+    confirm.add_argument("--stop-on-error", action="store_true")
+    confirm.add_argument("--retry-recorded-failures", action="store_true")
+    confirm.add_argument("--timeout-seconds", type=float, default=24 * 60 * 60)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     root = args.repository_root.resolve(strict=True)
+    if args.command == "confirm":
+        visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+        if not visible or visible == "-1" or "," in visible:
+            raise RuntimeError("confirm requires exactly one pre-isolated CUDA device")
+        if os.environ.get("PYTHONHASHSEED") != "0":
+            raise RuntimeError("confirm requires PYTHONHASHSEED=0")
+        if os.environ.get("CUBLAS_WORKSPACE_CONFIG") != ":4096:8":
+            raise RuntimeError("confirm requires CUBLAS_WORKSPACE_CONFIG=:4096:8")
+        from gbdn.submission_scheduler import run_confirmatory_scheduler
+        from gbdn.submission_verify import verify_submission_readiness
+
+        def inside(path: Path) -> Path:
+            return path if path.is_absolute() else root / path
+
+        report = verify_submission_readiness(root)
+        if not report.ready_for_claim_bearing_execution:
+            print(json.dumps(report.to_dict(), sort_keys=True))
+            return 2
+        summary = run_confirmatory_scheduler(
+            repository_root=root,
+            run_plan_path=inside(args.run_plan),
+            confirmatory_plan_path=inside(args.confirmatory_plan),
+            baseline_registry_path=inside(args.baseline_registry),
+            worker_path=inside(args.worker),
+            authoritative_dataset_root=inside(args.authoritative_dataset_root),
+            continue_on_error=not args.stop_on_error,
+            retry_recorded_failures=args.retry_recorded_failures,
+            timeout_seconds=args.timeout_seconds,
+        )
+        print(json.dumps(summary.to_dict(), sort_keys=True))
+        return 0 if summary.success else 2
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    from gbdn.submission import (
+        build_smoke_plan,
+        execute_smoke_job,
+        require_canonical_output_root,
+        run_smoke_subprocess,
+    )
+    from gbdn.submission_verify import verify_submission_readiness
+
     if args.command == "verify":
         report = verify_submission_readiness(root)
         print(json.dumps(report.to_dict(), sort_keys=True))

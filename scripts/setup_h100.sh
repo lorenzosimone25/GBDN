@@ -35,7 +35,7 @@ PYTHON="${ROOT}/.venv/bin/python"
 "${PYTHON}" -m pip install --no-deps --editable "${ROOT}"
 
 export CUDA_VISIBLE_DEVICES="${GPU_INDEX}"
-export PYTHONHASHSEED=25
+export PYTHONHASHSEED=0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 "${PYTHON}" - <<'PY'
 import torch

@@ -17,7 +17,12 @@ from gbdn.artifacts import (
     sha256_file,
 )
 from gbdn.baseline_contract import ConfirmatoryPlan, validate_plan_registry_binding
-from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, TRAINING_SEEDS
+from gbdn.heterophily_contract import (
+    DATASET_REGISTRY,
+    LOCAL_METHOD_CONFIG_PATHS,
+    OFFICIAL_SPLITS,
+    TRAINING_SEEDS,
+)
 
 
 RUN_PLAN_SCHEMA = "gbdn-run-plan-v1"
@@ -113,6 +118,10 @@ def validate_run_plan(
     baseline_commits = {
         baseline.name: baseline.source_commit for baseline in admitted_baselines
     }
+    baseline_configs = {
+        baseline.name: (baseline.reference_config_path, baseline.reference_config_sha256)
+        for baseline in admitted_baselines
+    }
     for job in jobs:
         identity = job.identity
         if job.run_mode is not RunMode.FULL:
@@ -135,11 +144,23 @@ def validate_run_plan(
             frozen = json.loads(job.frozen_config_json)
         except json.JSONDecodeError as exc:  # guarded by RunConfigRecord; defensive
             raise ArtifactValidationError("run-plan frozen config is invalid") from exc
+        if identity.model_name in baseline_configs:
+            method_config_path, method_config_sha256 = baseline_configs[identity.model_name]
+        else:
+            method_config_path = LOCAL_METHOD_CONFIG_PATHS.get(identity.model_name)
+            if method_config_path is None:
+                raise ArtifactValidationError("run-plan method has no frozen configuration path")
+            config_target = Path(repository_root) / method_config_path
+            if config_target.is_symlink() or not config_target.is_file():
+                raise ArtifactValidationError("local method configuration is unavailable")
+            method_config_sha256 = sha256_file(config_target)
         required_frozen = {
             "baseline_registry_sha256": registry_hash,
             "confirmatory_plan_sha256": confirm_hash,
             "dataset": identity.dataset_name,
             "method": identity.model_name,
+            "method_config_path": method_config_path,
+            "method_config_sha256": method_config_sha256,
             "seed": identity.seed,
             "split": identity.split_id,
             "trial_budget": confirmatory.trial_budget_per_method_dataset,

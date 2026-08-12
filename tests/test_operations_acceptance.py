@@ -142,11 +142,21 @@ def _repository(
 
 def test_operations_protected_scope_covers_claim_bearing_worker_and_dependencies():
     required = {
+        "configs/submission/frozen/methods/GBDNPlus.json",
+        "configs/submission/frozen/methods/ProductSumGBDN.json",
+        "configs/submission/frozen/methods/TightGBDN.json",
         "configs/submission/frozen/confirmatory_plan.json",
+        "configs/submission/search_spaces/ChebNet.json",
+        "notebooks/gbdn_submission_h100.ipynb",
         "results_submission/baseline_registry.json",
         "results_submission/run_plan.json",
+        "scripts/acquire_heterophily_data.py",
         "scripts/run_heterophily_job.py",
+        "scripts/run_submission.py",
+        "scripts/setup_h100.sh",
+        "src/gbdn/heterophily_acquisition.py",
         "src/gbdn/heterophily_worker.py",
+        "tests/test_heterophily_acquisition.py",
         "tests/test_heterophily_worker.py",
         "src/gbdn/submission_scheduler.py",
         "src/gbdn/heterophily_evaluator.py",
@@ -164,6 +174,15 @@ def test_valid_operations_acceptance_is_review_commit_and_source_bound(tmp_path)
     assert accepted.reviewed_source_metadata.repository_commit == accepted.executable_commit
     assert accepted.reviewed_source_metadata.repository_tree == accepted.executable_tree
     assert accepted.reviewed_source_metadata.dirty is False
+
+
+def test_repository_signature_program_override_is_ignored(tmp_path):
+    root, _, _, review_commit = _repository(tmp_path)
+    fake = root / "fake-ssh-verifier"
+    fake.write_text("this executable must never be invoked\n", encoding="utf-8")
+    _git(root, "config", "gpg.ssh.program", str(fake))
+    accepted = validate_operations_acceptance(root)
+    assert accepted.review_commit == review_commit
 
 
 @pytest.mark.parametrize("staged", [False, True])

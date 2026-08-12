@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -27,14 +28,25 @@ OPERATIONS_ACCEPTANCE_PATH: Final[PurePosixPath] = PurePosixPath(
     "configs/submission/frozen/operations_acceptance.json"
 )
 FROZEN_OPERATIONS_INPUT_PATHS: Final[tuple[str, ...]] = (
+    "configs/submission/frozen/methods/GBDNPlus.json",
+    "configs/submission/frozen/methods/ProductSumGBDN.json",
+    "configs/submission/frozen/methods/TightGBDN.json",
+    "configs/submission/search_spaces/ChebNet.json",
     "configs/submission/frozen/confirmatory_plan.json",
+    "docs/baselines/chebnet_pyg_provenance.md",
+    "licenses/third_party/pytorch_geometric_MIT.txt",
+    "licenses/third_party/yandex_heterophilous_graphs_MIT.txt",
     "requirements.lock",
     "results_submission/baseline_registry.json",
+    "results_submission/reports/chebnet_operator_parity.json",
     "results_submission/run_plan.json",
 )
 EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
+    "notebooks/gbdn_submission_h100.ipynb",
+    "scripts/acquire_heterophily_data.py",
     "scripts/run_heterophily_job.py",
     "scripts/run_submission.py",
+    "scripts/setup_h100.sh",
     "src/gbdn/__init__.py",
     "src/gbdn/artifacts.py",
     "src/gbdn/baseline_contract.py",
@@ -47,6 +59,7 @@ EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "src/gbdn/gate_a_evidence.py",
     "src/gbdn/gate_a_report.py",
     "src/gbdn/gate_acceptance.py",
+    "src/gbdn/heterophily_acquisition.py",
     "src/gbdn/heterophily_contract.py",
     "src/gbdn/heterophily_evaluator.py",
     "src/gbdn/heterophily_statistics.py",
@@ -70,6 +83,7 @@ EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "tests/test_artifact_core.py",
     "tests/test_baseline_contract.py",
     "tests/test_chebnet_baseline.py",
+    "tests/test_heterophily_acquisition.py",
     "tests/test_heterophily_contract.py",
     "tests/test_heterophily_evaluator.py",
     "tests/test_heterophily_training.py",
@@ -209,6 +223,22 @@ def _require_complete_canonical_package(root: Path) -> None:
 
 
 def _verify_review_signature(root: Path, review_commit: str) -> None:
+    if sys.platform == "win32":
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(buffer, len(buffer))
+        candidates = (
+            Path(buffer.value) / "OpenSSH" / "ssh-keygen.exe",
+        ) if 0 < length < len(buffer) else ()
+    else:
+        candidates = (Path("/usr/bin/ssh-keygen"), Path("/bin/ssh-keygen"))
+    verifiers = tuple(dict.fromkeys(path.resolve() for path in candidates if path.is_file()))
+    if len(verifiers) != 1:
+        raise ArtifactValidationError("trusted system ssh-keygen is unavailable")
+    verifier = verifiers[0]
+    if not verifier.is_file() or verifier.is_relative_to(root):
+        raise ArtifactValidationError("trusted SSH verifier path is unsafe")
     allowed = f"{REVIEWER_PRINCIPAL} {REVIEWER_PUBLIC_KEY}\n"
     with tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", newline="\n", suffix=".allowed_signers", delete=False
@@ -218,6 +248,8 @@ def _verify_review_signature(root: Path, review_commit: str) -> None:
     try:
         verified = _git(
             root,
+            "-c", "gpg.format=ssh",
+            "-c", f"gpg.ssh.program={verifier}",
             "-c", f"gpg.ssh.allowedSignersFile={allowed_path}",
             "verify-commit", "--raw", review_commit,
             check=False,

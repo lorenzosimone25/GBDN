@@ -23,6 +23,11 @@ OFFICIAL_SOURCE_COMMIT: Final[str] = (
 )
 OFFICIAL_SPLITS: Final[tuple[int, ...]] = tuple(range(10))
 TRAINING_SEEDS: Final[tuple[int, ...]] = (0, 1, 2)
+LOCAL_METHOD_CONFIG_PATHS: Final[dict[str, str]] = {
+    "TightGBDN": "configs/submission/frozen/methods/TightGBDN.json",
+    "ProductSumGBDN": "configs/submission/frozen/methods/ProductSumGBDN.json",
+    "GBDNPlus": "configs/submission/frozen/methods/GBDNPlus.json",
+}
 UNRESOLVED: Final[str] = "UNRESOLVED_BLOCKER"
 
 TaskType = Literal["multiclass", "binary"]
@@ -503,6 +508,7 @@ __all__ = [
     "OFFICIAL_SOURCE_COMMIT",
     "OFFICIAL_SOURCE_URL",
     "OFFICIAL_SPLITS",
+    "LOCAL_METHOD_CONFIG_PATHS",
     "ProtocolContractError",
     "SplitIdentity",
     "TRAINING_SEEDS",

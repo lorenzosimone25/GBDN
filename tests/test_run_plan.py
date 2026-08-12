@@ -227,6 +227,26 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
         "0",
     )
     baseline_commits = {method: f"{index + 1:040x}" for index, method in enumerate(BASELINES)}
+    method_configs = {
+        record["name"]: (
+            record["configuration"]["final_configuration"]["path"],
+            record["configuration"]["final_configuration"]["sha256"],
+        )
+        for record in records
+    }
+    tight_path = "configs/submission/frozen/methods/TightGBDN.json"
+    _write(
+        root / tight_path,
+        {
+            "datasets": {
+                dataset: {"model": {}, "optimizer": {}, "training": {}}
+                for dataset in DATASET_REGISTRY
+            },
+            "method": "TightGBDN",
+            "schema_version": "gbdn-heterophily-method-config-v1",
+        },
+    )
+    method_configs["TightGBDN"] = (tight_path, sha256_file(root / tight_path))
     jobs = []
     for method in ("TightGBDN", *BASELINES):
         for dataset in DATASET_REGISTRY:
@@ -237,6 +257,8 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
                         "confirmatory_plan_sha256": sha256_file(plan_path),
                         "dataset": dataset,
                         "method": method,
+                        "method_config_path": method_configs[method][0],
+                        "method_config_sha256": method_configs[method][1],
                         "seed": seed,
                         "split": split,
                         "trial_budget": 10,
@@ -371,6 +393,27 @@ def test_run_plan_rejects_unbound_baseline_config_and_gpu_environment(tmp_path):
     _write(run_plan, data)
     with pytest.raises(ArtifactValidationError, match="plan/identity-bound"):
         validate_run_plan(run_plan, confirmatory_plan_path=confirmatory, baseline_registry_path=registry, repository_root=tmp_path / "config")
+
+    run_plan, confirmatory, registry = _inputs(tmp_path / "method-config")
+    data = json.loads(run_plan.read_text(encoding="utf-8"))
+    data["jobs"][0]["frozen_config"]["method_config_sha256"] = "0" * 64
+    data["jobs"][0]["frozen_config_sha256"] = canonical_json_sha256(
+        data["jobs"][0]["frozen_config"]
+    )
+    data["jobs"][0]["identity"]["frozen_config_sha256"] = data["jobs"][0][
+        "frozen_config_sha256"
+    ]
+    data["jobs"][0]["run_id"] = RunIdentity.from_dict(
+        data["jobs"][0]["identity"]
+    ).run_id
+    _write(run_plan, data)
+    with pytest.raises(ArtifactValidationError, match="plan/identity-bound"):
+        validate_run_plan(
+            run_plan,
+            confirmatory_plan_path=confirmatory,
+            baseline_registry_path=registry,
+            repository_root=tmp_path / "method-config",
+        )
 
     run_plan, confirmatory, registry = _inputs(tmp_path / "gpu")
     data = json.loads(run_plan.read_text(encoding="utf-8"))

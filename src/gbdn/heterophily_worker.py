@@ -41,7 +41,12 @@ from gbdn.artifacts import (
     sha256_file,
 )
 from gbdn.baseline_contract import VerifiedBaseline
-from gbdn.heterophily_contract import DATASET_REGISTRY, OFFICIAL_SPLITS, resolve_dataset
+from gbdn.heterophily_contract import (
+    DATASET_REGISTRY,
+    LOCAL_METHOD_CONFIG_PATHS,
+    OFFICIAL_SPLITS,
+    resolve_dataset,
+)
 from gbdn.heterophily_evaluator import PREDICTION_FORMAT
 from gbdn.heterophily_training import official_training_loss
 from gbdn.model import GBDNProductSum, GBDNRelaxed, GBDNTight
@@ -60,13 +65,8 @@ EVALUATION_RECORD_SCHEMA: Final[str] = "gbdn-heterophily-evaluation-record-v1"
 _MAX_JSON_BYTES: Final[int] = 16 * 1024 * 1024
 _MAX_SNAPSHOT_BYTES: Final[int] = 1024 * 1024 * 1024
 _MAX_EPOCHS: Final[int] = 100_000
-_LOCAL_METHOD_CONFIGS: Final[Mapping[str, str]] = {
-    "TightGBDN": "configs/submission/frozen/methods/TightGBDN.json",
-    "ProductSumGBDN": "configs/submission/frozen/methods/ProductSumGBDN.json",
-    "GBDNPlus": "configs/submission/frozen/methods/GBDNPlus.json",
-}
 _SUPPORTED_METHODS: Final[frozenset[str]] = frozenset(
-    {*_LOCAL_METHOD_CONFIGS, "ChebNet"}
+    {*LOCAL_METHOD_CONFIG_PATHS, "ChebNet"}
 )
 
 
@@ -274,7 +274,7 @@ def load_frozen_method_config(
         relative = baseline_records[method].reference_config_path
         expected_sha256 = baseline_records[method].reference_config_sha256
     else:
-        relative = _LOCAL_METHOD_CONFIGS.get(method, "")
+        relative = LOCAL_METHOD_CONFIG_PATHS.get(method, "")
         expected_sha256 = ""
     if not relative:
         raise ArtifactValidationError(f"method has no frozen executable configuration: {method}")
