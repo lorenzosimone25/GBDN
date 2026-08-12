@@ -218,11 +218,13 @@ def test_gate_a_report_cli_collect_only_is_deterministic_machine_readable_json()
     assert second.returncode == 0, second.stderr
     assert first.stdout == second.stdout
     report = json.loads(first.stdout)
-    assert report["schema"] == "gbdn-gate-a-coverage-v1"
+    assert report["schema"] == "gbdn-gate-a-coverage-v2"
     assert len(report["ids"]) == 36
     assert report["ids"]["GA-23"]["collected_node_ids"]
     assert report["ids"]["GA-23"]["execution_status"] == "NOT_RUN"
     assert report["summary"]["all_required_ids_executed_and_passing"] is False
     assert report["gate_a_acceptance"]["accepted"] is False
     assert report["required_depths"]["gaps"] == []
+    assert report["summary"]["ids_without_machine_readable_evidence"] == []
+    assert report["gate_a_evidence"]["schema_errors"] == []
 

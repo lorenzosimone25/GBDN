@@ -19,13 +19,22 @@ import io
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import subprocess
 import sys
 from typing import Any, Final
 
+from gbdn.gate_a_evidence import (
+    EVIDENCE_SCHEMA,
+    evaluate_gate_a_evidence,
+    evidence_decision_failures,
+    evidence_field_counts,
+    validate_evidence_catalog,
+)
 
-REPORT_SCHEMA: Final[str] = "gbdn-gate-a-coverage-v1"
+
+REPORT_SCHEMA: Final[str] = "gbdn-gate-a-coverage-v2"
 REQUIRED_IDS: Final[tuple[str, ...]] = tuple(f"GA-{index:02d}" for index in range(36))
 
 NUMERICAL_TOLERANCES: Final[dict[str, float]] = {
@@ -516,6 +525,43 @@ def _source_state(repository_root: Path) -> dict[str, Any]:
     }
 
 
+def _environment_state() -> dict[str, str]:
+    """Return deterministic environment identity relevant to numeric evidence."""
+
+    import torch
+
+    return {
+        "python_implementation": platform.python_implementation(),
+        "python_version": platform.python_version(),
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda or "NONE",
+        "platform": platform.platform(),
+    }
+
+
+def _node_record(
+    node_id: str,
+    inventory: PytestInventory,
+    *,
+    tests_executed: bool,
+    evidence_reference: str,
+) -> dict[str, Any]:
+    node = inventory.nodes[node_id]
+    return {
+        "node_id": node_id,
+        "definition_id": node.definition_id,
+        "execution_status": _node_execution_status(
+            node_id,
+            inventory,
+            tests_executed=tests_executed,
+        ),
+        "phase_statuses": dict(sorted(inventory.phases.get(node_id, {}).items())),
+        "evidence_reference": evidence_reference,
+        "execution_context_reference": "gate_a_evidence.source+environment",
+        "pytest_recorded_properties": inventory.metrics.get(node_id, []),
+    }
+
+
 def _declaration(gate_id: str) -> dict[str, Any]:
     tolerance_keys = ID_TOLERANCE_KEYS.get(gate_id, ())
     return {
@@ -529,6 +575,88 @@ def _declaration(gate_id: str) -> dict[str, Any]:
             for key in tolerance_keys
         },
     }
+
+
+def validate_report_provenance(report: Any) -> list[str]:
+    """Validate source/environment and pytest-node-to-evidence links."""
+
+    errors: list[str] = []
+    if not isinstance(report, dict):
+        return ["report: expected mapping"]
+    source = report.get("source")
+    if not isinstance(source, dict):
+        errors.append("report.source: expected mapping")
+    else:
+        commit = source.get("tested_source_commit")
+        if not isinstance(commit, str) or not commit.strip():
+            errors.append("report.source.tested_source_commit: missing value")
+        if not isinstance(source.get("source_tree_dirty"), bool):
+            errors.append("report.source.source_tree_dirty: expected Boolean")
+        status_digest = source.get("source_status_sha256")
+        if status_digest is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", str(status_digest)
+        ):
+            errors.append("report.source.source_status_sha256: invalid sha256")
+
+    environment = report.get("environment")
+    required_environment = (
+        "python_implementation",
+        "python_version",
+        "torch_version",
+        "cuda_version",
+        "platform",
+    )
+    if not isinstance(environment, dict):
+        errors.append("report.environment: expected mapping")
+    else:
+        for key in required_environment:
+            value = environment.get(key)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"report.environment.{key}: missing value")
+
+    ids = report.get("ids")
+    if not isinstance(ids, dict):
+        errors.append("report.ids: expected mapping")
+        return errors
+    for gate_id in REQUIRED_IDS:
+        row = ids.get(gate_id)
+        path = f"report.ids.{gate_id}"
+        if not isinstance(row, dict):
+            errors.append(f"{path}: missing row")
+            continue
+        reference = row.get("computed_evidence_reference")
+        expected_reference = f"gate_a_evidence.rows.{gate_id}"
+        if reference != expected_reference:
+            errors.append(f"{path}.computed_evidence_reference: invalid link")
+        if row.get("execution_context_reference") != (
+            "gate_a_evidence.source+environment"
+        ):
+            errors.append(f"{path}.execution_context_reference: invalid link")
+        collected = row.get("collected_node_ids")
+        nodes = row.get("node_records")
+        if not isinstance(collected, list) or not isinstance(nodes, list):
+            errors.append(f"{path}: node lists are missing")
+            continue
+        if [node.get("node_id") for node in nodes if isinstance(node, dict)] != collected:
+            errors.append(f"{path}.node_records: node IDs disagree with collection")
+        for index, node in enumerate(nodes):
+            node_path = f"{path}.node_records[{index}]"
+            if not isinstance(node, dict):
+                errors.append(f"{node_path}: expected mapping")
+                continue
+            if node.get("evidence_reference") != expected_reference:
+                errors.append(f"{node_path}.evidence_reference: invalid link")
+            if node.get("execution_context_reference") != (
+                "gate_a_evidence.source+environment"
+            ):
+                errors.append(f"{node_path}.execution_context_reference: invalid link")
+            if node.get("execution_status") not in {
+                "PASS",
+                "FAIL",
+                "NOT_RUN",
+            }:
+                errors.append(f"{node_path}.execution_status: invalid value")
+    return errors
 
 
 def build_report(
@@ -547,6 +675,13 @@ def build_report(
             if gate_id in REQUIRED_IDS:
                 nodes_by_id[gate_id].append(node.node_id)
                 definitions_by_id[gate_id].add(node.definition_id)
+
+    evidence_catalog = evaluate_gate_a_evidence()
+    evidence_schema_errors = validate_evidence_catalog(evidence_catalog)
+    evidence_failures = evidence_decision_failures(evidence_catalog)
+    evidence_counts = evidence_field_counts(evidence_catalog)
+    source_state = _source_state(repository_root)
+    environment_state = _environment_state()
 
     records: dict[str, dict[str, Any]] = {}
     for gate_id in REQUIRED_IDS:
@@ -582,20 +717,34 @@ def build_report(
         else:
             status = "PASS"
 
-        residuals = [
+        pytest_properties = [
             metric
             for node_id in node_ids
             for metric in inventory.metrics.get(node_id, [])
+        ]
+        evidence = evidence_catalog["rows"].get(gate_id)
+        evidence_reference = f"gate_a_evidence.rows.{gate_id}"
+        node_records = [
+            _node_record(
+                node_id,
+                inventory,
+                tests_executed=tests_executed,
+                evidence_reference=evidence_reference,
+            )
+            for node_id in node_ids
         ]
         records[gate_id] = {
             "status": status,
             "execution_status": execution_status,
             "mapping_status": mapping_status,
             "collected_node_ids": node_ids,
+            "node_records": node_records,
             "test_definitions": definitions,
             "declaration": _declaration(gate_id),
-            "residuals": residuals,
-            "residuals_available": bool(residuals),
+            "computed_evidence_reference": evidence_reference,
+            "execution_context_reference": "gate_a_evidence.source+environment",
+            "computed_evidence_available": evidence is not None,
+            "pytest_recorded_properties": pytest_properties,
         }
 
     missing_ids = [
@@ -658,10 +807,10 @@ def build_report(
         for root_fixture, declaration in ROOT_FIXTURE_DECLARATION.items()
         if not declaration["acceptance_complete"]
     ]
-    missing_residual_ids = [
+    missing_evidence_ids = [
         gate_id
         for gate_id, record in records.items()
-        if not record["residuals_available"]
+        if not record["computed_evidence_available"]
     ]
     all_ids_passed = not missing_ids and not failed_ids and not not_run_ids
     blockers = [
@@ -681,12 +830,29 @@ def build_report(
             f"{gap['root_fixture']} ({', '.join(gap['missing'])})"
             for gap in root_gaps
         ],
-        (
-            "per-test graph hashes, roots, dtype/device, absolute/relative residuals, "
-            "and predicted bounds are not yet emitted for every mandatory ID"
-        ),
         "independent reviewer acceptance has not been recorded by this utility",
     ]
+    if evidence_schema_errors:
+        blockers.append(
+            "invalid machine-readable evidence: "
+            + "; ".join(evidence_schema_errors)
+        )
+    if evidence_failures:
+        blockers.append(
+            "computed evidence contains failed decisions: "
+            + ", ".join(evidence_failures)
+        )
+    if missing_evidence_ids:
+        blockers.append(
+            "missing computed evidence rows: " + ", ".join(missing_evidence_ids)
+        )
+    if source_state["tested_source_commit"] == "UNKNOWN":
+        blockers.append("tested source commit could not be resolved")
+    if source_state["source_tree_dirty"]:
+        blockers.append(
+            "tested source tree is dirty; commit or archive the exact diff "
+            "before scientific acceptance"
+        )
     if missing_ids:
         blockers.append(f"missing mandatory IDs: {', '.join(missing_ids)}")
     if failed_ids:
@@ -694,9 +860,10 @@ def build_report(
     if not_run_ids:
         blockers.append(f"not-run mandatory IDs: {', '.join(not_run_ids)}")
 
-    return {
+    report = {
         "schema": REPORT_SCHEMA,
-        "source": _source_state(repository_root),
+        "source": source_state,
+        "environment": environment_state,
         "pytest": {
             "tests_executed": tests_executed,
             "exit_code": pytest_exit_code,
@@ -730,6 +897,15 @@ def build_report(
             "gaps": row_matrix_gaps,
         },
         "ids": records,
+        "gate_a_evidence": {
+            "schema": EVIDENCE_SCHEMA,
+            "source": source_state,
+            "environment": environment_state,
+            "rows": evidence_catalog["rows"],
+            "typed_field_counts": evidence_counts,
+            "schema_errors": evidence_schema_errors,
+            "failed_decisions": evidence_failures,
+        },
         "summary": {
             "required_id_count": len(REQUIRED_IDS),
             "all_required_ids_executed_and_passing": all_ids_passed,
@@ -737,7 +913,9 @@ def build_report(
             "failed_ids": failed_ids,
             "not_run_ids": not_run_ids,
             "duplicate_mapping_ids": duplicate_ids,
-            "ids_without_machine_readable_residuals": missing_residual_ids,
+            "ids_without_machine_readable_evidence": missing_evidence_ids,
+            # Backward-compatible alias: evidence now contains residuals/bounds.
+            "ids_without_machine_readable_residuals": missing_evidence_ids,
         },
         "gate_a_acceptance": {
             "accepted": False,
@@ -749,6 +927,14 @@ def build_report(
             ),
         },
     }
+    provenance_errors = validate_report_provenance(report)
+    report["gate_a_evidence"]["provenance_link_errors"] = provenance_errors
+    if provenance_errors:
+        blockers.append(
+            "invalid source/environment/node evidence links: "
+            + "; ".join(provenance_errors)
+        )
+    return report
 
 
 def collect_and_report(
