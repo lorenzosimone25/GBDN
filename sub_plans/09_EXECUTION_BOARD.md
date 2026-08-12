@@ -38,7 +38,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-CITATIONS-002 | Verify minimum comparator bibliography and Related Work positioning | Reviewer | REV-NOVELTY-001 | Verified bibliography, citation audit, compiled Related Work | DONE |
 | REV-THEORY-PATCH | Independently audit the MATH-002--011 manuscript patch | Reviewer | MATH-002--MATH-011 | Theorem-by-theorem blocker report | DONE |
 | MATH-PAPER-REPAIR-1 | Repair the theory patch against independent review | Math | REV-THEORY-PATCH | Corrected, compiling theory manuscript patch | DONE |
-| MATH-CHEB-SOURCE-1 | Verify the exact first-kind Chebyshev interpolation bound | Math | MATH-PAPER-REPAIR-1 | Primary-source attribution or corrected theorem/diagnostic bound | IN_PROGRESS |
+| MATH-CHEB-SOURCE-1 | Verify the exact first-kind Chebyshev interpolation bound | Math | MATH-PAPER-REPAIR-1 | Primary-source attribution and code-matched first-kind derivation | DONE |
 | ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Trackability policy, legacy map, output guard, 10 tests | DONE |
 | ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | REVIEW |
 | ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | DONE |
@@ -53,6 +53,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-GATEA-APPROX-REPAIR-1 | Repair finite-order theorem-test semantic mismatches | Engineer | REV-GATEA-APPROX-1 | Correct GA-20/22/24/29/30 observables and diagnostics | DONE |
 | ENG-GATEA-PROVENANCE-1 | Emit complete deterministic evidence for every Gate-A row | Engineer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Validated row-level evidence schema and report | IN_PROGRESS |
 | REV-GATEA-FINAL-1 | Independently adjudicate the complete Gate-A implementation | Reviewer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Row-by-row verdict and binary gate decision | IN_PROGRESS |
+| OPS-RUNID-1 | Implement immutable run identities and artifact bundle validation | Engineer | ENG-001 | Deterministic IDs, non-overwrite/resume classifier, schema tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |

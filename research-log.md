@@ -64,3 +64,11 @@
 - Repaired the independently identified finite-order semantic defects: GA-22 now exercises synthesis and additive reconstruction, GA-24 joins approximation error with the ellipse supremum diagnostic, GA-29 is scoped to failure of finite-hop localization, and GA-30 uses the documented complex sparse-application convention across multiple depths and degrees.
 - Integrated the contract-aligned theory rewrite while keeping all claims paper-blocked. The full local suite passes 447 tests with three environment warnings.
 - Kept Gate A closed. The remaining blockers are complete per-row machine-readable provenance, independent semantic acceptance, and verified attribution of the exact first-kind Chebyshev interpolation bound.
+
+## 2026-08-12 — Theory attribution and evidence calibration
+
+- Verified the Chebyshev coefficient bound from Trefethen's primary SIAM chapter and added an explicit aliasing derivation for the implementation's exact $K+1$ first-kind roots. This resolves the T-E attribution block without changing the diagnostic bound.
+- Rebuilt the full manuscript after the source repair: 24 pages, no undefined citations or references, no missing figures, no duplicate labels, and no overfull boxes. The full local suite remains 447/447 passing.
+- Audited the existing mechanism artifacts. The pole-distance sweep retains all 80 grid records, but its composite source hash is not the current source commit; the sphere study retains aggregate moments and one selected run but not the ten per-initialization rows.
+- Narrowed the abstract, introduction, mechanism captions, and conclusion accordingly: current mechanism and legacy H100 outputs are diagnostics, not contribution evidence. No claim-bearing experiment was launched.
+- Opened immutable run-identity and artifact-bundle infrastructure in parallel; this infrastructure work does not authorize H100 execution.
