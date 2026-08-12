@@ -57,8 +57,10 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-GATEA-REVIEW-2 | Independently re-adjudicate repaired Gate A | Reviewer | ENG-GATEA-SEMANTIC-REPAIR-1 | Clean-commit binary Gate-A decision | DONE |
 | OPS-RUNID-1 | Implement immutable run identities and artifact bundle validation | Engineer | ENG-001 | Deterministic IDs, non-overwrite/resume classifier, schema tests | DONE |
 | ENG-R3-ARTIFACT-1 | Bind residual-first complex coefficients through immutable artifact serialization | Engineer | OPS-RUNID-1, ENG-GATEA-SEMANTIC-REPAIR-1 | Order/dtype/shape/run/hash-bound codec and adversarial tests | DONE |
-| ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | IN_PROGRESS |
+| ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | DONE |
+| REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | IN_PROGRESS |
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
+| OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |

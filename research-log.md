@@ -97,3 +97,11 @@
 - Confirmed that the submission CLI, thin H100 notebook, frozen plan/configurations, official task contracts, isolated scheduler, independent metric recomputation, split-first statistics, verified baseline registry, renderers, and fail-loud verifier are still missing.
 - Authorized only CPU-side runner and synthetic smoke infrastructure while Gate A is under independent review. H100 jobs, Gate B/C runs, confirmatory benchmarks, and claim-bearing paper outputs remain blocked.
 - Froze a future H100-only publication boundary: installable canonical source, relevant tests, setup/runner scripts, one operator notebook, frozen configurations, locked dependencies, and a concise operator README. Audits, agent material, manuscript/generated content, exploratory or legacy outputs, and raw results are excluded.
+
+## 2026-08-12 — Public Gate-A boundary repair
+
+- Hardened the exported exact operator against nonorthogonal eigensystems, spectra outside the normalized-Laplacian interval, inadmissible roots, nonfinite inputs, and precision/device mismatches while preserving the empty-product identity and separate production/oracle arithmetic.
+- Replaced GA-13's invalid prescribed multiplier with an admissible Blaschke-derived complementary channel on a validated weighted graph, including repeated-eigenspace, separation, leakage, and recovery-bound checks.
+- Split row execution state from duplicate mapping metadata and bound frozen fixture/root/depth/degree coverage declarations to computed typed evidence; tampering now blocks acceptance. The historical ten-check file is explicitly diagnostic only.
+- Re-ran the integrated suite: 558 tests passed with three known environment warnings. The evidence catalog reports 36/36 rows, 811 measured values, 59 justified not-applicable fields, and no schema, decision, provenance, or coverage mismatch.
+- Opened a third independent Gate-A review from the clean repair commit. Gate A remains closed until that review issues a binary acceptance.
