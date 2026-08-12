@@ -18,11 +18,11 @@ completed_tasks:
   - MATH-001
   - ENG-001
   - REV-GATEA-PREFLIGHT
+  - REV-NOVELTY-001
 active_tasks:
   - ENG-002
   - ENG-008
   - ENG-GATEA-EXACT-2
-  - REV-NOVELTY-001
   - REV-THEORY-PATCH
 stop_line:
   gate_a_passed: false

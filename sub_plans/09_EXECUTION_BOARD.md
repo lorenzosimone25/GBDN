@@ -34,7 +34,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | MATH-009 | Prove generic movable-pole separation from Cayley filters | Math | MATH-008 | Theorem | IN_PROGRESS |
 | MATH-010 | Derive graph perturbation stability or narrow replacement | Math | MATH-008 | Theorem or negative result | IN_PROGRESS |
 | MATH-011 | State locality, degree, and SpMV complexity | Math | SCI-001 | Proposition | IN_PROGRESS |
-| REV-NOVELTY-001 | Verify novelty and comparison-family pole loci from primary sources | Reviewer | MATH-001, SCI-001 | Source manifest and novelty adjudication | IN_PROGRESS |
+| REV-NOVELTY-001 | Verify novelty and comparison-family pole loci from primary sources | Reviewer | MATH-001, SCI-001 | Source manifest and novelty adjudication | DONE |
 | REV-THEORY-PATCH | Independently audit the MATH-002--011 manuscript patch | Reviewer | MATH-002--MATH-011 | Theorem-by-theorem blocker report | IN_PROGRESS |
 | ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Trackability policy, legacy map, output guard, 10 tests | DONE |
 | ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | IN_PROGRESS |

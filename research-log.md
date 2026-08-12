@@ -42,3 +42,4 @@
 - Re-ran the full local suite: 47 tests passed with two environment deprecation warnings.
 - Kept Gate A closed: 27 mandatory IDs, the full fixture/depth matrix, machine-readable reporting, and independent theorem-to-test review remain incomplete.
 - Completed a contract-aligned MATH-002--011 paper patch on its isolated branch; it remains paper-blocked pending independent proof review and executable Gate A evidence.
+- Completed the primary-source novelty audit. It corrected CayleyNet from "fixed poles" to a learned shared imaginary-axis pole locus, identified undecimated graph framelets as the closest tight-stack precedent, and kept A* novelty conditional on matched mechanism and efficiency evidence.
