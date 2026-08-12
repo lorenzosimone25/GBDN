@@ -196,3 +196,20 @@ def apply_tight_analysis(
         residuals.append(0.5 * (carry - transformed))
         carry = 0.5 * (carry + transformed)
     return (*residuals, carry)
+
+
+def adjoint_tight_synthesis(
+    components: Sequence[torch.Tensor],
+    operators: Sequence[torch.Tensor],
+) -> torch.Tensor:
+    """Apply the adjoint of residual-first complete tight analysis."""
+
+    if len(components) != len(operators) + 1:
+        raise ValueError("components must contain one residual per operator and h_D")
+    residuals = components[:-1]
+    carry = components[-1]
+    for residual, operator in zip(reversed(residuals), reversed(operators)):
+        carry = 0.5 * (carry + residual) + 0.5 * (
+            operator.mH @ (carry - residual)
+        )
+    return carry

@@ -7,7 +7,11 @@ import warnings
 import torch
 import torch.nn as nn
 
-from gbdn.core import validate_self_adjoint_operator, validated_normalized_laplacian
+from gbdn.core import (
+    ValidatedLaplacian,
+    require_validated_laplacian,
+    validated_normalized_laplacian,
+)
 from gbdn.spectral import (
     Convention,
     blaschke_product_cheb_coeffs,
@@ -28,7 +32,7 @@ def normalized_laplacian(
     num_nodes: int | None = None,
     *,
     device: torch.device | None = None,
-) -> torch.Tensor:
+) -> ValidatedLaplacian:
     """Build a normalized Laplacian from strictly validated undirected input.
 
     Directed input is never silently repaired here. Call
@@ -63,7 +67,7 @@ class ChebyshevBasis(nn.Module):
         edge_index: torch.Tensor,
         edge_weight: torch.Tensor | None = None,
         num_nodes: int | None = None,
-        laplacian: torch.Tensor | None = None,
+        laplacian: ValidatedLaplacian | None = None,
     ) -> torch.Tensor:
         if num_nodes is None:
             num_nodes = x.size(0)
@@ -79,18 +83,24 @@ class ChebyshevBasis(nn.Module):
                 f"laplacian shape {tuple(laplacian.shape)} does not match "
                 f"({num_nodes}, {num_nodes})"
             )
-        validate_self_adjoint_operator(laplacian, spectral_bounds=None)
-        laplacian = laplacian.to(device=x.device, dtype=x.dtype)
+        laplacian_tensor = require_validated_laplacian(laplacian)
+        laplacian_tensor = laplacian_tensor.to(device=x.device, dtype=x.dtype)
 
         bases = [x]
         if self.K == 0:
             return torch.stack(bases, dim=0)
 
-        lap_x = torch.sparse.mm(laplacian, x)
+        if laplacian_tensor.layout == torch.sparse_coo:
+            def apply_laplacian(value: torch.Tensor) -> torch.Tensor:
+                return torch.sparse.mm(laplacian_tensor, value)
+        else:
+            def apply_laplacian(value: torch.Tensor) -> torch.Tensor:
+                return laplacian_tensor @ value
+        lap_x = apply_laplacian(x)
         bases.append(lap_x - x)
         for _ in range(2, self.K + 1):
             previous, previous2 = bases[-1], bases[-2]
-            shifted = torch.sparse.mm(laplacian, previous) - previous
+            shifted = apply_laplacian(previous) - previous
             bases.append(2.0 * shifted - previous2)
         return torch.stack(bases, dim=0)
 

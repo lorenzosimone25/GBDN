@@ -46,12 +46,85 @@ class GraphPreprocessRecord:
         return asdict(self)
 
 
+_VALIDATED_LAPLACIAN_TOKEN = object()
+
+
+class ValidatedLaplacian:
+    """Auditable token proving that a Laplacian passed canonical validation.
+
+    Instances are issued only by canonical builders or by the one-time
+    :func:`validate_external_laplacian` check. The wrapped tensor is cloned at
+    issuance and its mutation version is checked on every unwrap, so it cannot
+    be changed in place and silently reused.
+    """
+
+    __slots__ = (
+        "_tensor",
+        "_tensor_version",
+        "source",
+        "validation_method",
+        "sha256",
+    )
+
+    def __init__(
+        self,
+        tensor: torch.Tensor,
+        *,
+        source: str,
+        validation_method: str,
+        sha256: str,
+        _token: object,
+    ) -> None:
+        if _token is not _VALIDATED_LAPLACIAN_TOKEN:
+            raise TypeError(
+                "ValidatedLaplacian cannot be constructed directly; use a "
+                "canonical graph builder or validate_external_laplacian"
+            )
+        self._tensor = tensor
+        self._tensor_version = tensor._version
+        self.source = source
+        self.validation_method = validation_method
+        self.sha256 = sha256
+
+    @property
+    def tensor(self) -> torch.Tensor:
+        """Return the validated tensor after detecting in-place mutation."""
+
+        if self._tensor._version != self._tensor_version:
+            raise RuntimeError(
+                "validated Laplacian was modified in place; validate a fresh operator"
+            )
+        return self._tensor
+
+    @property
+    def shape(self) -> torch.Size:
+        return self.tensor.shape
+
+    @property
+    def layout(self) -> torch.layout:
+        return self.tensor.layout
+
+    @property
+    def dtype(self) -> torch.dtype:
+        return self.tensor.dtype
+
+    @property
+    def device(self) -> torch.device:
+        return self.tensor.device
+
+    def to_dense(self) -> torch.Tensor:
+        """Materialize a dense copy for small-graph diagnostics."""
+
+        tensor = self.tensor
+        return tensor.to_dense() if tensor.layout == torch.sparse_coo else tensor.clone()
+
+
 @dataclass(frozen=True)
 class PreprocessedGraph:
     """Reciprocal-mean adjacency, normalized Laplacian, and provenance."""
 
     adjacency: torch.Tensor
-    laplacian: torch.Tensor
+    laplacian: ValidatedLaplacian
     record: GraphPreprocessRecord
 
 
@@ -175,6 +248,50 @@ def _hash_sparse_matrix(matrix: torch.Tensor) -> str:
     return digest.hexdigest()
 
 
+def _hash_operator(operator: torch.Tensor) -> str:
+    if operator.layout == torch.sparse_coo:
+        return _hash_sparse_matrix(operator)
+    if operator.layout != torch.strided:
+        raise TypeError("operator must be a dense or sparse COO tensor")
+    digest = hashlib.sha256()
+    digest.update(str(tuple(operator.shape)).encode("ascii"))
+    digest.update(str(operator.dtype).encode("ascii"))
+    digest.update(operator.detach().cpu().contiguous().numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _issue_validated_laplacian(
+    operator: torch.Tensor,
+    *,
+    source: str,
+    validation_method: str,
+) -> ValidatedLaplacian:
+    if operator.layout == torch.sparse_coo:
+        frozen = operator.detach().clone().coalesce()
+    elif operator.layout == torch.strided:
+        frozen = operator.detach().clone()
+    else:
+        raise TypeError("operator must be a dense or sparse COO tensor")
+    return ValidatedLaplacian(
+        frozen,
+        source=source,
+        validation_method=validation_method,
+        sha256=_hash_operator(frozen),
+        _token=_VALIDATED_LAPLACIAN_TOKEN,
+    )
+
+
+def require_validated_laplacian(value: object) -> torch.Tensor:
+    """Unwrap an issued Laplacian token or reject a raw external tensor."""
+
+    if not isinstance(value, ValidatedLaplacian):
+        raise TypeError(
+            "caller-supplied laplacian must be a ValidatedLaplacian; call "
+            "validate_external_laplacian once before repeated forwards"
+        )
+    return value.tensor
+
+
 def validate_adjacency(
     edge_index: torch.Tensor,
     edge_weight: torch.Tensor | None = None,
@@ -269,8 +386,8 @@ def validated_normalized_laplacian(
     num_nodes: int | None = None,
     *,
     device: torch.device | None = None,
-) -> torch.Tensor:
-    """Validate an undirected graph and return its normalized Laplacian."""
+) -> ValidatedLaplacian:
+    """Validate an undirected graph and issue its normalized-Laplacian token."""
 
     adjacency = validate_adjacency(
         edge_index,
@@ -278,7 +395,12 @@ def validated_normalized_laplacian(
         num_nodes,
         device=device,
     )
-    return normalized_laplacian_from_adjacency(adjacency)
+    laplacian = normalized_laplacian_from_adjacency(adjacency)
+    return _issue_validated_laplacian(
+        laplacian,
+        source="validated-undirected-adjacency",
+        validation_method="normalized-laplacian-construction",
+    )
 
 
 def preprocess_reciprocal_mean(
@@ -339,7 +461,12 @@ def preprocess_reciprocal_mean(
         raise RuntimeError(
             f"reciprocal-mean preprocessing produced residual {residual}"
         )
-    laplacian = normalized_laplacian_from_adjacency(adjacency)
+    laplacian_tensor = normalized_laplacian_from_adjacency(adjacency)
+    laplacian = _issue_validated_laplacian(
+        laplacian_tensor,
+        source="reciprocal-mean-preprocessor-v1",
+        validation_method="normalized-laplacian-construction",
+    )
 
     degree = torch.zeros(
         num_nodes,
@@ -363,6 +490,28 @@ def preprocess_reciprocal_mean(
         output_sha256=_hash_sparse_matrix(adjacency),
     )
     return PreprocessedGraph(adjacency=adjacency, laplacian=laplacian, record=record)
+
+
+def validate_external_laplacian(operator: torch.Tensor) -> ValidatedLaplacian:
+    """Perform the one-time full check required for caller-supplied operators.
+
+    This path explicitly checks the spectrum in ``[0, 2]`` and clones the
+    operator into a mutation-detecting token. Repeated forwards unwrap the
+    token in constant time and do not repeat the eigendecomposition.
+    """
+
+    if operator.layout == torch.sparse_coo:
+        candidate = operator.detach().clone().coalesce()
+    elif operator.layout == torch.strided:
+        candidate = operator.detach().clone()
+    else:
+        raise TypeError("operator must be a dense or sparse COO tensor")
+    validate_self_adjoint_operator(candidate)
+    return _issue_validated_laplacian(
+        candidate,
+        source="caller-supplied-operator",
+        validation_method="explicit-self-adjoint-and-spectrum-check",
+    )
 
 
 def validate_self_adjoint_operator(

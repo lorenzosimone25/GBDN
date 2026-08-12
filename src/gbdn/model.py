@@ -8,6 +8,7 @@ import warnings
 import torch
 import torch.nn as nn
 
+from gbdn.core import ValidatedLaplacian
 from gbdn.layers import (
     ChebyshevBasis,
     GraphBlaschkeLayerMultiRoot,
@@ -168,7 +169,7 @@ class GBDNTight(nn.Module):
         h: torch.Tensor,
         edge_index: torch.Tensor,
         edge_weight: torch.Tensor | None = None,
-        laplacian: torch.Tensor | None = None,
+        laplacian: ValidatedLaplacian | None = None,
     ) -> TightAnalysisOutput:
         """Return every emitted band, the final carry, and learned roots."""
         bands: list[torch.Tensor] = []
@@ -195,7 +196,7 @@ class GBDNTight(nn.Module):
         x: torch.Tensor,
         edge_index: torch.Tensor,
         edge_weight: torch.Tensor | None = None,
-        laplacian: torch.Tensor | None = None,
+        laplacian: ValidatedLaplacian | None = None,
     ) -> TightAnalysisOutput:
         return self.analyze_complex(
             _complex_lift(self.lifting, x),
@@ -209,7 +210,7 @@ class GBDNTight(nn.Module):
         analysis: TightAnalysisOutput,
         edge_index: torch.Tensor,
         edge_weight: torch.Tensor | None = None,
-        laplacian: torch.Tensor | None = None,
+        laplacian: ValidatedLaplacian | None = None,
     ) -> torch.Tensor:
         """Apply the adjoint synthesis recursion of the Chebyshev realization."""
         if len(analysis.bands) != len(self.layers):

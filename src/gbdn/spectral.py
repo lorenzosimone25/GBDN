@@ -81,6 +81,10 @@ def parameterize_roots(
         raise ValueError(
             "root_params must have final dimension 2: (radial_logit, angle)"
         )
+    if not root_params.is_floating_point():
+        raise TypeError("root_params must use a floating dtype")
+    if not torch.isfinite(root_params).all():
+        raise ValueError("root_params must be finite")
     if not 0.0 < r_max < 1.0:
         raise ValueError(f"r_max must lie in (0, 1), got {r_max}")
     # Leave a few ulps of margin so Cartesian reconstruction by ``torch.polar``
@@ -89,6 +93,56 @@ def parameterize_roots(
     radius = (r_max * margin) * torch.sigmoid(root_params[..., 0])
     angle = root_params[..., 1]
     return torch.polar(radius, angle)
+
+
+def parameterize_center_width_roots(
+    center_width_params: torch.Tensor,
+    *,
+    gamma_min: float = 0.02,
+    gamma_max: float = 2.0,
+) -> torch.Tensor:
+    """Map finite raw parameters to roots with exact center-width semantics.
+
+    ``mu = 2 sigmoid(raw_mu)`` and
+    ``gamma = gamma_min + (gamma_max-gamma_min) sigmoid(raw_gamma)`` define the
+    mapped zero ``mu + i gamma``. The inverse Cayley map then yields a root
+    strictly inside the unit disk for every finite parameter pair.
+    """
+
+    if center_width_params.shape[-1] != 2:
+        raise ValueError(
+            "center_width_params must have final dimension 2: "
+            "(center_logit, width_logit)"
+        )
+    if not center_width_params.is_floating_point():
+        raise TypeError("center_width_params must use a floating dtype")
+    if not torch.isfinite(center_width_params).all():
+        raise ValueError("center_width_params must be finite")
+    if not 0.0 < gamma_min < gamma_max:
+        raise ValueError(
+            "gamma bounds must satisfy 0 < gamma_min < gamma_max, got "
+            f"[{gamma_min}, {gamma_max}]"
+        )
+    center = 2.0 * torch.sigmoid(center_width_params[..., 0])
+    width = gamma_min + (gamma_max - gamma_min) * torch.sigmoid(
+        center_width_params[..., 1]
+    )
+    mapped_zero = torch.complex(center, width)
+    imaginary_unit = torch.complex(torch.zeros_like(center), torch.ones_like(center))
+    return (mapped_zero - imaginary_unit) / (mapped_zero + imaginary_unit)
+
+
+def center_width_from_root(alpha: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Recover the exact mapped-zero center and half-width from disk roots."""
+
+    if not alpha.is_complex():
+        raise TypeError("alpha must use a complex dtype")
+    if not torch.isfinite(alpha).all():
+        raise ValueError("alpha must be finite")
+    if torch.any(alpha.abs() >= 1.0):
+        raise ValueError("every root must lie strictly inside the unit disk")
+    mapped_zero, _ = mapped_zero_pole(alpha)
+    return mapped_zero.real, mapped_zero.imag
 
 
 def constrain_alpha(
