@@ -4,6 +4,7 @@
 
 # Repository metadata and frozen audit records.
 !/.gitignore
+!/.gitattributes
 !/README.md
 !/REPRODUCTION.md
 !/requirements.lock
