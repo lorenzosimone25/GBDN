@@ -72,7 +72,9 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | OPS-SCHEDULER-1 | Implement guarded sequential subprocess/failure state machine | Engineer | OPS-RUN-PLAN-1, OPS-GATE-ACCEPTANCE-1 | Refusal/resume/failure-isolation tests; canonical training worker intentionally absent | DONE |
 | REV-OPS-CPU-SMOKE-2 | Independently review diagnostic smoke and future scheduler binding separately | Reviewer | OPS-CPU-SMOKE-1, OPS-SCHEDULER-1 | CPU-smoke ACCEPT; scheduler-binding REJECT with frozen witnesses | DONE |
 | OPS-SCHEDULER-REPAIR-1 | Bind resume/completion to authoritative evaluation, current provenance, and immutable failures | Engineer | REV-OPS-CPU-SMOKE-2 | Fail-closed scheduler patch and adversarial tests | IN_PROGRESS |
-| REV-OPS-SCHEDULER-3 | Independently adjudicate repaired scheduler binding | Reviewer | OPS-SCHEDULER-REPAIR-1 | Binary operations-safety verdict | BLOCKED |
+| REV-OPS-SCHEDULER-3 | Independently adjudicate repaired scheduler binding | Reviewer | OPS-SCHEDULER-REPAIR-1 | REJECT: manifest-unbound evaluation and split coercion witnesses | REJECTED |
+| OPS-SCHEDULER-REPAIR-2 | Recheck prediction manifest across evaluation and require exact split scalar types | Orchestrator | REV-OPS-SCHEDULER-3 | Frozen-witness patch and focused tests | DONE |
+| REV-OPS-SCHEDULER-4 | Independently adjudicate narrow manifest/type repair | Reviewer | OPS-SCHEDULER-REPAIR-2 | Binary operations-safety verdict | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
