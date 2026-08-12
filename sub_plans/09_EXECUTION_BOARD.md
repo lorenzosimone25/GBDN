@@ -100,6 +100,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-016 | Integrate optional official LRGB pipeline | Engineer | EXP-011 | LRGB artifacts | BACKLOG |
 | PAPER-001 | Merge accepted method and theory patch | Orchestrator | REV-002 | Revised theory | BACKLOG |
 | PAPER-DIAGNOSTIC-1 | Align the preliminary H100 tables, claim boundaries, checklist, and NeurIPS page budget | Orchestrator | REV-CITATIONS-002, MATH-PAPER-REPAIR-1 | Nine-page compiling draft; audited diagnostic appendices | DONE |
+| PAPER-RENDER-CONTRACT-1 | Render complete confirmatory grids to deterministic provenance-bound CSV/LaTeX/JSON | Orchestrator | EXP-011-STATISTICS-CONTRACT-1, EXP-006-EVALUATOR-1 | Pure renderer and adversarial synthetic tests; no publication write | DONE |
 | PAPER-002 | Generate all result tables and figures | Engineer | EXP-011, EXP-013, EXP-015 | `paper/generated` | BACKLOG |
 | PAPER-003 | Rewrite experiments, related work, and limitations | Math + Reviewer | PAPER-001, PAPER-002, REV-004, REV-005 | Paper patch | BACKLOG |
 | PAPER-004 | Rebuild paper and trace every number to run IDs | Orchestrator | PAPER-003 | Rebuilt PDF and trace report | BACKLOG |

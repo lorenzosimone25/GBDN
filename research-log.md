@@ -212,3 +212,11 @@
 - Corrected the NeurIPS statistics checklist answer from Yes to No because the five-initialization mechanism summary lacks the retained per-initialization records required for verification.
 - A forced LaTeX/BibTeX rebuild produces a 25-page PDF including references, proofs, diagnostic appendices, positioning appendix, and checklist, with no undefined citations/references, missing figures, duplicate labels, overfull boxes, or compilation errors. No PDF or prohibited research-assistance reference was committed.
 - Commit `f93fd88` contains only manuscript source. Gate A, confirmatory experiments, and performance claims remain blocked.
+
+## 2026-08-12 - Provenance-preserving confirmatory renderer contract
+
+- Added a pure in-memory renderer from independently verified, frozen, complete 10-split by 3-seed run metrics to split CSV, summary CSV, Holm-adjusted paired comparisons, unranked LaTeX, and a cell-level provenance manifest.
+- Bound each method--dataset cell to one frozen configuration and all 30 ordered run IDs and prediction hashes. Rejected incomplete grids, duplicate or malformed run IDs, configuration drift, unverified metrics, and test-exposed selection.
+- Kept file discovery and publication writes outside this layer. No aggregate, paper-generated file, real prediction, or H100 job was created.
+- The renderer/statistics slice passes 19 tests. The complete repository suite passes 653 tests with two privilege-dependent skips, three known PyTorch warnings, and one pytest cache warning caused by the bracketed workspace path.
+- Commit `a4c6d48` contains only the renderer module and synthetic tests. Independent renderer review and an atomic publication layer remain required.

@@ -50,6 +50,7 @@ completed_tasks:
   - OPS-SCHEDULER-1
   - EXP-006-007-IDENTITY-AUDIT-1
   - PAPER-DIAGNOSTIC-1
+  - PAPER-RENDER-CONTRACT-1
 active_tasks:
   - ENG-002
   - ENG-008
@@ -65,8 +66,8 @@ stop_line:
     - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, split-first statistics contract, fail-closed acceptance-token validator, thin H100 notebook, full-grid plan validator, official test evaluator, and guarded sequential scheduler exist. No independent token has been issued; the canonical training worker, real plan/registry, aggregate renderer, and artifact-complete final verifier remain absent.
     - The official five-dataset protocol, whole-file and array identities, graph/split metadata, baseline-admission, and equal-budget plan contracts are frozen, but redistribution terms, adapter parity, actual upstream baseline license/wrapper/parity evidence, comparator family, and tie thresholds remain unresolved. Four pinned spectral repositories expose no root license/SPDX and remain blocked.
 current_evidence:
-  automated_tests: 645
-  automated_tests_passing: 645
+  automated_tests: 653
+  automated_tests_passing: 653
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817
@@ -86,11 +87,13 @@ current_evidence:
   neurips_main_content_pages: 9
   manuscript_pdf_pages_including_references_appendices_checklist: 25
   manuscript_compile_status: clean_no_undefined_citations_references_or_overfull_boxes
+  confirmatory_renderer_synthetic_tests_passing: 8
 next_dependency_chain:
   - Obtain a fourth independent Gate-A adjudication and tracked executable report for the fixed public constructors; only an independently issued source-bound token may close the gate.
   - Obtain independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
   - Independently review the CPU-only official task registry before any dataset acquisition or evaluation code.
   - Independently review the metric/statistics contract and freeze comparison families and practical tie thresholds before confirmatory evaluation.
+  - Independently review the provenance-preserving renderer and add an atomic publication layer only after real immutable bundles and aggregate verification exist.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.
