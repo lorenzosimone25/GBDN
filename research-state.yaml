@@ -1,5 +1,5 @@
 schema_version: gbdn.research-state.v1
-updated: 2026-08-11
+updated: 2026-08-12
 objective: >-
   Establish the strongest correct, reproducible, and reviewer-resistant GBDN
   submission supported by mathematics and traceable experiments.
@@ -20,29 +20,32 @@ completed_tasks:
   - REV-GATEA-PREFLIGHT
 active_tasks:
   - ENG-002
-  - ENG-003
   - ENG-008
+  - ENG-GATEA-EXACT-2
+  - REV-NOVELTY-001
+  - REV-THEORY-PATCH
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
   h100_confirmation_allowed: false
   reasons:
-    - Critical canonical source, tests, manuscript, plans, and artifacts are ignored by Git.
     - Strict legacy reproduction verification fails with 28 reported problems.
-    - Gate A lacks several required theorem-contract tests and independent review.
-    - The reusable Laplacian path does not enforce the self-adjoint graph contract.
+    - Gate A has accepted local coverage for only 9 of 36 mandatory test IDs; the remaining contract and independent review are incomplete.
+    - Caller-supplied operators still need an auditable spectrum-validation boundary before they can enter claim-bearing runs.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 20
-  automated_tests_passing: 20
+  automated_tests: 47
+  automated_tests_passing: 47
+  mandatory_gate_a_ids_with_new_coverage: 9
+  mandatory_gate_a_ids_total: 36
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
   frozen_result_files: 128
   mechanism_files: 4
 next_dependency_chain:
-  - Freeze the scientific contract, notation, coefficient order, and root semantics.
-  - Repair repository provenance and isolate legacy code/artifacts.
-  - Complete Gate A proofs, counterexamples, oracle tests, and sparse/dense tests.
+  - Complete and independently audit the contract-aligned theory patch.
+  - Complete the remaining Gate A oracle, counterexample, approximation, and sparse tests.
+  - Emit and independently verify the machine-readable Gate A report.
   - Review Gate A before any claim-bearing experiment.
 open_decisions:
   - Canonical root parameterization variants.

@@ -34,14 +34,17 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | MATH-009 | Prove generic movable-pole separation from Cayley filters | Math | MATH-008 | Theorem | IN_PROGRESS |
 | MATH-010 | Derive graph perturbation stability or narrow replacement | Math | MATH-008 | Theorem or negative result | IN_PROGRESS |
 | MATH-011 | State locality, degree, and SpMV complexity | Math | SCI-001 | Proposition | IN_PROGRESS |
+| REV-NOVELTY-001 | Verify novelty and comparison-family pole loci from primary sources | Reviewer | MATH-001, SCI-001 | Source manifest and novelty adjudication | IN_PROGRESS |
+| REV-THEORY-PATCH | Independently audit the MATH-002--011 manuscript patch | Reviewer | MATH-002--MATH-011 | Theorem-by-theorem blocker report | IN_PROGRESS |
 | ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Trackability policy, legacy map, output guard, 10 tests | DONE |
 | ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | IN_PROGRESS |
-| ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | IN_PROGRESS |
+| ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | DONE |
 | ENG-004 | Implement streaming Chebyshev/Clenshaw realization | Engineer | ENG-002 | Sparse implementation | BACKLOG |
 | ENG-005 | Implement Tight GBDN analysis and synthesis | Engineer | ENG-003, ENG-004, MATH-002 | Canonical model and tests | BACKLOG |
 | ENG-006 | Implement Product-sum GBDN | Engineer | ENG-002, ENG-004 | Model and tests | BACKLOG |
 | ENG-007 | Implement GBDN+ separately | Engineer | ENG-004 | Relaxed model | BACKLOG |
 | ENG-008 | Implement theorem-contract test suite | Engineer | ENG-005, MATH-003–MATH-011 | Contract tests | IN_PROGRESS |
+| ENG-GATEA-EXACT-2 | Implement the second exact Gate-A test slice | Engineer | ENG-002, ENG-003, MATH-001 | GA-01/02/05--07/09/11--15/31--34 tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |

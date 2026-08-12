@@ -33,3 +33,12 @@
 - Froze roots and `L` with respect to each analyzed input, qualified pointwise paraunitary terminology, and reserved literal mapped-pole language for the exact rational target.
 - Froze the heterogeneous finite-order frame formula and complete hypotheses for generic reduced-pole separation and fixed-root operator perturbation stability.
 - Merged ENG-001 provenance isolation and output-boundary tests, the MATH-001 theorem/proof/counterexample ledgers, and the independent Gate-A contract preflight.
+
+## 2026-08-12 — Gate A implementation, first canonical slice
+
+- Integrated `c4c03ac`, which adds the strict graph-input boundary, a separately recorded reciprocal-mean preprocessor, and an independent small-graph dense oracle.
+- Changed the public Tight GBDN coefficient API and readout to the frozen residual-first order `(r_0,...,r_{D-1},h_D)` and added exact additive reconstruction.
+- Added focused executable coverage for GA-00, GA-03, GA-04, GA-08, GA-10, GA-16, GA-17, GA-19, and GA-35.
+- Re-ran the full local suite: 47 tests passed with two environment deprecation warnings.
+- Kept Gate A closed: 27 mandatory IDs, the full fixture/depth matrix, machine-readable reporting, and independent theorem-to-test review remain incomplete.
+- Completed a contract-aligned MATH-002--011 paper patch on its isolated branch; it remains paper-blocked pending independent proof review and executable Gate A evidence.
