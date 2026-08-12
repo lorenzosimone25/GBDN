@@ -1,0 +1,125 @@
+{
+  "schema_version": "gbdn.phase0-manifest.v1",
+  "audit_date": "2026-08-11",
+  "frozen_commit": "fcfa84111df8fcd66cd7266066bcd4c2aa97b852",
+  "orchestrator_branch": "agent/orchestrator/ORCH-001",
+  "preexisting_worktree_changes": [
+    {
+      "path": "REPRODUCTION.md",
+      "state": "modified",
+      "ownership": "preexisting_user_change"
+    },
+    {
+      "path": "reproduction_report.md",
+      "state": "untracked",
+      "ownership": "preexisting_user_artifact"
+    }
+  ],
+  "manuscript": {
+    "latex_entrypoint": "papers/revision/main.tex",
+    "latex_sha256": "a6b11478980925db796248ac7c657ac8bb53aa5ac6ad855c57b45e06a7d49702",
+    "pdf": "papers/revision/main.pdf",
+    "pdf_sha256": "0691d0405541ae06c9a8f452d4f0a54b7ec1a64b17f38e2c8c81aefbe666b052",
+    "pdf_pages": 18
+  },
+  "result_collections": [
+    {
+      "root": "results",
+      "classification": "frozen_legacy_gbdn_plus",
+      "files": 60,
+      "bytes": 89491057,
+      "tree_sha256": "7da128877e741e24522e11284081e858f6da78022e6bdbc76bb1d8a2bc2000c0",
+      "inventory": {
+        "datasets": ["Roman-empire", "Amazon-ratings", "Minesweeper", "Tolokers", "Questions"],
+        "methods": ["GBDN+", "ChebNet", "ChebNetII", "H2GCN", "FAGCN", "MLP", "MixHop", "GAT", "GraphSAGE", "ADGN", "ResNet", "ResNet+SGC"],
+        "path_template": "results/{dataset}/{method}.json"
+      },
+      "claim_use": "diagnostic_only"
+    },
+    {
+      "root": "results_repro",
+      "classification": "frozen_h100_legacy_reproduction",
+      "files": 60,
+      "bytes": 71328610,
+      "tree_sha256": "ecdf275d6fbe69af34bf78188e175de61b1b1a0fb20d895eb0e739e3bd5a885e",
+      "inventory": {
+        "datasets": ["Roman-empire", "Amazon-ratings", "Minesweeper", "Tolokers", "Questions"],
+        "methods": ["GBDN+", "ChebNet", "ChebNetII", "H2GCN", "FAGCN", "MLP", "MixHop", "GAT", "GraphSAGE", "ADGN", "ResNet", "ResNet+SGC"],
+        "path_template": "results_repro/{dataset}/{method}.json"
+      },
+      "claim_use": "diagnostic_only",
+      "strict_verification": "fail"
+    },
+    {
+      "root": "results_LRGB",
+      "classification": "frozen_legacy_simplified_peptides_func",
+      "files": 2,
+      "bytes": 464,
+      "tree_sha256": "223088524f3293f02205fb8546d2ad1a5ce7bc74429171131d66244ba81f653f",
+      "paths": ["results_LRGB/ChebNet_K10.json", "results_LRGB/GBDN+.json"],
+      "claim_use": "diagnostic_only"
+    },
+    {
+      "root": "results_LRGB_repro",
+      "classification": "frozen_h100_simplified_peptides_func_reproduction",
+      "files": 2,
+      "bytes": 4680,
+      "tree_sha256": "b839ff406907b9581e057afd3974764cfa6bb302247e8e5734e44165895dbec5",
+      "paths": ["results_LRGB_repro/ChebNet_K10.json", "results_LRGB_repro/GBDN+.json"],
+      "claim_use": "diagnostic_only"
+    },
+    {
+      "root": "artifacts",
+      "classification": "development_mechanism_study",
+      "files": 4,
+      "bytes": 75642,
+      "tree_sha256": "23b64642dd66800c2d478031cccf72fa059871bb38bed53e502b3654dac35a53",
+      "paths": [
+        "artifacts/mechanism_v1/config.json",
+        "artifacts/mechanism_v1/pole_distance_records.json",
+        "artifacts/mechanism_v1/sphere_best_run.npz",
+        "artifacts/mechanism_v1/summary.json"
+      ],
+      "claim_use": "exploratory_mechanism_evidence"
+    }
+  ],
+  "repository_visibility": {
+    "tracked_files": 135,
+    "public_history_commits": 4,
+    "ignored_critical_paths": [
+      "src/gbdn",
+      "tests/test_gate_a.py",
+      "papers",
+      "paper",
+      "sub_plans",
+      "research",
+      "artifacts",
+      "results_submission"
+    ],
+    "status": "provenance_blocker"
+  },
+  "local_environment": {
+    "platform": "Windows 11",
+    "python": "3.12.10",
+    "torch": "2.13.0+cpu",
+    "torch_geometric": "2.8.0",
+    "numpy": "2.5.1",
+    "scipy": "1.18.0",
+    "scikit_learn": "missing",
+    "cuda_available": false
+  },
+  "declared_environment": {
+    "requirements_lock_sha256": "2829856a90e9b61fb6d697fcaa52f02cdcc9a0fae1d13a6988c0d2ce03b9beaa",
+    "python": "3.11",
+    "platform": "Linux",
+    "cuda": "12.8"
+  },
+  "reported_h100_environment": {
+    "python": "3.10.12",
+    "torch": "2.11.0+cu128",
+    "torch_geometric": "2.8.0",
+    "numpy": "2.2.6",
+    "gpu": "NVIDIA H100 80GB HBM3",
+    "physical_device": 7
+  }
+}

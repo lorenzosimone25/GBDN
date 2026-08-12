@@ -285,15 +285,17 @@ On a connected regular graph, a constant input remains constant under every scal
 
 Every scalar g(L) acts as g(lambda) times identity on a repeated eigenspace. Movable poles cannot distinguish orientations within it. Product-sum spans only scalar multipliers on distinct eigenvalues.
 
-### Self-adjointness implementation failure
+### Self-adjointness implementation failure in the reusable helper
 
-normalized_laplacian does not verify reciprocal edges or symmetric weights. sphere_graph_data constructs directed k-nearest-neighbor edges and does not symmetrize them. A read-only reconstruction at n = 600, k = 12 produced
+normalized_laplacian does not verify reciprocal edges or symmetric weights. `src/gbdn/synthetic.py::sphere_graph_data` constructs directed k-nearest-neighbor edges and does not symmetrize them. A read-only reconstruction at n = 600, k = 12 produced
 
 \[
 \|L-L^\top\|_F/\|L\|_F\approx 8.22\times10^{-2}.
 \]
 
-Calling a Hermitian eigensolver does not repair this. Approximate synthesis conjugates coefficients but reuses L, which is the true adjoint only if L is self-adjoint. The sphere artifact omits edges, raw seed runs, and executable source, so its claimed symmetric graph cannot be verified. That mechanism result is suggestive only until regenerated.
+Calling a Hermitian eigensolver does not repair this. Approximate synthesis conjugates coefficients but reuses L, which is the true adjoint only if L is self-adjoint. This is a canonical helper/API failure and a blocker for general use.
+
+The mechanism artifact was produced through a different path: `scripts/run_mechanism_experiments.py::sphere_graph` explicitly mirrors weights and symmetrizes its dense Laplacian, and its recorded source hash matches the current generator. The artifact still omits edges and raw per-seed runs, so it is not fully traceable, but the directed-helper defect alone does not invalidate that particular graph.
 
 ## Paper claim classification
 
@@ -332,7 +334,7 @@ Calling a Hermitian eigensolver does not repair this. Approximate synthesis conj
 | Permutation equivariance | Required, absent | Expected | No test | Missing. |
 | Repeated/disconnected graphs | In scope | Expected | No test | Missing. |
 | Graph identity/cache safety | Method | No implicit cache | Path/cycle test | Passed. |
-| Sphere mechanism | Experiments | No immutable generator | Aggregate and best-run files | Provenance/graph blocked. |
+| Sphere mechanism | Experiments | Source-hashed symmetric generator | Aggregate and best-run files | Graph construction is symmetric; run-level provenance and selection remain blocked. |
 
 ## Gate A test audit
 
@@ -372,7 +374,7 @@ Before downstream experiments:
 
 1. Track/freeze the manuscript, canonical source, tests, and mechanism generator.
 2. Enforce symmetric nonnegative graph construction or fail loudly.
-3. Regenerate sphere artifacts with stored edges, graph hash, raw initializations, exact/finite flag, and source commit.
+3. Regenerate sphere artifacts with stored edges, graph hash, raw initializations, exact/finite flag, and source commit; do not use the asymmetric reusable helper.
 4. Decide between an angular-anchor interpretation and exact center/width parameterization.
 5. Implement all missing Gate A observables and graph families.
 6. Correct the test-count statement to 10 plus 10.
