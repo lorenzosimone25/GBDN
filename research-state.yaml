@@ -34,11 +34,11 @@ completed_tasks:
   - ENG-GATEA-SEMANTIC-REPAIR-1
   - ENG-R3-ARTIFACT-1
   - REV-GATEA-REVIEW-2
+  - OPS-H100-PREFLIGHT-1
 active_tasks:
   - ENG-002
   - ENG-008
   - ENG-GATEA-PUBLIC-BOUNDARY-2
-  - OPS-H100-PREFLIGHT-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
@@ -51,6 +51,7 @@ stop_line:
     - The Gate-A report mixes execution and duplicate-mapping state in its row status and still relies on unvalidated hard-coded coverage declarations; a legacy diagnostic subset can also print a false global acceptance message.
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
+    - The submission CLI, frozen run plan, official task contracts, independent metric recomputation, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
 current_evidence:
   automated_tests: 522
   automated_tests_passing: 522

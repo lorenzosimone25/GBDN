@@ -90,3 +90,10 @@
 - The same review falsified the semantic binding of GA-13. Its prescribed diagonal response does not satisfy the complementary all-pass premise; the target and complement witnesses have unit-modulus residuals of approximately 0.072 and 0.038 for `1-2q`.
 - The report also mixes `DUPLICATE` mapping information into the contract's PASS/FAIL/NOT_RUN row status and accepts fixture/root/depth declarations from hard-coded metadata without payload validation. A diagnostic ten-check script can misleadingly print global Gate-A acceptance.
 - Opened one bounded public-boundary repair covering validated exact inputs, an actual Blaschke-response GA-13 witness, report semantics/provenance, and removal of false acceptance messaging. Gate A and every claim-bearing H100 run remain blocked.
+
+## 2026-08-12 — H100 operations preflight
+
+- Audited the canonical execution path without launching experiments. Immutable run identities, source/environment capture, atomic write-once bundles, resume classification, and failure records are accepted as foundations.
+- Confirmed that the submission CLI, thin H100 notebook, frozen plan/configurations, official task contracts, isolated scheduler, independent metric recomputation, split-first statistics, verified baseline registry, renderers, and fail-loud verifier are still missing.
+- Authorized only CPU-side runner and synthetic smoke infrastructure while Gate A is under independent review. H100 jobs, Gate B/C runs, confirmatory benchmarks, and claim-bearing paper outputs remain blocked.
+- Froze a future H100-only publication boundary: installable canonical source, relevant tests, setup/runner scripts, one operator notebook, frozen configurations, locked dependencies, and a concise operator README. Audits, agent material, manuscript/generated content, exploratory or legacy outputs, and raw results are excluded.
