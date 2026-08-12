@@ -1,3 +1,16 @@
 \begin{abstract}
-Graph spectral filters usually learn polynomial coefficients or combinations of a fixed rational basis. We instead learn the roots of Blaschke all-pass factors after a Cayley transform of the graph Laplacian. Each root controls a localized spectral phase transition, while complementary half-sum and half-difference channels convert phase into amplitude-selective analysis bands. We prove that the exact multilevel analysis is an isometry and give an explicit adjoint synthesis recursion with perfect reconstruction of the analyzed signal. We also relate Chebyshev interpolation error to poles induced jointly by root radius and angle. A cumulative product-sum extension provides finite-spectrum interpolation, while a relaxed variant is treated separately without reconstruction guarantees. On a controlled sphere graph, phase-sensitive fitting reduces component-recovery error and leakage relative to magnitude-only fitting across five initializations. A single-run H100 reproduction is reported only as a diagnostic; confirmatory downstream comparisons require the prespecified multi-split, multi-seed protocol.
+Graph spectral filters often learn polynomial coefficients or coefficients in a
+restricted rational family.  We instead learn the roots of Blaschke all-pass
+factors after a Cayley transform of a self-adjoint graph operator.  Each root
+controls localized phase geometry, while complementary half-sum and
+half-difference channels convert phase into amplitude-selective analysis
+bands.  We prove that the exact nonsubsampled multilevel analysis is an
+isometry and give explicit additive and adjoint reconstruction recursions.  We
+separate this exact target from its finite Chebyshev realization, for which we
+derive frame-distortion, locality, and sparse-cost statements.  A cumulative
+Product-sum extension admits finite-spectrum interpolation, while a relaxed
+variant is treated separately without reconstruction guarantees.  Controlled
+mechanism studies and a single-run legacy H100 reproduction are retained only
+as diagnostics; comparative downstream claims require provenance-complete,
+prespecified multi-run evaluation.
 \end{abstract}
