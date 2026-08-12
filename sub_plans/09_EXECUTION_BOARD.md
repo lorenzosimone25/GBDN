@@ -90,6 +90,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-007-008-ADMISSION-CONTRACT-2 | Distinguish licensed upstream code from clean-room equations and hash-bind every admission artifact | Orchestrator | EXP-006-007-IDENTITY-AUDIT-1 | Registry v2, typed parity binding, run-plan integration, adversarial tests | DONE |
 | EXP-006-007-IDENTITY-AUDIT-1 | Pin official NPZ byte identity and audit comparator root licenses | Orchestrator | EXP-006-PREFLIGHT | Five size/blob/SHA records; four pinned spectral baselines remain BLOCKED | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
+| EXP-007-CHEBNET-PYG-1 | Implement licensed PyG ChebNet adapter and independent dense recurrence/resource checks | Orchestrator | EXP-007-008-ADMISSION-CONTRACT-2 | Unadmitted canonical adapter, tests, and provenance boundary | DONE |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
 | EXP-010 | Run all-split, multi-seed heterophily confirmation | Engineer | EXP-009 | Primary artifacts | BACKLOG |
