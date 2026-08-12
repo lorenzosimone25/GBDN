@@ -1,48 +1,157 @@
-# This repository is intentionally built from an allowlist.
+# This repository uses an explicit source allowlist. Keep datasets, raw runs,
+# caches, compiled manuscripts, and local environments out of version control.
 /*
 
+# Repository metadata and frozen audit records.
 !/.gitignore
 !/README.md
 !/REPRODUCTION.md
 !/requirements.lock
 !/reproduction_report.md
+!/PHASE0_AUDIT.md
+!/findings.md
+!/research-log.md
+!/research-state.yaml
 
+# Implementations. The single-file reproduction is frozen legacy code;
+# src/gbdn is the only canonical method namespace.
 !/src/
 /src/*
 !/src/legacy_reproduction.py
+!/src/gbdn/
+!/src/gbdn/**/
+!/src/gbdn/*.py
+!/src/gbdn/**/*.py
+!/src/gbdn/*.pyi
+!/src/gbdn/**/*.pyi
+!/src/gbdn/py.typed
+/src/gbdn/**/__pycache__/
+/src/gbdn/**/*.py[cod]
 
+# Reusable runners and frozen environment/configuration inputs.
 !/scripts/
 /scripts/*
-!/scripts/reproduce_legacy.py
-!/scripts/run_h100.sh
-!/scripts/setup_h100.sh
+!/scripts/*.py
+!/scripts/*.sh
+!/scripts/*.ps1
+!/scripts/*.md
 
+!/configs/
+/configs/*
+!/configs/**/
+!/configs/*.json
+!/configs/**/*.json
+!/configs/*.toml
+!/configs/**/*.toml
+!/configs/*.yaml
+!/configs/**/*.yaml
+!/configs/*.yml
+!/configs/**/*.yml
+!/configs/*.md
+!/configs/**/*.md
+
+# The legacy notebook remains provenance-only. The submission notebook is the
+# sole canonical operator notebook admitted by this policy.
 !/notebooks/
 /notebooks/*
 !/notebooks/reproduce_legacy.ipynb
+!/notebooks/gbdn_submission_h100.ipynb
 
+# Scientific contracts and tests are first-class versioned inputs.
 !/tests/
 /tests/*
-!/tests/test_legacy_reproduction.py
-!/tests/test_reproduction_pipeline.py
+!/tests/**/
+!/tests/*.py
+!/tests/**/*.py
+/tests/**/__pycache__/
+/tests/**/.pytest_cache/
 
-!/results/
-/results/*
-!/results/*/
-/results/*/*
-!/results/*/*.json
+!/sub_plans/
+/sub_plans/*
+!/sub_plans/*.md
 
-!/results_LRGB/
-/results_LRGB/*
-!/results_LRGB/*.json
+!/docs/
+/docs/*
+!/docs/*.md
 
-!/results_repro/
-/results_repro/*
-!/results_repro/run_manifest.json
-!/results_repro/*/
-/results_repro/*/*
-!/results_repro/*/*.json
+!/reviews/
+/reviews/*
+!/reviews/*.md
 
-!/results_LRGB_repro/
-/results_LRGB_repro/*
-!/results_LRGB_repro/*.json
+!/math/
+/math/*
+!/math/*.md
+
+!/handoffs/
+/handoffs/*
+!/handoffs/*.md
+
+# Active manuscript source only. Compiled PDFs and LaTeX build products stay
+# ignored; they must be regenerated from the tracked source.
+!/papers/
+/papers/*
+!/papers/revision/
+/papers/revision/*
+!/papers/revision/*.tex
+!/papers/revision/*.bib
+!/papers/revision/*.sty
+!/papers/revision/*.md
+!/papers/revision/sections/
+/papers/revision/sections/*
+!/papers/revision/sections/*.tex
+
+# Regenerable paper tables and their compact aggregate data. Raw runs belong
+# under results_submission and remain untracked.
+!/paper/
+/paper/*
+!/paper/generated/
+/paper/generated/*
+!/paper/generated/*.tex
+!/paper/generated/*.json
+!/paper/generated/*.csv
+!/paper/generated/*.yaml
+!/paper/generated/*.yml
+!/paper/generated/figure_data/
+/paper/generated/figure_data/*
+!/paper/generated/figure_data/*.json
+!/paper/generated/figure_data/*.csv
+
+# Only compact submission reports are versioned. Per-run predictions, model
+# states, logs, and aggregates remain ignored unless a later reviewed policy
+# explicitly admits them.
+!/results_submission/
+/results_submission/*
+!/results_submission/reports/
+/results_submission/reports/*
+!/results_submission/reports/*.json
+!/results_submission/reports/*.md
+!/results_submission/reports/*.tex
+!/results_submission/reports/*.csv
+!/results_submission/reports/*.yaml
+!/results_submission/reports/*.yml
+
+# Frozen diagnostic trees. Their already tracked contents remain available,
+# but new files are ignored and canonical writers reject every path below them.
+/results/**
+/results_repro/**
+/results_LRGB/**
+/results_LRGB_repro/**
+
+# Local/build debris, including within admitted directories.
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.pdf
+.venv/
+venv/
+data/
+reproduction_state/
+reproduction_logs/
