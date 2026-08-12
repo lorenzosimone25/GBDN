@@ -1,107 +1,104 @@
-# GBDN: Graph Blaschke Decomposition Networks
+# GBDN: learned Blaschke--Cayley graph filter banks
 
-GBDN is a spectral graph neural network built around learnable Blaschke
-responses. This repository contains the compact implementation and experiment
-pipeline needed to reproduce the original GBDN+ and baseline results on a
-single NVIDIA H100.
+This repository contains two deliberately separated workflows:
 
-## 🧭 Overview
+1. a frozen legacy GBDN+ reproduction retained for provenance; and
+2. the canonical implementation and gated experiment system for the current
+   Tight GBDN / Product-sum GBDN study.
 
-Polynomial graph filters are efficient, but their spectral response is tied to
-a fixed polynomial parameterization. GBDN instead starts from Blaschke factors,
-whose complex-valued geometry provides a flexible way to shape graph-frequency
-responses. The resulting filters are evaluated with a Chebyshev approximation,
-so training remains compatible with sparse graph operations.
+The legacy single-seed results are diagnostics.  They are not evidence for the
+current method and are not mixed with new submission artifacts.
 
-The reproduction target is intentionally narrow: the saved JSON artifacts from
-the original single-seed benchmark protocol. The repository does not mix these
-results with the later multi-seed development runner.
+## Canonical method
 
-## 🧠 Method
+The current construction learns admissible roots of Blaschke all-pass factors
+after a Cayley transform of a self-adjoint graph operator.  Complementary
+half-sum and half-difference channels turn spectral phase into a redundant,
+nonsubsampled analysis bank.  The canonical package distinguishes:
 
-GBDN+ follows five steps:
+- `TightGBDN`: exact or finite-Chebyshev complementary analysis with explicit
+  residual-first coefficients and reconstruction utilities;
+- `ProductSumGBDN`: cumulative all-pass products with a learned complex sum;
+- canonical relaxed `GBDN+`: an empirical relaxation without tightness or
+  reconstruction claims; and
+- Legacy GBDN+: the frozen historical implementation only.
 
-1. Lift real node features into a complex hidden representation.
-2. Build a Chebyshev basis of the normalized graph Laplacian.
-3. Learn bounded complex Blaschke parameters for each decomposition layer.
-4. Convert the Blaschke response into Chebyshev coefficients and apply it with
-   sparse matrix operations.
-5. Combine the filtered representation with a learnable skip connection, then
-   concatenate its real and imaginary parts for prediction.
+Exact rational targets and finite Chebyshev realizations are different
+scientific objects.  A finite realization is polynomial and has no literal
+poles; reported mapped poles belong to its parameterized exact target.
 
-The benchmark implementation keeps the original architecture, optimizer,
-initialization, dataset order, seed, split, and validation-selection rule.
+## Current scientific gate
 
-## 🧪 Reproduced benchmarks
+The repository is under a stop-line policy:
 
-| Benchmark | Datasets | Models | Protocol |
-|---|---:|---:|---|
-| Heterophilous graphs | 5 | 12 | Seed 25, split 0, 1,000 epochs |
-| Peptides-func | 1 | 2 | Seed 25, official splits, 100 epochs |
+- all 36 prespecified Gate-A correctness IDs have executable coverage;
+- the full local suite currently passes 447 tests;
+- final row-level provenance and independent Gate-A acceptance are still in
+  progress; and
+- no new claim-bearing H100 benchmark is authorized until that gate closes.
 
-The heterophily suite contains Roman-empire, Amazon-ratings, Minesweeper,
-Tolokers, and Questions. It evaluates GBDN+, ChebNet, ChebNetII, H2GCN, FAGCN,
-MLP, MixHop, GAT, GraphSAGE, ADGN, ResNet, and ResNet+SGC. Peptides-func
-evaluates GBDN+ and ChebNet_K10.
+The active manuscript therefore labels existing mechanism studies and the
+legacy H100 tables as diagnostics.  It makes no state-of-the-art,
+anti-oversmoothing, oversquashing, or long-range claim.
 
-Reference artifacts live in `results/` and `results_LRGB/`. Fresh runs are
-written separately and compared against those references.
+## Clean checkout
 
-## ⚡ Run on one H100
-
-Requirements: Linux, Python 3.11, one accessible NVIDIA H100, `nvidia-smi`,
-internet access for PyG dataset downloads, and persistent disk storage.
+Use Python 3.11.  On an H100 host, the pinned environment can be created with:
 
 ```bash
 git clone https://github.com/lorenzosimone25/GBDN.git
 cd GBDN
-
 bash scripts/setup_h100.sh
+```
+
+That setup validates the GPU and runs the test suite.  The tracked
+`scripts/run_h100.sh` command is explicitly the frozen legacy launcher.  Do not
+use it for the current submission study.
+
+The canonical operator interface will be:
+
+```text
+scripts/run_submission.py
+notebooks/gbdn_submission_h100.ipynb
+```
+
+Those interfaces are admitted only after immutable run identities, artifact
+verification, and smoke/resume tests pass.  Until they are present, a clean
+checkout intentionally cannot launch the new benchmark program.
+
+## Legacy reproduction
+
+The historical single-seed, split-0 workflow remains available unchanged:
+
+```bash
 bash scripts/run_h100.sh smoke
 bash scripts/run_h100.sh run-all --workers auto
 bash scripts/run_h100.sh report
 bash scripts/run_h100.sh verify
 ```
 
-`run-all` assigns one process to each model pipeline and runs several pipelines
-concurrently. Every model still visits the five heterophily datasets in the
-original order, preserving its RNG stream. The Peptides-func pair runs
-sequentially because its initialization order is part of the original protocol.
+It writes only to `results_repro/` and `results_LRGB_repro/`.  See
+[`REPRODUCTION.md`](REPRODUCTION.md) for the frozen protocol and its known
+limitations.
 
-Training remains in deterministic FP32. TF32, mixed precision, and compilation
-are disabled so H100 acceleration does not silently alter the experiment.
-
-## 📦 Outputs and reproducibility
+## Repository layout
 
 ```text
-results/                 Reference heterophily JSON
-results_LRGB/            Reference Peptides-func JSON
-results_repro/           Fresh heterophily JSON and run manifest
-results_LRGB_repro/      Fresh Peptides-func JSON
-reproduction_report.md   Reference-versus-rerun comparison
+src/gbdn/                         canonical operators, models, diagnostics
+tests/                            Gate-A and repository-boundary tests
+math/                             theorem, proof, and counterexample ledgers
+reviews/                          independent scientific audits
+papers/revision/                  active anonymous manuscript source
+paper/generated/                  regenerated paper inputs only
+results_submission/              canonical immutable local/H100 artifacts
+results_submission/reports/      compact reviewed reports safe to version
+src/legacy_reproduction.py        frozen legacy implementation
+scripts/reproduce_legacy.py       frozen legacy CLI
+notebooks/reproduce_legacy.ipynb  frozen legacy operator notebook
+sub_plans/                        scientific contracts and execution board
 ```
 
-Outputs are atomic and immutable by default. Matching completed jobs are
-resumed through local RNG checkpoints; replacing a different run identity
-requires `--rerun`. Each artifact records its configuration, source hash,
-software environment, GPU, runtime, and peak CUDA memory.
-
-The final verification command requires all 62 artifacts, recomputes saved
-heterophily metrics from predictions, checks provenance, and rejects absolute
-metric drift greater than `0.02`.
-
-See [REPRODUCTION.md](REPRODUCTION.md) for command options, paths, and recovery
-behavior.
-
-## 🔬 Repository layout
-
-```text
-src/legacy_reproduction.py     Models, training loops, metrics, validation
-scripts/reproduce_legacy.py    Experiment CLI and parallel supervisor
-scripts/setup_h100.sh          Pinned Python/CUDA environment setup
-scripts/run_h100.sh            GPU isolation, logging, and command launcher
-tests/                         Reproduction and failure-path tests
-```
-
-Datasets, virtual environments, logs, checkpoints, manuscripts, figures,
-notebooks, and research scratch files are deliberately excluded from Git.
+Canonical writers are restricted to `results_submission/` and must never
+overwrite the frozen result trees.  See
+[`docs/LEGACY_CANONICAL_BOUNDARY.md`](docs/LEGACY_CANONICAL_BOUNDARY.md) for the
+normative write and Git policy.
