@@ -48,7 +48,8 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-008 | Implement theorem-contract test suite | Engineer | ENG-005, MATH-003–MATH-011 | Contract tests | IN_PROGRESS |
 | ENG-GATEA-EXACT-2 | Implement the second exact Gate-A test slice | Engineer | ENG-002, ENG-003, MATH-001 | GA-01/02/05--07/09/11--15/31--34 tests | DONE |
 | ENG-GATEA-CLOSEOUT-1 | Add GA-23 and auditable Gate-A report/coverage inventory | Engineer | ENG-GATEA-EXACT-2, ENG-008 | GA-23 tests and deterministic report utility | IN_PROGRESS |
-| REV-GATEA-APPROX-1 | Independently audit finite-order Gate-A diagnostics/tests | Reviewer | ENG-008, MATH-007--MATH-011 | Approximation theorem-test verdict | IN_PROGRESS |
+| REV-GATEA-APPROX-1 | Independently audit finite-order Gate-A diagnostics/tests | Reviewer | ENG-008, MATH-007--MATH-011 | Approximation theorem-test verdict | DONE |
+| ENG-GATEA-APPROX-REPAIR-1 | Repair finite-order theorem-test semantic mismatches | Engineer | REV-GATEA-APPROX-1 | Correct GA-20/22/24/29/30 observables and diagnostics | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
