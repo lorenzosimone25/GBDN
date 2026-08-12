@@ -30,11 +30,11 @@ completed_tasks:
   - MATH-CHEB-SOURCE-1
   - ENG-GATEA-PROVENANCE-1
   - REV-GATEA-FINAL-1
+  - OPS-RUNID-1
 active_tasks:
   - ENG-002
   - ENG-008
   - ENG-GATEA-SEMANTIC-REPAIR-1
-  - OPS-RUNID-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
@@ -53,6 +53,7 @@ current_evidence:
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 703
   gate_a_evidence_typed_na_fields: 59
+  immutable_artifact_core_tests_passing: 41
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
   frozen_result_files: 128
