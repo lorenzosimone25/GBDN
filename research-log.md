@@ -173,3 +173,10 @@
 - Added a confirmatory-plan schema that binds the admitted registry and freezes the five datasets, exact 10×3 grid, TightGBDN plus primary comparators, one equal validation-only trial budget, isolated post-freeze test evaluation, and dataset-specific practical tie thresholds.
 - Wired semantic plan/registry validation into the readiness inventory when both files exist, while retaining the absent Gate-A token and unimplemented scheduler/run-plan validator as unconditional blockers.
 - The full repository suite passes 628 tests with one platform-specific skip and three known environment warnings. No actual registry, comparator family, trial-budget magnitude, threshold, parity result, or experiment was frozen.
+
+## 2026-08-12 — Immutable confirmatory run-plan contract
+
+- Added exact validation for the full method×five-dataset×ten-split×three-seed run product, including duplicate/missing identities, shared clean source/environment, one deterministic GPU, registry-bound baseline commits, and plan/config/hash agreement.
+- Added a read-only dry-run inventory over the immutable artifact classifier. The synthetic three-method fixture reports 450 pending jobs without creating a result path.
+- Wired semantic run-plan validation and unsafe partial/corrupt/conflict detection into the readiness inventory. The isolated post-freeze evaluator and subprocess scheduler remain explicit blockers.
+- The full repository suite passes 632 tests with one platform-specific skip and three known environment warnings. No real run plan or execution command was created.
