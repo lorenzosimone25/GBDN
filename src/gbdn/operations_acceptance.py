@@ -1,35 +1,63 @@
-"""Fail-closed validation of independent scheduler-operations acceptance."""
+"""Fail-closed validation of independently reviewed heterophily operations."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Final
+from typing import Any, Final, Mapping
 
 from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes, sha256_file
 
 
-OPERATIONS_ACCEPTANCE_SCHEMA: Final[str] = "gbdn-operations-acceptance-v1"
+OPERATIONS_ACCEPTANCE_SCHEMA: Final[str] = "gbdn-operations-acceptance-v2"
+OPERATIONS_REVIEW_SCHEMA: Final[str] = "gbdn-operations-independent-review-v1"
+OPERATIONS_REVIEW_SCOPE: Final[str] = "CLAIM_BEARING_HETEROPHILY_EXECUTION"
 OPERATIONS_ACCEPTANCE_PATH: Final[PurePosixPath] = PurePosixPath(
     "configs/submission/frozen/operations_acceptance.json"
 )
 PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
+    "configs/submission/frozen/confirmatory_plan.json",
+    "requirements.lock",
+    "results_submission/baseline_registry.json",
+    "results_submission/run_plan.json",
+    "scripts/run_heterophily_job.py",
+    "scripts/run_submission.py",
     "src/gbdn/artifacts.py",
+    "src/gbdn/baseline_contract.py",
+    "src/gbdn/baselines/chebnet.py",
+    "src/gbdn/core.py",
+    "src/gbdn/heterophily_contract.py",
     "src/gbdn/heterophily_evaluator.py",
+    "src/gbdn/heterophily_training.py",
+    "src/gbdn/heterophily_worker.py",
+    "src/gbdn/layers.py",
+    "src/gbdn/model.py",
     "src/gbdn/operations_acceptance.py",
+    "src/gbdn/provenance.py",
+    "src/gbdn/run_plan.py",
+    "src/gbdn/seed.py",
+    "src/gbdn/spectral.py",
     "src/gbdn/submission_scheduler.py",
     "src/gbdn/submission_verify.py",
     "tests/test_artifact_core.py",
+    "tests/test_baseline_contract.py",
+    "tests/test_chebnet_baseline.py",
+    "tests/test_heterophily_contract.py",
     "tests/test_heterophily_evaluator.py",
+    "tests/test_heterophily_training.py",
+    "tests/test_heterophily_worker.py",
     "tests/test_operations_acceptance.py",
+    "tests/test_run_plan.py",
     "tests/test_submission_scheduler.py",
     "tests/test_submission_verify.py",
 )
 _GIT = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_MAX_JSON_BYTES: Final[int] = 256 * 1024
 
 
 def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
@@ -37,77 +65,228 @@ def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
         ["git", "-C", str(root), *args], capture_output=True, check=False
     )
     if check and result.returncode:
-        raise ArtifactValidationError(f"operations acceptance git check failed: {' '.join(args)}")
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise ArtifactValidationError(
+            f"operations acceptance git check failed: {' '.join(args)}: {detail}"
+        )
     return result
+
+
+def _exact_keys(value: Mapping[str, Any], expected: set[str], label: str) -> None:
+    if set(value) != expected:
+        raise ArtifactValidationError(f"{label} keys do not match the frozen schema")
+
+
+def _safe_path(value: Any, label: str) -> PurePosixPath:
+    if not isinstance(value, str) or not value or "\\" in value or ":" in value:
+        raise ArtifactValidationError(f"{label} must be a POSIX relative path")
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ArtifactValidationError(f"{label} contains an unsafe path segment")
+    return path
+
+
+def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in output:
+            raise ArtifactValidationError(f"duplicate JSON key: {key}")
+        output[key] = value
+    return output
+
+
+def _reject_constant(value: str) -> None:
+    raise ArtifactValidationError(f"non-standard JSON constant: {value}")
+
+
+def _load_canonical_json_bytes(payload: bytes, label: str) -> Mapping[str, Any]:
+    try:
+        value = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=_unique_pairs,
+            parse_constant=_reject_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ArtifactValidationError(f"{label} is invalid UTF-8 JSON") from exc
+    if not isinstance(value, dict) or canonical_json_bytes(value) != payload:
+        raise ArtifactValidationError(f"{label} is not canonical JSON")
+    return value
+
+
+def _load_regular_json(path: Path, label: str) -> tuple[bytes, Mapping[str, Any]]:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_JSON_BYTES:
+        raise ArtifactValidationError(f"{label} is absent or unsafe")
+    payload = path.read_bytes()
+    return payload, _load_canonical_json_bytes(payload, label)
+
+
+def _regular_blob_at(root: Path, commit: str, relative: str, label: str) -> bytes:
+    listing = _git(root, "ls-tree", commit, "--", relative).stdout.decode().strip()
+    fields = listing.split(maxsplit=3)
+    if len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+        raise ArtifactValidationError(f"{label} is not a tracked regular blob at {commit}")
+    return _git(root, "show", f"{commit}:{relative}").stdout
+
+
+def _require_clean_regular_paths(root: Path, paths: tuple[str, ...], label: str) -> None:
+    status = _git(
+        root, "status", "--porcelain=v1", "--untracked-files=all", "--", *paths
+    ).stdout
+    if status.strip():
+        raise ArtifactValidationError(f"{label} has staged, unstaged, deleted, or untracked changes")
+    for relative in paths:
+        lexical = root / PurePosixPath(relative)
+        if lexical.is_symlink() or not lexical.is_file():
+            raise ArtifactValidationError(f"{label} path is not a regular file: {relative}")
+        resolved = lexical.resolve(strict=True)
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise ArtifactValidationError(f"{label} path escapes repository: {relative}") from exc
+        _regular_blob_at(root, "HEAD", relative, label)
+
+
+def _validate_machine_review(
+    data: Mapping[str, Any], *, reviewed_commit: str, reviewed_tree: str
+) -> None:
+    _exact_keys(
+        data,
+        {
+            "blockers",
+            "decision",
+            "protected_paths",
+            "reviewed_source",
+            "schema_version",
+            "scope",
+        },
+        "operations independent review",
+    )
+    if data["schema_version"] != OPERATIONS_REVIEW_SCHEMA:
+        raise ArtifactValidationError("operations independent review schema is invalid")
+    if data["decision"] != "ACCEPT" or data["blockers"] != []:
+        raise ArtifactValidationError("operations independent review is not unconditional ACCEPT")
+    if data["scope"] != OPERATIONS_REVIEW_SCOPE:
+        raise ArtifactValidationError("operations independent review scope is insufficient")
+    if data["protected_paths"] != list(PROTECTED_OPERATIONS_PATHS):
+        raise ArtifactValidationError("operations independent review protected scope differs")
+    source = data["reviewed_source"]
+    if not isinstance(source, dict):
+        raise ArtifactValidationError("operations independent review source is invalid")
+    _exact_keys(source, {"repository_commit", "repository_tree"}, "review source")
+    if source != {"repository_commit": reviewed_commit, "repository_tree": reviewed_tree}:
+        raise ArtifactValidationError("operations independent review is bound to another source")
 
 
 @dataclass(frozen=True)
 class OperationsAcceptance:
     reviewed_commit: str
     reviewed_tree: str
+    review_commit: str
     review_path: str
     review_sha256: str
+    handoff_path: str
+    handoff_sha256: str
 
 
 def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcceptance:
     root = Path(repository_root).resolve(strict=True)
     token = root / OPERATIONS_ACCEPTANCE_PATH
-    if token.is_symlink() or not token.is_file() or token.stat().st_size > 128 * 1024:
-        raise ArtifactValidationError("independent operations acceptance token is absent or unsafe")
-    payload = token.read_bytes()
-    try:
-        data = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ArtifactValidationError("operations acceptance token is invalid JSON") from exc
-    if not isinstance(data, dict) or canonical_json_bytes(data) != payload:
-        raise ArtifactValidationError("operations acceptance token is not canonical JSON")
-    expected = {
-        "decision", "protected_paths", "review", "reviewed_source", "schema_version"
-    }
-    if set(data) != expected or data["schema_version"] != OPERATIONS_ACCEPTANCE_SCHEMA:
+    token_payload, data = _load_regular_json(token, "independent operations acceptance token")
+    _exact_keys(
+        data,
+        {"decision", "protected_paths", "review", "reviewed_source", "schema_version"},
+        "operations acceptance token",
+    )
+    if data["schema_version"] != OPERATIONS_ACCEPTANCE_SCHEMA:
         raise ArtifactValidationError("operations acceptance schema is invalid")
     if data["decision"] != "ACCEPT" or data["protected_paths"] != list(PROTECTED_OPERATIONS_PATHS):
         raise ArtifactValidationError("operations acceptance decision/scope is invalid")
+
     source, review = data["reviewed_source"], data["review"]
-    if not isinstance(source, dict) or set(source) != {"repository_commit", "repository_tree"}:
-        raise ArtifactValidationError("operations reviewed source is invalid")
-    if not isinstance(review, dict) or set(review) != {"independent", "path", "sha256", "verdict"}:
-        raise ArtifactValidationError("operations review binding is invalid")
-    commit, tree = source["repository_commit"], source["repository_tree"]
-    if not isinstance(commit, str) or _GIT.fullmatch(commit) is None:
-        raise ArtifactValidationError("operations reviewed commit is invalid")
-    if not isinstance(tree, str) or _GIT.fullmatch(tree) is None:
-        raise ArtifactValidationError("operations reviewed tree is invalid")
-    if review["independent"] is not True or review["verdict"] != "ACCEPT":
-        raise ArtifactValidationError("operations review does not independently ACCEPT")
-    relative = PurePosixPath(review["path"] if isinstance(review["path"], str) else "")
-    if relative.is_absolute() or ".." in relative.parts or not relative.parts:
-        raise ArtifactValidationError("operations review path is unsafe")
-    review_hash = review["sha256"]
-    if not isinstance(review_hash, str) or _SHA256.fullmatch(review_hash) is None:
-        raise ArtifactValidationError("operations review hash is invalid")
-    artifact = root / relative
-    if artifact.is_symlink() or not artifact.is_file() or sha256_file(artifact) != review_hash:
-        raise ArtifactValidationError("operations review artifact hash does not match")
-    observed_tree = _git(root, "rev-parse", f"{commit}^{{tree}}").stdout.decode().strip()
-    if observed_tree != tree:
+    if not isinstance(source, dict) or not isinstance(review, dict):
+        raise ArtifactValidationError("operations acceptance bindings are invalid")
+    _exact_keys(source, {"repository_commit", "repository_tree"}, "reviewed source")
+    _exact_keys(
+        review,
+        {"commit", "handoff_path", "handoff_sha256", "path", "sha256"},
+        "independent review binding",
+    )
+    commit, tree, review_commit = (
+        source["repository_commit"], source["repository_tree"], review["commit"]
+    )
+    if any(not isinstance(value, str) or _GIT.fullmatch(value) is None for value in (commit, tree, review_commit)):
+        raise ArtifactValidationError("operations source/review Git identity is invalid")
+    if _git(root, "rev-parse", f"{commit}^{{tree}}").stdout.decode().strip() != tree:
         raise ArtifactValidationError("operations reviewed commit/tree is inconsistent")
+    parents = _git(root, "show", "-s", "--format=%P", review_commit).stdout.decode().split()
+    if parents != [commit]:
+        raise ArtifactValidationError("independent review commit must directly follow reviewed source")
+    for ancestor, descendant, label in (
+        (commit, review_commit, "review commit does not descend from reviewed source"),
+        (review_commit, "HEAD", "review commit is not an ancestor of HEAD"),
+    ):
+        if _git(root, "merge-base", "--is-ancestor", ancestor, descendant, check=False).returncode:
+            raise ArtifactValidationError(label)
+
+    review_path = _safe_path(review["path"], "operations review path")
+    handoff_path = _safe_path(review["handoff_path"], "operations handoff path")
+    if not review_path.as_posix().startswith("results_submission/reports/"):
+        raise ArtifactValidationError("machine review must be under results_submission/reports")
+    if not handoff_path.as_posix().startswith("handoffs/"):
+        raise ArtifactValidationError("review handoff must be under handoffs")
+    changed_by_review = tuple(
+        line for line in _git(
+            root, "diff-tree", "--no-commit-id", "--name-only", "-r", review_commit
+        ).stdout.decode().splitlines() if line
+    )
+    if set(changed_by_review) != {review_path.as_posix(), handoff_path.as_posix()}:
+        raise ArtifactValidationError("independent review commit contains files outside review and handoff")
+
+    bound: list[tuple[str, PurePosixPath, Any]] = [
+        ("machine review", review_path, review["sha256"]),
+        ("review handoff", handoff_path, review["handoff_sha256"]),
+    ]
+    blobs: dict[str, bytes] = {}
+    for label, relative, expected_hash in bound:
+        if not isinstance(expected_hash, str) or _SHA256.fullmatch(expected_hash) is None:
+            raise ArtifactValidationError(f"{label} hash is invalid")
+        blob = _regular_blob_at(root, review_commit, relative.as_posix(), label)
+        if hashlib.sha256(blob).hexdigest() != expected_hash:
+            raise ArtifactValidationError(f"{label} review-commit blob hash does not match")
+        current = root / relative
+        if current.is_symlink() or not current.is_file() or sha256_file(current) != expected_hash:
+            raise ArtifactValidationError(f"{label} current artifact does not match reviewed blob")
+        blobs[label] = blob
+    _validate_machine_review(
+        _load_canonical_json_bytes(blobs["machine review"], "machine review"),
+        reviewed_commit=commit,
+        reviewed_tree=tree,
+    )
+
     if _git(root, "merge-base", "--is-ancestor", commit, "HEAD", check=False).returncode:
         raise ArtifactValidationError("operations reviewed commit is not an ancestor")
     changed = _git(root, "diff", "--name-only", commit, "HEAD", "--", *PROTECTED_OPERATIONS_PATHS)
     if changed.stdout.strip():
         raise ArtifactValidationError("protected operations surface changed after review")
-    for relative_path in (OPERATIONS_ACCEPTANCE_PATH.as_posix(), relative.as_posix()):
-        if _git(root, "ls-files", "--error-unmatch", relative_path, check=False).returncode:
-            raise ArtifactValidationError("operations acceptance evidence is not tracked")
-        if _git(root, "diff", "--quiet", "HEAD", "--", relative_path, check=False).returncode:
-            raise ArtifactValidationError("operations acceptance evidence has uncommitted changes")
-    return OperationsAcceptance(commit, tree, relative.as_posix(), review_hash)
+    for relative in PROTECTED_OPERATIONS_PATHS:
+        _regular_blob_at(root, commit, relative, "reviewed operations surface")
+    evidence_paths = (
+        OPERATIONS_ACCEPTANCE_PATH.as_posix(), review_path.as_posix(), handoff_path.as_posix()
+    )
+    _require_clean_regular_paths(root, (*PROTECTED_OPERATIONS_PATHS, *evidence_paths), "operations acceptance surface")
+    if canonical_json_bytes(data) != token_payload:
+        raise ArtifactValidationError("operations token changed during validation")
+    return OperationsAcceptance(
+        commit, tree, review_commit, review_path.as_posix(), review["sha256"],
+        handoff_path.as_posix(), review["handoff_sha256"]
+    )
 
 
 __all__ = [
     "OPERATIONS_ACCEPTANCE_PATH",
     "OPERATIONS_ACCEPTANCE_SCHEMA",
+    "OPERATIONS_REVIEW_SCHEMA",
+    "OPERATIONS_REVIEW_SCOPE",
     "PROTECTED_OPERATIONS_PATHS",
     "OperationsAcceptance",
     "validate_operations_acceptance",
