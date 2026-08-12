@@ -10,6 +10,8 @@ import pytest
 import gbdn.operations_acceptance as operations_acceptance
 from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes
 from gbdn.operations_acceptance import (
+    EXECUTABLE_OPERATIONS_PATHS,
+    FROZEN_OPERATIONS_INPUT_PATHS,
     OPERATIONS_ACCEPTANCE_PATH,
     OPERATIONS_ACCEPTANCE_SCHEMA,
     OPERATIONS_REVIEW_SCHEMA,
@@ -71,12 +73,27 @@ def _repository(
     _git(root, "config", "gpg.format", "ssh")
     _git(root, "config", "user.signingkey", str(_TEST_SIGNING_KEY))
     _git(root, "config", "commit.gpgsign", "true")
-    for relative in PROTECTED_OPERATIONS_PATHS:
+    for relative in EXECUTABLE_OPERATIONS_PATHS:
         _write(root / relative, f"protected:{relative}\n".encode())
     _git(root, "add", ".")
     _git(root, "commit", "-m", "reviewed operations source")
-    commit = _git(root, "rev-parse", "HEAD")
-    tree = _git(root, "show", "-s", "--format=%T", "HEAD")
+    executable_commit = _git(root, "rev-parse", "HEAD")
+    executable_tree = _git(root, "show", "-s", "--format=%T", "HEAD")
+    for relative in FROZEN_OPERATIONS_INPUT_PATHS:
+        _write(root / relative, f"frozen-input:{relative}\n".encode())
+    _git(root, "add", ".")
+    _git(root, "commit", "-m", "freeze operations inputs")
+    review_source_commit = _git(root, "rev-parse", "HEAD")
+    review_source_tree = _git(root, "show", "-s", "--format=%T", "HEAD")
+
+    executable_source = {
+        "repository_commit": executable_commit,
+        "repository_tree": executable_tree,
+    }
+    review_source = {
+        "repository_commit": review_source_commit,
+        "repository_tree": review_source_tree,
+    }
 
     review_path = Path("results_submission/reports/operations_review.json")
     handoff_path = Path("handoffs/operations_review.md")
@@ -85,10 +102,8 @@ def _repository(
             "blockers": [],
             "decision": "ACCEPT",
             "protected_paths": list(PROTECTED_OPERATIONS_PATHS),
-            "reviewed_source": {
-                "repository_commit": commit,
-                "repository_tree": tree,
-            },
+            "executable_source": executable_source,
+            "review_source": review_source,
             "schema_version": OPERATIONS_REVIEW_SCHEMA,
             "scope": review_scope,
         }
@@ -114,7 +129,8 @@ def _repository(
             "path": review_path.as_posix(),
             "sha256": hashlib.sha256(review_payload).hexdigest(),
         },
-        "reviewed_source": {"repository_commit": commit, "repository_tree": tree},
+        "executable_source": executable_source,
+        "review_source": review_source,
         "schema_version": OPERATIONS_ACCEPTANCE_SCHEMA,
     }
     token_path = root / OPERATIONS_ACCEPTANCE_PATH
@@ -145,8 +161,8 @@ def test_valid_operations_acceptance_is_review_commit_and_source_bound(tmp_path)
     accepted = validate_operations_acceptance(root)
     assert accepted.review_commit == review_commit
     assert accepted.review_path == "results_submission/reports/operations_review.json"
-    assert accepted.reviewed_source_metadata.repository_commit == accepted.reviewed_commit
-    assert accepted.reviewed_source_metadata.repository_tree == accepted.reviewed_tree
+    assert accepted.reviewed_source_metadata.repository_commit == accepted.executable_commit
+    assert accepted.reviewed_source_metadata.repository_tree == accepted.executable_tree
     assert accepted.reviewed_source_metadata.dirty is False
 
 
@@ -179,7 +195,8 @@ def test_rehashed_forged_review_cannot_replace_independent_commit_blob(tmp_path)
             "blockers": [],
             "decision": "ACCEPT",
             "protected_paths": list(PROTECTED_OPERATIONS_PATHS),
-            "reviewed_source": token["reviewed_source"],
+            "executable_source": token["executable_source"],
+            "review_source": token["review_source"],
             "schema_version": OPERATIONS_REVIEW_SCHEMA,
             "scope": OPERATIONS_REVIEW_SCOPE,
         }
@@ -253,9 +270,53 @@ def test_review_commit_must_directly_follow_reviewed_source(tmp_path):
         validate_operations_acceptance(root)
 
 
+def test_executable_source_cannot_change_while_freezing_inputs(tmp_path):
+    root, token_path, token, _ = _repository(tmp_path)
+    executable = root / EXECUTABLE_OPERATIONS_PATHS[0]
+    # Build a replacement review-source lineage from the frozen executable source.
+    _git(root, "checkout", token["executable_source"]["repository_commit"])
+    executable.write_text("unreviewed executable change\n", encoding="utf-8")
+    for relative in FROZEN_OPERATIONS_INPUT_PATHS:
+        _write(root / relative, f"frozen-input:{relative}\n".encode())
+    _git(root, "add", ".")
+    _git(root, "commit", "-m", "freeze inputs with executable drift")
+    review_source_commit = _git(root, "rev-parse", "HEAD")
+    review_source_tree = _git(root, "show", "-s", "--format=%T", "HEAD")
+    token["review_source"] = {
+        "repository_commit": review_source_commit,
+        "repository_tree": review_source_tree,
+    }
+    review_payload = canonical_json_bytes(
+        {
+            "blockers": [],
+            "decision": "ACCEPT",
+            "executable_source": token["executable_source"],
+            "protected_paths": list(PROTECTED_OPERATIONS_PATHS),
+            "review_source": token["review_source"],
+            "schema_version": OPERATIONS_REVIEW_SCHEMA,
+            "scope": OPERATIONS_REVIEW_SCOPE,
+        }
+    )
+    handoff_payload = b"Review after executable drift.\n"
+    _write(root / token["review"]["path"], review_payload)
+    _write(root / token["review"]["handoff_path"], handoff_payload)
+    _git(root, "add", token["review"]["path"], token["review"]["handoff_path"])
+    _git(root, "commit", "-m", "signed drift review")
+    token["review"].update(
+        commit=_git(root, "rev-parse", "HEAD"),
+        sha256=hashlib.sha256(review_payload).hexdigest(),
+        handoff_sha256=hashlib.sha256(handoff_payload).hexdigest(),
+    )
+    _write(token_path, canonical_json_bytes(token))
+    _git(root, "add", token_path.relative_to(root).as_posix())
+    _git(root, "commit", "-m", "bind drift review")
+    with pytest.raises(ArtifactValidationError, match="changed while freezing inputs"):
+        validate_operations_acceptance(root)
+
+
 def test_unsigned_self_issued_review_is_rejected(tmp_path):
     root, token_path, token, _ = _repository(tmp_path)
-    reviewed = token["reviewed_source"]["repository_commit"]
+    reviewed = token["review_source"]["repository_commit"]
     _git(root, "checkout", reviewed)
     _git(root, "config", "commit.gpgsign", "false")
     review_path = Path(token["review"]["path"])
@@ -265,7 +326,8 @@ def test_unsigned_self_issued_review_is_rejected(tmp_path):
             "blockers": [],
             "decision": "ACCEPT",
             "protected_paths": list(PROTECTED_OPERATIONS_PATHS),
-            "reviewed_source": token["reviewed_source"],
+            "executable_source": token["executable_source"],
+            "review_source": token["review_source"],
             "schema_version": OPERATIONS_REVIEW_SCHEMA,
             "scope": OPERATIONS_REVIEW_SCOPE,
         }

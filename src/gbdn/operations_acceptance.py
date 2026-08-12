@@ -20,17 +20,19 @@ from gbdn.artifacts import (
 )
 
 
-OPERATIONS_ACCEPTANCE_SCHEMA: Final[str] = "gbdn-operations-acceptance-v2"
-OPERATIONS_REVIEW_SCHEMA: Final[str] = "gbdn-operations-independent-review-v1"
+OPERATIONS_ACCEPTANCE_SCHEMA: Final[str] = "gbdn-operations-acceptance-v3"
+OPERATIONS_REVIEW_SCHEMA: Final[str] = "gbdn-operations-independent-review-v2"
 OPERATIONS_REVIEW_SCOPE: Final[str] = "CLAIM_BEARING_HETEROPHILY_EXECUTION"
 OPERATIONS_ACCEPTANCE_PATH: Final[PurePosixPath] = PurePosixPath(
     "configs/submission/frozen/operations_acceptance.json"
 )
-PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
+FROZEN_OPERATIONS_INPUT_PATHS: Final[tuple[str, ...]] = (
     "configs/submission/frozen/confirmatory_plan.json",
     "requirements.lock",
     "results_submission/baseline_registry.json",
     "results_submission/run_plan.json",
+)
+EXECUTABLE_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "scripts/run_heterophily_job.py",
     "scripts/run_submission.py",
     "src/gbdn/__init__.py",
@@ -76,6 +78,10 @@ PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
     "tests/test_run_plan.py",
     "tests/test_submission_scheduler.py",
     "tests/test_submission_verify.py",
+)
+PROTECTED_OPERATIONS_PATHS: Final[tuple[str, ...]] = (
+    *FROZEN_OPERATIONS_INPUT_PATHS,
+    *EXECUTABLE_OPERATIONS_PATHS,
 )
 REVIEWER_PRINCIPAL: Final[str] = "gbdn-independent-operations-review"
 REVIEWER_PUBLIC_KEY: Final[str] = (
@@ -224,7 +230,7 @@ def _verify_review_signature(root: Path, review_commit: str) -> None:
 
 
 def _validate_machine_review(
-    data: Mapping[str, Any], *, reviewed_commit: str, reviewed_tree: str
+    data: Mapping[str, Any], *, executable_source: Mapping[str, str], review_source: Mapping[str, str]
 ) -> None:
     _exact_keys(
         data,
@@ -232,7 +238,8 @@ def _validate_machine_review(
             "blockers",
             "decision",
             "protected_paths",
-            "reviewed_source",
+            "executable_source",
+            "review_source",
             "schema_version",
             "scope",
         },
@@ -246,18 +253,16 @@ def _validate_machine_review(
         raise ArtifactValidationError("operations independent review scope is insufficient")
     if data["protected_paths"] != list(PROTECTED_OPERATIONS_PATHS):
         raise ArtifactValidationError("operations independent review protected scope differs")
-    source = data["reviewed_source"]
-    if not isinstance(source, dict):
-        raise ArtifactValidationError("operations independent review source is invalid")
-    _exact_keys(source, {"repository_commit", "repository_tree"}, "review source")
-    if source != {"repository_commit": reviewed_commit, "repository_tree": reviewed_tree}:
+    if data["executable_source"] != executable_source or data["review_source"] != review_source:
         raise ArtifactValidationError("operations independent review is bound to another source")
 
 
 @dataclass(frozen=True)
 class OperationsAcceptance:
-    reviewed_commit: str
-    reviewed_tree: str
+    executable_commit: str
+    executable_tree: str
+    review_source_commit: str
+    review_source_tree: str
     review_commit: str
     review_path: str
     review_sha256: str
@@ -271,13 +276,13 @@ class OperationsAcceptance:
         source_sha256 = canonical_json_sha256(
             {
                 "dirty_fingerprint_sha256": "clean",
-                "repository_commit": self.reviewed_commit,
-                "repository_tree": self.reviewed_tree,
+                "repository_commit": self.executable_commit,
+                "repository_tree": self.executable_tree,
             }
         )
         return SourceMetadata(
-            self.reviewed_commit,
-            self.reviewed_tree,
+            self.executable_commit,
+            self.executable_tree,
             source_sha256,
             False,
             None,
@@ -291,7 +296,10 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
     token_payload, data = _load_regular_json(token, "independent operations acceptance token")
     _exact_keys(
         data,
-        {"decision", "protected_paths", "review", "reviewed_source", "schema_version"},
+        {
+            "decision", "executable_source", "protected_paths", "review",
+            "review_source", "schema_version",
+        },
         "operations acceptance token",
     )
     if data["schema_version"] != OPERATIONS_ACCEPTANCE_SCHEMA:
@@ -299,28 +307,43 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
     if data["decision"] != "ACCEPT" or data["protected_paths"] != list(PROTECTED_OPERATIONS_PATHS):
         raise ArtifactValidationError("operations acceptance decision/scope is invalid")
 
-    source, review = data["reviewed_source"], data["review"]
-    if not isinstance(source, dict) or not isinstance(review, dict):
+    executable_source, review_source, review = (
+        data["executable_source"], data["review_source"], data["review"]
+    )
+    if not isinstance(executable_source, dict) or not isinstance(review_source, dict) or not isinstance(review, dict):
         raise ArtifactValidationError("operations acceptance bindings are invalid")
-    _exact_keys(source, {"repository_commit", "repository_tree"}, "reviewed source")
+    _exact_keys(executable_source, {"repository_commit", "repository_tree"}, "executable source")
+    _exact_keys(review_source, {"repository_commit", "repository_tree"}, "review source")
     _exact_keys(
         review,
         {"commit", "handoff_path", "handoff_sha256", "path", "sha256"},
         "independent review binding",
     )
-    commit, tree, review_commit = (
-        source["repository_commit"], source["repository_tree"], review["commit"]
+    executable_commit, executable_tree, review_source_commit, review_source_tree, review_commit = (
+        executable_source["repository_commit"], executable_source["repository_tree"],
+        review_source["repository_commit"], review_source["repository_tree"], review["commit"]
     )
-    if any(not isinstance(value, str) or _GIT.fullmatch(value) is None for value in (commit, tree, review_commit)):
+    if any(
+        not isinstance(value, str) or _GIT.fullmatch(value) is None
+        for value in (
+            executable_commit, executable_tree, review_source_commit,
+            review_source_tree, review_commit,
+        )
+    ):
         raise ArtifactValidationError("operations source/review Git identity is invalid")
-    if _git(root, "rev-parse", f"{commit}^{{tree}}").stdout.decode().strip() != tree:
-        raise ArtifactValidationError("operations reviewed commit/tree is inconsistent")
+    for commit, tree, label in (
+        (executable_commit, executable_tree, "executable"),
+        (review_source_commit, review_source_tree, "review"),
+    ):
+        if _git(root, "rev-parse", f"{commit}^{{tree}}").stdout.decode().strip() != tree:
+            raise ArtifactValidationError(f"operations {label} source commit/tree is inconsistent")
     parents = _git(root, "show", "-s", "--format=%P", review_commit).stdout.decode().split()
-    if parents != [commit]:
-        raise ArtifactValidationError("independent review commit must directly follow reviewed source")
+    if parents != [review_source_commit]:
+        raise ArtifactValidationError("independent review commit must directly follow review source")
     _verify_review_signature(root, review_commit)
     for ancestor, descendant, label in (
-        (commit, review_commit, "review commit does not descend from reviewed source"),
+        (executable_commit, review_source_commit, "review source does not descend from executable source"),
+        (review_source_commit, review_commit, "review commit does not descend from review source"),
         (review_commit, "HEAD", "review commit is not an ancestor of HEAD"),
     ):
         if _git(root, "merge-base", "--is-ancestor", ancestor, descendant, check=False).returncode:
@@ -357,18 +380,27 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
         blobs[label] = blob
     _validate_machine_review(
         _load_canonical_json_bytes(blobs["machine review"], "machine review"),
-        reviewed_commit=commit,
-        reviewed_tree=tree,
+        executable_source=executable_source,
+        review_source=review_source,
     )
 
-    if _git(root, "merge-base", "--is-ancestor", commit, "HEAD", check=False).returncode:
-        raise ArtifactValidationError("operations reviewed commit is not an ancestor")
+    changed_executable_inputs = _git(
+        root, "diff", "--name-only", executable_commit, review_source_commit,
+        "--", *EXECUTABLE_OPERATIONS_PATHS,
+    )
+    if changed_executable_inputs.stdout.strip():
+        raise ArtifactValidationError("executable operations surface changed while freezing inputs")
     _require_complete_canonical_package(root)
-    changed = _git(root, "diff", "--name-only", commit, "HEAD", "--", *PROTECTED_OPERATIONS_PATHS)
+    changed = _git(
+        root, "diff", "--name-only", review_source_commit, "HEAD",
+        "--", *PROTECTED_OPERATIONS_PATHS,
+    )
     if changed.stdout.strip():
         raise ArtifactValidationError("protected operations surface changed after review")
+    for relative in EXECUTABLE_OPERATIONS_PATHS:
+        _regular_blob_at(root, executable_commit, relative, "reviewed executable surface")
     for relative in PROTECTED_OPERATIONS_PATHS:
-        _regular_blob_at(root, commit, relative, "reviewed operations surface")
+        _regular_blob_at(root, review_source_commit, relative, "reviewed operations surface")
     evidence_paths = (
         OPERATIONS_ACCEPTANCE_PATH.as_posix(), review_path.as_posix(), handoff_path.as_posix()
     )
@@ -376,12 +408,15 @@ def validate_operations_acceptance(repository_root: str | Path) -> OperationsAcc
     if canonical_json_bytes(data) != token_payload:
         raise ArtifactValidationError("operations token changed during validation")
     return OperationsAcceptance(
-        commit, tree, review_commit, review_path.as_posix(), review["sha256"],
+        executable_commit, executable_tree, review_source_commit, review_source_tree,
+        review_commit, review_path.as_posix(), review["sha256"],
         handoff_path.as_posix(), review["handoff_sha256"]
     )
 
 
 __all__ = [
+    "EXECUTABLE_OPERATIONS_PATHS",
+    "FROZEN_OPERATIONS_INPUT_PATHS",
     "OPERATIONS_ACCEPTANCE_PATH",
     "OPERATIONS_ACCEPTANCE_SCHEMA",
     "OPERATIONS_REVIEW_SCHEMA",
