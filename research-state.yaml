@@ -17,36 +17,41 @@ completed_tasks:
   - SCI-001
   - MATH-001
   - ENG-001
+  - ENG-003
+  - ENG-GATEA-EXACT-2
   - REV-GATEA-PREFLIGHT
   - REV-NOVELTY-001
+  - REV-THEORY-PATCH
+  - REV-CITATIONS-002
 active_tasks:
   - ENG-002
   - ENG-008
-  - ENG-GATEA-EXACT-2
-  - REV-THEORY-PATCH
+  - ENG-GATEA-CLOSEOUT-1
+  - REV-GATEA-APPROX-1
+  - MATH-PAPER-REPAIR-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
   h100_confirmation_allowed: false
   reasons:
     - Strict legacy reproduction verification fails with 28 reported problems.
-    - Gate A has accepted local coverage for only 9 of 36 mandatory test IDs; the remaining contract and independent review are incomplete.
-    - Caller-supplied operators still need an auditable spectrum-validation boundary before they can enter claim-bearing runs.
+    - Gate A has executable coverage for 35 of 36 mandatory IDs, but GA-23, the full fixture matrix, the machine-readable report, and independent acceptance remain incomplete.
+    - The theory manuscript patch remains paper-blocked while mandatory notation, hypothesis, and attribution repairs are reviewed.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 47
-  automated_tests_passing: 47
-  mandatory_gate_a_ids_with_new_coverage: 9
+  automated_tests: 140
+  automated_tests_passing: 140
+  mandatory_gate_a_ids_with_new_coverage: 35
   mandatory_gate_a_ids_total: 36
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
   frozen_result_files: 128
   mechanism_files: 4
 next_dependency_chain:
-  - Complete and independently audit the contract-aligned theory patch.
-  - Complete the remaining Gate A oracle, counterexample, approximation, and sparse tests.
+  - Add GA-23 and close every prescribed fixture, depth, degree, and root-family gap.
   - Emit and independently verify the machine-readable Gate A report.
-  - Review Gate A before any claim-bearing experiment.
+  - Repair and independently accept the contract-aligned theory patch.
+  - Review Gate A before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.
   - Optional unitary routing scope.

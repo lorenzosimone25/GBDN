@@ -19,11 +19,18 @@
 - Strict verification of the legacy reproduction fails; its metrics cannot serve as confirmatory evidence.
 - Isometry, unitarity, and invertibility do not imply mitigation of oversquashing.
 - The carried path is contractive and may collapse even when the complete coefficient map is perfectly conditioned.
-- The present finite-order frame test does not certify its claimed operator-norm premise because it estimates error from one input vector.
+- The new finite-order tests materialize full operators and evaluate true operator-norm defects and theorem-derived bounds; independent semantic review and full fixture coverage are still pending, so these results are not yet paper-promoted.
 - The current development benchmark uses scientifically invalid protocol elements for the planned confirmation: a universal two-logit cross-entropy formulation, test evaluation during training, non-tie-aware AUROC, naive run-level aggregation, and writes under a frozen legacy result root.
-- The canonical implementation and manuscript are currently absent from the tracked public tree because of the repository allowlist.
+- The canonical implementation, tests, and manuscript are now trackable on the submission branch, but remain absent from the frozen public `origin/main`; no H100 or public-reproduction claim may rely on them until a reviewed publication commit is created.
 - The reusable `sphere_graph_data` path constructs directed kNN edges and can violate self-adjointness; the separate mechanism-study generator mirrors weights and explicitly symmetrizes its Laplacian, so its remaining blockers are per-run provenance and selection policy rather than this particular graph defect.
 - A connected-path counterexample preserves total complete-analysis Jacobian norm while making endpoint-to-endpoint sensitivity approximately `7.6e-17`, decisively separating global isometry from oversquashing mitigation.
+
+## Novelty boundary after primary-source review
+
+- Graph-QMF already supplies critically sampled perfect-reconstruction graph banks, and undecimated graph framelets are a close precedent for redundant tight multiscale graph representations.
+- CayleyNet learns its shared scale and therefore does not have fixed poles; its published scalar family has a learned but restricted shared imaginary-axis pole locus.
+- The defensible candidate distinction is the combination of independently parameterized generic exact-target poles, complementary identity interference, and a nonsubsampled complete coefficient isometry.
+- A finite Chebyshev realization is polynomial and has no literal poles. Any movable-pole advantage remains an empirical hypothesis requiring matched Cayley and polynomial comparisons.
 
 ## Open hypotheses
 

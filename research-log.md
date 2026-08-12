@@ -43,3 +43,13 @@
 - Kept Gate A closed: 27 mandatory IDs, the full fixture/depth matrix, machine-readable reporting, and independent theorem-to-test review remain incomplete.
 - Completed a contract-aligned MATH-002--011 paper patch on its isolated branch; it remains paper-blocked pending independent proof review and executable Gate A evidence.
 - Completed the primary-source novelty audit. It corrected CayleyNet from "fixed poles" to a learned shared imaginary-axis pole locus, identified undecimated graph framelets as the closest tight-stack precedent, and kept A* novelty conditional on matched mechanism and efficiency evidence.
+
+## 2026-08-12 — Gate A exact/finite integration and literature closure
+
+- Integrated the second exact contract slice and finite-realization diagnostics. The canonical boundary now validates external self-adjoint Laplacians once, binds them to a mutation-detecting hash token, and rejects raw precomputed tensors.
+- Added executable coverage for every mandatory Gate-A ID except GA-23, including residual-first multilevel isometry/conditioning, adjoint and additive reconstruction, weighted Parseval, permutation equivariance, repeated eigenspaces, full sparse-versus-dense operators, finite frame bounds, perturbation, locality, complexity, and negative long-range-sensitivity witnesses.
+- Repaired the combined GA-30 interface to consume the validated operator token. The full local suite passes: 140 tests, with two environment deprecation warnings.
+- Kept Gate A closed because numeric ID presence is insufficient: GA-23, the prescribed fixture/degree/root matrix, residual-rich machine-readable reporting, and independent theorem-test acceptance remain incomplete.
+- Completed the independent theory-patch review. It found no fatal counterexample to the core exact mathematics, but blocked paper promotion pending notation, hypothesis, attribution, and exact-versus-finite repairs.
+- Verified nine missing comparison families from primary archival records and rebuilt Related Work. The bibliography now has 21 keys, no placeholders or duplicates, no unresolved cited key, and a clean LaTeX/BibTeX build.
+- Preserved the novelty boundary: Parseval/perfect reconstruction is prior-supported structure; the candidate contribution is the combined learned generic Blaschke target-pole geometry, complementary phase-to-amplitude channels, and nonsubsampled complete-map isometry. Its usefulness still requires matched Gate B/C evidence.
