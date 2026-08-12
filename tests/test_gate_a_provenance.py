@@ -132,9 +132,13 @@ def test_reviewer_sensitive_rows_expose_their_semantic_observables():
 
     ga27 = catalog["rows"]["GA-27"]
     ga27_configuration = ga27["configuration"]["value"]
-    assert ga27_configuration["cancelled_zero_pole_pair_count"] == 0
-    assert ga27_configuration["reduced_pole_multiset"]
-    assert ga27_configuration["cayley_scale_domain"] == "h>0"
+    comparator = ga27_configuration["frozen_comparator"]
+    gbdn_reduction = ga27_configuration["exact_gbdn_reduction"]
+    assert comparator["schema"] == "gbdn-frozen-scalar-cayleynet-comparator-v1"
+    assert comparator["effective_order"] > 0
+    assert comparator["reduced_pole_multiset"]
+    assert gbdn_reduction["cancelled_pair_count"] == 0
+    assert gbdn_reduction["reduced_pole_multiset"]
     assert "accumulation point" in ga27_configuration["comparison_scope"]
 
 

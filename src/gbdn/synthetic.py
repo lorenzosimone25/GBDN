@@ -1,25 +1,68 @@
-"""Synthetic graph signals for unwinding experiments."""
-
-import math
+"""Synthetic graph signals routed through the canonical graph contract."""
 
 import networkx as nx
 import numpy as np
 import torch
 from scipy.spatial import KDTree
-from torch_geometric.utils import from_networkx, get_laplacian, to_dense_adj
+from torch_geometric.utils import from_networkx
+
+from gbdn.core import PreprocessedGraph, preprocess_reciprocal_mean
+
+
+def _canonical_spectral_graph(
+    edge_index: torch.Tensor,
+    num_nodes: int,
+    edge_weight: torch.Tensor | None = None,
+) -> tuple[PreprocessedGraph, torch.Tensor, torch.Tensor]:
+    """Preprocess possibly directed edges before any Hermitian eigensolver."""
+
+    if edge_weight is None:
+        edge_weight = torch.ones(edge_index.shape[1], dtype=torch.float64)
+    processed = preprocess_reciprocal_mean(
+        edge_index,
+        edge_weight,
+        num_nodes,
+    )
+    laplacian = processed.laplacian.to_dense()
+    eigenvalues, eigenvectors = torch.linalg.eigh(laplacian)
+    residual = torch.linalg.matrix_norm(
+        laplacian.to(eigenvectors.dtype) @ eigenvectors
+        - eigenvectors * eigenvalues.unsqueeze(0),
+        ord="fro",
+    ) / torch.linalg.matrix_norm(laplacian, ord="fro").clamp_min(1e-30)
+    if float(residual.item()) > 1e-10:
+        raise RuntimeError(
+            "validated synthetic-graph eigendecomposition failed its residual check"
+        )
+    return processed, eigenvalues, eigenvectors
+
+
+def _validate_mode_indices(
+    num_nodes: int,
+    idx_low: int,
+    idx_high: int,
+) -> None:
+    if not 0 <= idx_low < num_nodes or not 0 <= idx_high < num_nodes:
+        raise ValueError(
+            f"mode indices must lie in [0, {num_nodes}), got {idx_low}, {idx_high}"
+        )
 
 
 def grid_graph_data(grid_size: int = 20, idx_low: int = 3, idx_high: int | None = None):
-    """Build grid graph with low+high eigenmode mixture."""
+    """Build a recorded reciprocal-mean grid and low/high eigenmode mixture."""
+
+    if isinstance(grid_size, bool) or not isinstance(grid_size, int) or grid_size < 2:
+        raise ValueError("grid_size must be an integer of at least two")
     G = nx.grid_2d_graph(grid_size, grid_size)
     data = from_networkx(G)
     N = data.num_nodes
     if idx_high is None:
         idx_high = N - 5
+    _validate_mode_indices(N, idx_low, idx_high)
 
-    L_idx, L_wt = get_laplacian(data.edge_index, normalization="sym", num_nodes=N)
-    L = to_dense_adj(L_idx, edge_attr=L_wt, max_num_nodes=N).squeeze(0)
-    evals, evecs = torch.linalg.eigh(L)
+    processed, evals, evecs = _canonical_spectral_graph(data.edge_index, N)
+    data.edge_index = processed.adjacency.indices()
+    data.edge_weight = processed.adjacency.values()
 
     sig_low = evecs[:, idx_low] * 5.0
     sig_high = evecs[:, idx_high] * 2.5
@@ -29,6 +72,9 @@ def grid_graph_data(grid_size: int = 20, idx_low: int = 3, idx_high: int | None 
         "data": data,
         "G": G,
         "grid_size": grid_size,
+        "adjacency": processed.adjacency,
+        "laplacian": processed.laplacian,
+        "graph_preprocess_record": processed.record.to_dict(),
         "evals": evals,
         "evecs": evecs,
         "sig_low": sig_low,
@@ -39,10 +85,27 @@ def grid_graph_data(grid_size: int = 20, idx_low: int = 3, idx_high: int | None 
     }
 
 
-def sphere_graph_data(n_nodes: int = 400, k_nn: int = 8, idx_low: int = 5, idx_high: int = 150):
-    """Fibonacci sphere kNN graph with eigenmode mixture."""
+def sphere_graph_data(
+    n_nodes: int = 400,
+    k_nn: int = 8,
+    idx_low: int = 5,
+    idx_high: int = 150,
+):
+    """Build a reciprocal-mean Fibonacci-sphere kNN spectral fixture.
+
+    The directed kNN relation is intentionally treated as raw input.  The
+    returned ``data.edge_index`` and eigensystem belong to the recorded
+    symmetric adjacency, never to the asymmetric relation.
+    """
 
     import math
+
+    if isinstance(n_nodes, bool) or not isinstance(n_nodes, int) or n_nodes < 3:
+        raise ValueError("n_nodes must be an integer of at least three")
+    if isinstance(k_nn, bool) or not isinstance(k_nn, int) or not 1 <= k_nn < n_nodes:
+        raise ValueError("k_nn must be an integer in [1, n_nodes)")
+    _validate_mode_indices(n_nodes, idx_low, idx_high)
+
     points = []
     phi = math.pi * (3.0 - math.sqrt(5.0))
     for i in range(n_nodes):
@@ -59,11 +122,12 @@ def sphere_graph_data(n_nodes: int = 400, k_nn: int = 8, idx_low: int = 5, idx_h
     for i in range(n_nodes):
         for j in ind[i][1:]:
             edges.append([i, int(j)])
-    edge_index = torch.tensor(edges, dtype=torch.long).t()
+    directed_edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
 
-    L_idx, L_wt = get_laplacian(edge_index, normalization="sym", num_nodes=n_nodes)
-    L = to_dense_adj(L_idx, edge_attr=L_wt, max_num_nodes=n_nodes).squeeze(0)
-    evals, evecs = torch.linalg.eigh(L)
+    processed, evals, evecs = _canonical_spectral_graph(
+        directed_edge_index,
+        n_nodes,
+    )
 
     sig_low = evecs[:, idx_low] * 5.0
     sig_high = evecs[:, idx_high] * 3.0
@@ -73,12 +137,16 @@ def sphere_graph_data(n_nodes: int = 400, k_nn: int = 8, idx_low: int = 5, idx_h
         pass
 
     data = Data()
-    data.edge_index = edge_index
+    data.edge_index = processed.adjacency.indices()
+    data.edge_weight = processed.adjacency.values()
     data.num_nodes = n_nodes
 
     return {
         "data": data,
         "points": points_np,
+        "adjacency": processed.adjacency,
+        "laplacian": processed.laplacian,
+        "graph_preprocess_record": processed.record.to_dict(),
         "evals": evals,
         "evecs": evecs,
         "sig_low": sig_low,

@@ -378,35 +378,100 @@ def test_ga13_spectral_energy_selection_with_matrix_features_and_eigenspace():
     assert selected[complement].norm() <= eta * coefficients[complement].norm() + 1e-12
 
 
-def test_ga14_complex_recovery_identity_and_finite_factor_bound():
-    """GA-14: complex recovery error decomposes and obeys triangle bound."""
+def test_ga14_actual_blaschke_chebyshev_complex_recovery_bound(record_property):
+    """GA-14: actual T/Ttilde bind recovery to epsilon_K/2 in operator norm."""
 
+    laplacian, laplacian_token, _, _ = _laplacian("weighted")
+    eigenvalues, eigenvectors = torch.linalg.eigh(laplacian)
+    roots = torch.tensor([0.24 + 0.13j, -0.11 + 0.07j], dtype=torch.complex128)
+    degree = 8
+    exact_factor = dense_exact_blaschke_operator(laplacian, roots)
+    chebyshev_coefficients = blaschke_product_cheb_coeffs(
+        roots,
+        degree,
+        torch.device("cpu"),
+        convention="forward",
+    )
+    approximate_factor = dense_chebyshev_operator(
+        laplacian,
+        chebyshev_coefficients,
+    )
+    epsilon_k = torch.linalg.matrix_norm(
+        approximate_factor - exact_factor,
+        ord=2,
+    )
+    identity = torch.eye(laplacian.shape[0], dtype=torch.complex128)
+    q_exact = 0.5 * (identity - exact_factor)
+    q_approximate = 0.5 * (identity - approximate_factor)
+
+    q_symbol = 0.5 * (1.0 - dense_exact_blaschke_symbol(eigenvalues, roots))
+    # Select a deterministic nontrivial subset; the bound is an identity/
+    # inequality for any S and does not assume that this root realizes an ideal
+    # packet.
+    target_mask = torch.zeros(laplacian.shape[0], dtype=torch.bool)
+    target_mask[1::2] = True
+    complement_mask = ~target_mask
+    projector = (
+        eigenvectors[:, target_mask] @ eigenvectors[:, target_mask].mT
+    ).to(torch.complex128)
     generator = torch.Generator().manual_seed(1400)
-    coefficients = torch.randn(10, 2, dtype=torch.complex128, generator=generator)
-    target = torch.tensor([3, 4, 5, 6])
-    complement = torch.tensor([0, 1, 2, 7, 8, 9])
-    response = torch.zeros(10, dtype=torch.complex128)
-    response[target] = 1.0 + 0.04 * torch.exp(
-        1j * torch.linspace(0.0, 1.0, target.numel(), dtype=torch.float64)
+    signal = torch.randn(
+        laplacian.shape[0],
+        3,
+        dtype=torch.complex128,
+        generator=generator,
     )
-    response[complement] = 0.03 * torch.exp(
-        1j * torch.linspace(-1.0, 0.4, complement.numel(), dtype=torch.float64)
-    )
-    truth = torch.zeros_like(coefficients)
-    truth[target] = coefficients[target]
-    exact_recovered = response.unsqueeze(1) * coefficients
-    exact_error_squared = (exact_recovered - truth).abs().square().sum()
+    target_signal = projector @ signal
+    coefficients = eigenvectors.to(torch.complex128).mH @ signal
+    exact_error_squared = (q_exact @ signal - target_signal).abs().square().sum()
     decomposed = (
-        ((response[target] - 1.0).unsqueeze(1) * coefficients[target]).abs().square().sum()
-        + (response[complement].unsqueeze(1) * coefficients[complement]).abs().square().sum()
+        (
+            (q_symbol[target_mask] - 1.0).unsqueeze(1)
+            * coefficients[target_mask]
+        ).abs().square().sum()
+        + (
+            q_symbol[complement_mask].unsqueeze(1)
+            * coefficients[complement_mask]
+        ).abs().square().sum()
     )
-    assert torch.allclose(exact_error_squared, decomposed, atol=1e-12, rtol=1e-12)
+    identity_residual = (exact_error_squared - decomposed).abs()
+    assert float(identity_residual.item()) < 1e-12
 
-    approximation_error = torch.full_like(response, 0.01 + 0.005j)
-    finite_recovered = (response + approximation_error).unsqueeze(1) * coefficients
-    finite_error = (finite_recovered - truth).norm()
-    approximation_term = (approximation_error.unsqueeze(1) * coefficients).norm()
-    assert finite_error <= exact_error_squared.sqrt() + approximation_term + 1e-12
+    delta = float((q_symbol[target_mask] - 1.0).abs().max().item())
+    eta = float(q_symbol[complement_mask].abs().max().item())
+    spectral_exact_bound = (
+        delta**2 * target_signal.norm().square()
+        + eta**2 * (signal - target_signal).norm().square()
+    ).sqrt()
+    finite_error = (q_approximate @ signal - target_signal).norm()
+    approximation_term = 0.5 * epsilon_k * signal.norm()
+    total_bound = spectral_exact_bound + approximation_term
+    assert finite_error <= total_bound + 1e-12
+
+    induced_operator_error = torch.linalg.matrix_norm(
+        q_approximate - q_exact,
+        ord=2,
+    )
+    half_epsilon_residual = (induced_operator_error - 0.5 * epsilon_k).abs()
+    assert float(half_epsilon_residual.item()) < 1e-12
+
+    record_property(
+        "gate_a_metrics",
+        {
+            "gate_id": "GA-14",
+            "realization_tag": "exact+chebyshev-K",
+            "graph_hash": laplacian_token.sha256,
+            "roots": [[float(root.real), float(root.imag)] for root in roots],
+            "degree": degree,
+            "epsilon_k_operator_norm": float(epsilon_k.item()),
+            "epsilon_k_over_two": float((0.5 * epsilon_k).item()),
+            "exact_squared_identity_residual": float(identity_residual.item()),
+            "finite_recovery_error": float(finite_error.item()),
+            "predicted_total_bound": float(total_bound.item()),
+            "dtype": str(signal.dtype),
+            "device": str(signal.device),
+        },
+    )
 
 
 def test_ga15_permutation_equivariance_exact_and_polynomial_full_coefficients():

@@ -28,8 +28,10 @@ from gbdn.core import preprocess_reciprocal_mean
 from gbdn.diagnostics import (
     approximation_configuration_diagnostic,
     fixed_root_perturbation_constant,
+    frozen_scalar_cayleynet_comparator,
     multilevel_frame_bound,
     product_sum_evaluation_matrix,
+    reduced_blaschke_pole_diagnostic,
     target_pole_ellipse_parameter,
 )
 from gbdn.layers import ChebyshevBasis, normalized_laplacian
@@ -54,6 +56,7 @@ from gbdn.spectral import (
     parameterize_roots,
     tight_split_responses,
 )
+from gbdn.synthetic import sphere_graph_data
 
 
 EVIDENCE_SCHEMA: Final[str] = "gbdn-gate-a-evidence-v1"
@@ -530,6 +533,37 @@ def _evaluate_ga00() -> dict[str, Any]:
         or preprocessed.record.formula != "A_sym=(A+A^T)/2"
         or preprocessed.record.isolated_laplacian_diagonal != 1.0
     )
+    sphere = sphere_graph_data(
+        n_nodes=24,
+        k_nn=3,
+        idx_low=2,
+        idx_high=15,
+    )
+    sphere_laplacian = sphere["laplacian"].to_dense()
+    sphere_symmetry_error = float(
+        torch.linalg.matrix_norm(
+            sphere_laplacian - sphere_laplacian.mH,
+            ord=2,
+        ).item()
+    )
+    sphere_eigensystem_residual = float(
+        (
+            torch.linalg.matrix_norm(
+                sphere_laplacian @ sphere["evecs"]
+                - sphere["evecs"] * sphere["evals"].unsqueeze(0),
+                ord="fro",
+            )
+            / torch.linalg.matrix_norm(
+                sphere_laplacian,
+                ord="fro",
+            ).clamp_min(1e-30)
+        ).item()
+    )
+    sphere_record = sphere["graph_preprocess_record"]
+    sphere_policy_mismatch_count = int(
+        sphere_record["policy"] != "reciprocal-mean"
+        or sphere_record["formula"] != "A_sym=(A+A^T)/2"
+    )
     graphs = evidence_value(
         [
             {
@@ -552,6 +586,16 @@ def _evaluate_ga00() -> dict[str, Any]:
                 "semantic_sha256": preprocessed.laplacian.sha256,
                 "semantic_role": "validated-normalized-laplacian",
             },
+            {
+                "fixture": "sphere-directed-knn-preprocessed-output",
+                "semantic_sha256": sphere_record["output_sha256"],
+                "semantic_role": "recorded-symmetric-adjacency-output",
+            },
+            {
+                "fixture": "sphere-validated-laplacian",
+                "semantic_sha256": sphere["laplacian"].sha256,
+                "semantic_role": "validated-normalized-laplacian",
+            },
         ]
     )
     return _row(
@@ -562,7 +606,11 @@ def _evaluate_ga00() -> dict[str, Any]:
         roots=evidence_na("GA-00 validates graph inputs and has no filter root"),
         dtype="torch.float64",
         device="cpu",
-        configuration={"policy": preprocessed.record.to_dict()},
+        configuration={
+            "policy": preprocessed.record.to_dict(),
+            "sphere_policy": sphere_record,
+            "peel_contract": "ValidatedLaplacian-required; angular-oracle-quarantined",
+        },
         metrics=[
             _upper_bound_metric(
                 "directed_input_rejection_failure_count", int(not rejected), 0.0
@@ -570,6 +618,22 @@ def _evaluate_ga00() -> dict[str, Any]:
             _error_metric("laplacian_self_adjoint_residual", symmetry_error, 1e-14),
             _upper_bound_metric("laplacian_spectral_interval_violation", interval_violation, 1e-12),
             _upper_bound_metric("policy_metadata_mismatch_count", policy_mismatch_count, 0.0),
+            _error_metric(
+                "sphere_laplacian_self_adjoint_residual",
+                sphere_symmetry_error,
+                1e-14,
+            ),
+            _error_metric(
+                "sphere_eigensystem_relative_residual",
+                sphere_eigensystem_residual,
+                EXACT_TOL,
+                relative_error=sphere_eigensystem_residual,
+            ),
+            _upper_bound_metric(
+                "sphere_policy_metadata_mismatch_count",
+                sphere_policy_mismatch_count,
+                0.0,
+            ),
         ],
     )
 
@@ -1047,8 +1111,12 @@ def _evaluate_ga10() -> dict[str, Any]:
         ],
         dtype=torch.float64,
     )
-    output = model.analyze(
-        signal,
+    lifted_real = (
+        signal @ model.lifting.weight.detach().mT + model.lifting.bias.detach()
+    )
+    lifted = torch.complex(lifted_real[:, :2], lifted_real[:, 2:])
+    output = model.analyze_complex(
+        lifted,
         graph.edge_index,
         graph.edge_weight,
         laplacian=graph.laplacian_token,
@@ -1059,23 +1127,46 @@ def _evaluate_ga10() -> dict[str, Any]:
         graph.edge_weight,
     )
 
-    # This assembly intentionally does not call components/concatenate or the
-    # nn.Linear module.  It binds the public model forward path to the frozen
-    # residual-first field semantics and the affine readout independently.
-    expected_components = (*output.bands, output.final_carry)
+    # Construct each production polynomial operator independently as a dense
+    # Chebyshev recurrence, then perform the residual-first split in the dense
+    # oracle. This does not read the public output fields to define expected
+    # coefficient values.
+    operators: list[torch.Tensor] = []
+    for roots in output.roots:
+        coefficients = blaschke_product_cheb_coeffs(
+            roots,
+            4,
+            torch.device("cpu"),
+        )
+        operators.append(
+            dense_chebyshev_operator(graph.laplacian, coefficients)
+        )
+    expected_components = apply_tight_analysis(lifted, operators)
     expected = torch.cat(expected_components, dim=-1)
     expected_features = torch.cat([expected.real, expected.imag], dim=-1)
     expected_logits = (
         expected_features @ model.readout.weight.detach().mT
         + model.readout.bias.detach()
     )
-    wrong = torch.cat((output.final_carry, *output.bands), dim=-1)
+    component_errors = [
+        float(
+            (
+                (observed - expected_component).norm()
+                / expected_component.norm().clamp_min(1e-30)
+            ).item()
+        )
+        for observed, expected_component in zip(
+            output.components,
+            expected_components,
+            strict=True,
+        )
+    ]
+    wrong = torch.cat((expected_components[-1], *expected_components[:-1]), dim=-1)
     wrong_features = torch.cat([wrong.real, wrong.imag], dim=-1)
     wrong_logits = (
         wrong_features @ model.readout.weight.detach().mT
         + model.readout.bias.detach()
     )
-    order_error = float((output.concatenate() - expected).norm().item())
     readout_error = float(
         (
             (public_logits - expected_logits).norm()
@@ -1091,6 +1182,22 @@ def _evaluate_ga10() -> dict[str, Any]:
     root_error = max(
         float((left - right).abs().max().item())
         for left, right in zip(output.roots, forward_roots, strict=True)
+    )
+    public_synthesis = model.synthesize(
+        output,
+        graph.edge_index,
+        graph.edge_weight,
+        laplacian=graph.laplacian_token,
+    )
+    independent_synthesis = adjoint_tight_synthesis(
+        expected_components,
+        operators,
+    )
+    synthesis_error = float(
+        (
+            (public_synthesis - independent_synthesis).norm()
+            / independent_synthesis.norm().clamp_min(1e-30)
+        ).item()
     )
     return _row(
         "GA-10",
@@ -1114,11 +1221,34 @@ def _evaluate_ga10() -> dict[str, Any]:
             "depth": 2,
             "degree": 4,
             "expected_order": ["r_0", "r_1", "h_D"],
-            "independent_assembly": "direct fields plus explicit affine readout",
+            "independent_assembly": (
+                "dense Chebyshev operators plus independent residual-first oracle"
+            ),
             "negative_control_order": ["h_D", "r_0", "r_1"],
         },
         metrics=[
-            _error_metric("residual_first_order_residual", order_error, 0.0),
+            _error_metric(
+                "maximum_public_component_relative_residual",
+                max(component_errors),
+                SPARSE_TOL,
+                relative_error=max(component_errors),
+            ),
+            _error_metric(
+                "residual_first_tuple_relative_residual",
+                float(
+                    (
+                        (output.concatenate() - expected).norm()
+                        / expected.norm().clamp_min(1e-30)
+                    ).item()
+                ),
+                SPARSE_TOL,
+                relative_error=float(
+                    (
+                        (output.concatenate() - expected).norm()
+                        / expected.norm().clamp_min(1e-30)
+                    ).item()
+                ),
+            ),
             _error_metric(
                 "public_forward_readout_relative_residual",
                 readout_error,
@@ -1126,6 +1256,12 @@ def _evaluate_ga10() -> dict[str, Any]:
                 relative_error=readout_error,
             ),
             _error_metric("public_forward_root_residual", root_error, 0.0),
+            _error_metric(
+                "public_synthesis_vs_dense_adjoint_relative_residual",
+                synthesis_error,
+                SPARSE_TOL,
+                relative_error=synthesis_error,
+            ),
             _lower_bound_metric(
                 "wrong_order_coefficient_relative_separation",
                 wrong_order_separation,
@@ -1287,79 +1423,113 @@ def _evaluate_ga13() -> dict[str, Any]:
 
 
 def _evaluate_ga14() -> dict[str, Any]:
+    graph = _graph_registry()["weighted_6"]
+    roots = _root_registry()["multi_root"][:2]
+    degree = 8
+    eigenvalues, eigenvectors = torch.linalg.eigh(graph.laplacian)
+    exact_factor = exact_blaschke_operator(graph.laplacian, roots)
+    coefficients_k = blaschke_product_cheb_coeffs(
+        roots,
+        degree,
+        torch.device("cpu"),
+    )
+    approximate_factor = dense_chebyshev_operator(
+        graph.laplacian,
+        coefficients_k,
+    )
+    identity = torch.eye(graph.num_nodes, dtype=torch.complex128)
+    q_exact = 0.5 * (identity - exact_factor)
+    q_approximate = 0.5 * (identity - approximate_factor)
+    q_symbol = 0.5 * (
+        1.0 - exact_blaschke_symbol(eigenvalues, roots)
+    )
+    target_mask = torch.zeros(graph.num_nodes, dtype=torch.bool)
+    target_mask[1::2] = True
+    complement_mask = ~target_mask
+    projector = (
+        eigenvectors[:, target_mask] @ eigenvectors[:, target_mask].mT
+    ).to(torch.complex128)
     generator = torch.Generator().manual_seed(1400)
-    coefficients = torch.randn(
-        10, 2, dtype=torch.complex128, generator=generator
+    signal = torch.randn(
+        graph.num_nodes, 3, dtype=torch.complex128, generator=generator
     )
-    target = torch.tensor([3, 4, 5, 6])
-    complement = torch.tensor([0, 1, 2, 7, 8, 9])
-    q_response = torch.zeros(10, dtype=torch.complex128)
-    q_response[target] = 1.0 + 0.04 * torch.exp(
-        1j * torch.linspace(0.0, 1.0, target.numel(), dtype=torch.float64)
-    )
-    q_response[complement] = 0.03 * torch.exp(
-        1j
-        * torch.linspace(-1.0, 0.4, complement.numel(), dtype=torch.float64)
-    )
-    truth = torch.zeros_like(coefficients)
-    truth[target] = coefficients[target]
-    exact_recovered = q_response.unsqueeze(1) * coefficients
-    exact_error_squared = (exact_recovered - truth).abs().square().sum()
+    target_signal = projector @ signal
+    spectral_coefficients = eigenvectors.to(torch.complex128).mH @ signal
+    exact_error_squared = (q_exact @ signal - target_signal).abs().square().sum()
     decomposed = (
         (
-            (q_response[target] - 1.0).unsqueeze(1) * coefficients[target]
+            (q_symbol[target_mask] - 1.0).unsqueeze(1)
+            * spectral_coefficients[target_mask]
         ).abs().square().sum()
         + (
-            q_response[complement].unsqueeze(1) * coefficients[complement]
+            q_symbol[complement_mask].unsqueeze(1)
+            * spectral_coefficients[complement_mask]
         ).abs().square().sum()
     )
     identity_error = float((exact_error_squared - decomposed).abs().item())
-
-    # Freeze q=(1-t)/2 and perturb the finite factor t itself.  The induced
-    # channel error is therefore epsilon_K/2, which is the factor that enters
-    # Corollary E5 rather than an unconstrained empirical perturbation norm.
-    exact_factor = 1.0 - 2.0 * q_response
-    factor_error = torch.polar(
-        torch.linspace(0.006, 0.014, 10, dtype=torch.float64),
-        torch.linspace(-0.8, 1.1, 10, dtype=torch.float64),
-    ).to(torch.complex128)
-    finite_factor = exact_factor + factor_error
-    epsilon_k = float(factor_error.abs().max().item())
-    finite_q = 0.5 * (1.0 - finite_factor)
-    induced_channel_error = float((finite_q - q_response).abs().max().item())
-    finite_recovered = finite_q.unsqueeze(1) * coefficients
-    finite_error = float((finite_recovered - truth).norm().item())
-    theorem_perturbation_term = float(
-        (0.5 * epsilon_k * coefficients.norm()).item()
+    epsilon_k = float(
+        torch.linalg.matrix_norm(
+            approximate_factor - exact_factor,
+            ord=2,
+        ).item()
     )
-    triangle_bound = float(exact_error_squared.sqrt().item()) + theorem_perturbation_term
+    induced_channel_error = float(
+        torch.linalg.matrix_norm(q_approximate - q_exact, ord=2).item()
+    )
+    half_epsilon_residual = abs(induced_channel_error - 0.5 * epsilon_k)
+    delta = float((q_symbol[target_mask] - 1.0).abs().max().item())
+    eta = float(q_symbol[complement_mask].abs().max().item())
+    spectral_exact_bound = float(
+        (
+            delta**2 * target_signal.norm().square()
+            + eta**2 * (signal - target_signal).norm().square()
+        ).sqrt().item()
+    )
+    theorem_perturbation_term = 0.5 * epsilon_k * float(signal.norm().item())
+    triangle_bound = spectral_exact_bound + theorem_perturbation_term
+    finite_error = float(
+        (q_approximate @ signal - target_signal).norm().item()
+    )
     actual_channel_perturbation = float(
-        ((finite_q - q_response).unsqueeze(1) * coefficients).norm().item()
+        ((q_approximate - q_exact) @ signal).norm().item()
     )
     return _row(
         "GA-14",
         evaluator="evaluate_complex_recovery_decomposition",
         realization_tags=("exact", "chebyshev-K"),
-        graphs=evidence_na("GA-14 is a synthetic spectral-coefficient identity"),
-        roots=evidence_na(
-            "GA-14 tests a prescribed exact and perturbed response, not root fitting"
+        graphs=_graph_context(("weighted_6",)),
+        roots=evidence_value(
+            [
+                {
+                    "fixture": "multi-root-first-two",
+                    "parameterization": "fixed-admissible",
+                    "values": _serialized_roots(roots),
+                }
+            ]
         ),
-        dtype="torch.complex128",
+        dtype="torch.float64/torch.complex128",
         device="cpu",
         configuration={
-            "spectral_points": 10,
-            "feature_dimensions": 2,
+            "spectral_points": graph.num_nodes,
+            "feature_dimensions": 3,
+            "degree": degree,
             "channel_relation": "q=(1-t)/2",
             "epsilon_k_operator_norm": epsilon_k,
             "epsilon_k_over_two": 0.5 * epsilon_k,
             "exact_recovery_norm": float(exact_error_squared.sqrt().item()),
-            "finite_factor_kind": "prescribed diagonal spectral perturbation",
+            "delta": delta,
+            "eta": eta,
+            "spectral_exact_bound": spectral_exact_bound,
+            "approximation_term_epsilon_over_two_times_signal_norm": (
+                theorem_perturbation_term
+            ),
+            "finite_factor_kind": "actual-first-kind-chebyshev-interpolant",
         },
         metrics=[
             _error_metric("exact_error_decomposition_residual", identity_error, ZERO_TOL),
             _error_metric(
                 "induced_channel_epsilon_over_two_residual",
-                abs(induced_channel_error - 0.5 * epsilon_k),
+                half_epsilon_residual,
                 ZERO_TOL,
             ),
             _upper_bound_metric(
@@ -1764,142 +1934,200 @@ def _evaluate_ga20() -> dict[str, Any]:
 
 
 def _evaluate_ga21() -> dict[str, Any]:
-    graph = _graph_registry()["path_8"]
     roots = _root_registry()["generic_complex"]
-    degree = 8
-    exact = exact_blaschke_operator(graph.laplacian, roots)
-    coefficients = blaschke_product_cheb_coeffs(
-        roots, degree, torch.device("cpu")
-    )
-    approximate = dense_chebyshev_operator(graph.laplacian, coefficients)
-    epsilon = float(
-        torch.linalg.matrix_norm(approximate - exact, ord=2).item()
-    )
-    identity = torch.eye(graph.num_nodes, dtype=torch.complex128)
-    residual = 0.5 * (identity - approximate)
-    carry = 0.5 * (identity + approximate)
-    frame = residual.mH @ residual + carry.mH @ carry
-    frame_eigenvalues = torch.linalg.eigvalsh(frame)
-    defect = float(torch.linalg.matrix_norm(frame - identity, ord=2).item())
-    predicted = epsilon + 0.5 * epsilon * epsilon
-    slack = SLACK * max(1.0, predicted)
-    lower_violation = max(
-        0.0, 1.0 - predicted - slack - float(frame_eigenvalues.min().item())
-    )
-    upper_violation = max(
-        0.0, float(frame_eigenvalues.max().item()) - (1.0 + predicted + slack)
-    )
-    return _row(
-        "GA-21",
-        evaluator="evaluate_one_level_finite_frame_bound",
-        realization_tags=("exact", "chebyshev-K"),
-        graphs=_graph_context(("path_8",)),
-        roots=_root_context(("generic_complex",)),
-        dtype="torch.float64/torch.complex128",
-        device="cpu",
-        configuration={"degree": degree, "epsilon": epsilon},
-        metrics=[
-            _upper_bound_metric("observed_frame_defect", defect, predicted + slack),
-            _upper_bound_metric("lower_frame_eigenvalue_violation", lower_violation, 0.0),
-            _upper_bound_metric("upper_frame_eigenvalue_violation", upper_violation, 0.0),
-        ],
-    )
-
-
-def _evaluate_ga22() -> dict[str, Any]:
-    graph = _graph_registry()["path_6"]
-    root_names = ("generic_complex", "multi_root", "real_interior")
-    degrees = (8, 12, 16)
+    graph_names = ("path_8", "complete_5", "weighted_6")
     rows: list[dict[str, Any]] = []
-    maximum_frame_violation = maximum_synthesis_violation = 0.0
-    maximum_additive_error = maximum_singular_frame_residual = 0.0
-    for depth in (1, 2, 4, 8, 16):
-        approximate_operators: list[torch.Tensor] = []
-        errors: list[float] = []
-        for level in range(depth):
-            roots = _root_registry()[root_names[level % len(root_names)]]
-            degree = degrees[level % len(degrees)]
+    max_defect_violation = max_lower_violation = max_upper_violation = 0.0
+    for graph_name in graph_names:
+        graph = _graph_registry()[graph_name]
+        for degree in (8, 16):
             exact = exact_blaschke_operator(graph.laplacian, roots)
             coefficients = blaschke_product_cheb_coeffs(
                 roots, degree, torch.device("cpu")
             )
             approximate = dense_chebyshev_operator(graph.laplacian, coefficients)
-            approximate_operators.append(approximate)
-            errors.append(
-                float(
-                    torch.linalg.matrix_norm(
-                        approximate - exact, ord=2
-                    ).item()
-                )
+            epsilon = float(
+                torch.linalg.matrix_norm(approximate - exact, ord=2).item()
             )
-        analysis = tight_analysis_matrix(approximate_operators)
-        identity = torch.eye(graph.num_nodes, dtype=torch.complex128)
-        frame = analysis.mH @ analysis
-        observed = float(
-            torch.linalg.matrix_norm(frame - identity, ord=2).item()
-        )
-        diagnostic = multilevel_frame_bound(errors)
-        slack = SLACK * max(1.0, diagnostic.delta)
-        generator = torch.Generator().manual_seed(2200 + depth)
-        signal = torch.randn(
-            graph.num_nodes,
-            3,
-            dtype=torch.complex128,
-            generator=generator,
-        )
-        components = apply_tight_analysis(signal, approximate_operators)
-        additive = sum(
-            components[:-1], start=torch.zeros_like(signal)
-        ) + components[-1]
-        additive_error = float(
-            ((additive - signal).norm() / signal.norm()).item()
-        )
-        synthesized = adjoint_tight_synthesis(
-            components, approximate_operators
-        )
-        synthesis_error = float(
-            ((synthesized - signal).norm() / signal.norm()).item()
-        )
-        singular_values = torch.linalg.svdvals(analysis)
-        frame_eigenvalues = torch.linalg.eigvalsh(frame)
-        singular_frame_residual = float(
-            (
-                singular_values.square().sort().values
-                - frame_eigenvalues.sort().values
-            ).abs().max().item()
-        )
-        maximum_frame_violation = max(
-            maximum_frame_violation,
-            max(0.0, observed - diagnostic.delta - slack),
-        )
-        maximum_synthesis_violation = max(
-            maximum_synthesis_violation,
-            max(0.0, synthesis_error - diagnostic.delta - slack),
-        )
-        maximum_additive_error = max(maximum_additive_error, additive_error)
-        maximum_singular_frame_residual = max(
-            maximum_singular_frame_residual, singular_frame_residual
-        )
-        rows.append(
-            {
-                "depth": depth,
-                "per_level_errors": errors,
-                "predicted_delta": diagnostic.delta,
-                "observed_frame_defect": observed,
-                "additive_reconstruction_error": additive_error,
-                "adjoint_synthesis_error": synthesis_error,
-                "positive_lower_bound": diagnostic.positive_lower_bound,
-            }
-        )
+            identity = torch.eye(graph.num_nodes, dtype=torch.complex128)
+            residual = 0.5 * (identity - approximate)
+            carry = 0.5 * (identity + approximate)
+            frame = residual.mH @ residual + carry.mH @ carry
+            frame_eigenvalues = torch.linalg.eigvalsh(frame)
+            defect = float(
+                torch.linalg.matrix_norm(frame - identity, ord=2).item()
+            )
+            predicted = epsilon + 0.5 * epsilon * epsilon
+            slack = SLACK * max(1.0, predicted)
+            defect_violation = max(0.0, defect - predicted - slack)
+            lower_violation = max(
+                0.0,
+                1.0
+                - predicted
+                - slack
+                - float(frame_eigenvalues.min().item()),
+            )
+            upper_violation = max(
+                0.0,
+                float(frame_eigenvalues.max().item())
+                - (1.0 + predicted + slack),
+            )
+            max_defect_violation = max(max_defect_violation, defect_violation)
+            max_lower_violation = max(max_lower_violation, lower_violation)
+            max_upper_violation = max(max_upper_violation, upper_violation)
+            rows.append(
+                {
+                    "graph_fixture": graph_name,
+                    "degree": degree,
+                    "epsilon_operator_norm": epsilon,
+                    "predicted_frame_defect_bound": predicted,
+                    "observed_frame_defect": defect,
+                    "minimum_frame_eigenvalue": float(
+                        frame_eigenvalues.min().item()
+                    ),
+                    "maximum_frame_eigenvalue": float(
+                        frame_eigenvalues.max().item()
+                    ),
+                }
+            )
+    return _row(
+        "GA-21",
+        evaluator="evaluate_one_level_finite_frame_bound",
+        realization_tags=("exact", "chebyshev-K"),
+        graphs=_graph_context(graph_names),
+        roots=_root_context(("generic_complex",)),
+        dtype="torch.float64/torch.complex128",
+        device="cpu",
+        configuration={
+            "degrees": [8, 16],
+            "cases": rows,
+            "repeated_spectrum_fixture": "complete_5",
+            "nonuniform_weighted_fixture": "weighted_6",
+        },
+        metrics=[
+            _upper_bound_metric(
+                "maximum_frame_defect_bound_violation",
+                max_defect_violation,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "maximum_lower_frame_eigenvalue_violation",
+                max_lower_violation,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "maximum_upper_frame_eigenvalue_violation",
+                max_upper_violation,
+                0.0,
+            ),
+        ],
+    )
+
+
+def _evaluate_ga22() -> dict[str, Any]:
+    graph_names = ("path_8", "complete_5", "weighted_6")
+    root_names = ("generic_complex", "multi_root", "real_interior")
+    degrees = (8, 12, 16)
+    rows: list[dict[str, Any]] = []
+    maximum_frame_violation = maximum_synthesis_violation = 0.0
+    maximum_additive_error = maximum_singular_frame_residual = 0.0
+    for graph_index, graph_name in enumerate(graph_names):
+        graph = _graph_registry()[graph_name]
+        for depth in (1, 2, 4, 8, 16):
+            approximate_operators: list[torch.Tensor] = []
+            errors: list[float] = []
+            for level in range(depth):
+                roots = _root_registry()[root_names[level % len(root_names)]]
+                degree = degrees[level % len(degrees)]
+                exact = exact_blaschke_operator(graph.laplacian, roots)
+                coefficients = blaschke_product_cheb_coeffs(
+                    roots, degree, torch.device("cpu")
+                )
+                approximate = dense_chebyshev_operator(graph.laplacian, coefficients)
+                approximate_operators.append(approximate)
+                errors.append(
+                    float(
+                        torch.linalg.matrix_norm(
+                            approximate - exact, ord=2
+                        ).item()
+                    )
+                )
+            analysis = tight_analysis_matrix(approximate_operators)
+            identity = torch.eye(graph.num_nodes, dtype=torch.complex128)
+            frame = analysis.mH @ analysis
+            observed = float(
+                torch.linalg.matrix_norm(frame - identity, ord=2).item()
+            )
+            diagnostic = multilevel_frame_bound(errors)
+            slack = SLACK * max(1.0, diagnostic.delta)
+            generator = torch.Generator().manual_seed(
+                2200 + 100 * graph_index + depth
+            )
+            signal = torch.randn(
+                graph.num_nodes,
+                3,
+                dtype=torch.complex128,
+                generator=generator,
+            )
+            components = apply_tight_analysis(signal, approximate_operators)
+            additive = sum(
+                components[:-1], start=torch.zeros_like(signal)
+            ) + components[-1]
+            additive_error = float(
+                ((additive - signal).norm() / signal.norm()).item()
+            )
+            synthesized = adjoint_tight_synthesis(
+                components, approximate_operators
+            )
+            synthesis_error = float(
+                ((synthesized - signal).norm() / signal.norm()).item()
+            )
+            singular_values = torch.linalg.svdvals(analysis)
+            frame_eigenvalues = torch.linalg.eigvalsh(frame)
+            singular_frame_residual = float(
+                (
+                    singular_values.square().sort().values
+                    - frame_eigenvalues.sort().values
+                ).abs().max().item()
+            )
+            maximum_frame_violation = max(
+                maximum_frame_violation,
+                max(0.0, observed - diagnostic.delta - slack),
+            )
+            maximum_synthesis_violation = max(
+                maximum_synthesis_violation,
+                max(0.0, synthesis_error - diagnostic.delta - slack),
+            )
+            maximum_additive_error = max(maximum_additive_error, additive_error)
+            maximum_singular_frame_residual = max(
+                maximum_singular_frame_residual, singular_frame_residual
+            )
+            rows.append(
+                {
+                    "graph_fixture": graph_name,
+                    "depth": depth,
+                    "per_level_errors": errors,
+                    "predicted_delta": diagnostic.delta,
+                    "observed_frame_defect": observed,
+                    "additive_reconstruction_error": additive_error,
+                    "adjoint_synthesis_error": synthesis_error,
+                    "positive_lower_bound": diagnostic.positive_lower_bound,
+                }
+            )
     return _row(
         "GA-22",
         evaluator="evaluate_multilevel_finite_frame_bound",
         realization_tags=("exact", "chebyshev-K"),
-        graphs=_graph_context(("path_6",)),
+        graphs=_graph_context(graph_names),
         roots=_root_context(root_names),
         dtype="torch.float64/torch.complex128",
         device="cpu",
-        configuration={"degrees": list(degrees), "cases": rows},
+        configuration={
+            "degrees": list(degrees),
+            "cases": rows,
+            "repeated_spectrum_fixture": "complete_5",
+            "nonuniform_weighted_fixture": "weighted_6",
+        },
         metrics=[
             _metric(
                 "multilevel_frame_bound_decisions",
@@ -1999,8 +2227,8 @@ def _evaluate_ga24() -> dict[str, Any]:
         - SLACK * max(1.0, diagnostic.certified_interpolation_error_bound),
     )
     configuration = diagnostic.to_dict()
-    configuration["root_pole_geometry"] = list(
-        diagnostic.root_pole_geometry
+    configuration["target_root_pole_geometry"] = list(
+        diagnostic.target_root_pole_geometry
     )
     return _row(
         "GA-24",
@@ -2014,9 +2242,11 @@ def _evaluate_ga24() -> dict[str, Any]:
         metrics=[
             _upper_bound_metric("certified_interval_error_violation", violation, 0.0),
             _descriptive_metric(
-                "root_pole_geometry",
-                list(diagnostic.root_pole_geometry),
-                "GA-24 geometry is descriptive; no monotonic ordering is an acceptance premise",
+                "exact_target_root_pole_geometry",
+                list(diagnostic.target_root_pole_geometry),
+                "GA-24 exact-target geometry is descriptive; the finite polynomial "
+                "has no literal finite poles and no monotonic ordering is an "
+                "acceptance premise",
             ),
         ],
     )
@@ -2141,28 +2371,34 @@ def _evaluate_ga26() -> dict[str, Any]:
 
 def _evaluate_ga27() -> dict[str, Any]:
     roots = _root_registry()["generic_complex"]
-    zero, pole = mapped_zero_pole(roots)
-    pole_value = complex(pole.item())
-    zero_value = complex(zero.item())
-    cayley_scales = torch.tensor([0.5, 1.0, 2.0], dtype=torch.float64)
-    cayley_analytic_poles = torch.complex(
-        torch.zeros_like(cayley_scales), -1.0 / cayley_scales
+    comparator = frozen_scalar_cayleynet_comparator(
+        0.3,
+        torch.tensor(
+            [0.7 + 0.2j, -0.4 + 0.3j, 0.15 - 0.25j],
+            dtype=torch.complex128,
+        ),
+        1.7,
     )
-    cayley_real_response_poles = torch.cat(
-        [cayley_analytic_poles, cayley_analytic_poles.conj()]
+    gbdn = reduced_blaschke_pole_diagnostic(roots)
+    comparator_poles = comparator["reduced_pole_multiset"]
+    gbdn_poles = gbdn["reduced_pole_multiset"]
+    comparator_axis_residual = max(
+        abs(float(entry["pole"]["real"])) for entry in comparator_poles
     )
-    cayley_axis_residual = float(cayley_real_response_poles.real.abs().max().item())
-    off_axis = abs(pole_value.real)  # Exact distance to the full imaginary-axis locus.
-    noncancellation = abs(pole_value - zero_value)
-    lower_half_margin = -pole_value.imag
-    cancellation_count = int(noncancellation <= SCALAR_TOL)
-    reduced_poles = [] if cancellation_count else [pole_value]
-
-    def complex_records(values: list[complex]) -> list[dict[str, float]]:
-        return [
-            {"real": float(value.real), "imag": float(value.imag)}
-            for value in values
-        ]
+    minimum_separation = min(
+        abs(
+            complex(gbdn_entry["pole"]["real"], gbdn_entry["pole"]["imag"])
+            - complex(
+                comparator_entry["pole"]["real"],
+                comparator_entry["pole"]["imag"],
+            )
+        )
+        for gbdn_entry in gbdn_poles
+        for comparator_entry in comparator_poles
+    )
+    off_axis = min(abs(float(entry["pole"]["real"])) for entry in gbdn_poles)
+    lower_half_margin = min(-float(entry["pole"]["imag"]) for entry in gbdn_poles)
+    cancellation_count = int(gbdn["cancelled_pair_count"])
 
     return _row(
         "GA-27",
@@ -2173,18 +2409,8 @@ def _evaluate_ga27() -> dict[str, Any]:
         dtype="torch.complex128",
         device="cpu",
         configuration={
-            "numerator_zero_multiset": complex_records([zero_value]),
-            "unreduced_denominator_pole_multiset": complex_records([pole_value]),
-            "cancelled_zero_pole_pair_count": cancellation_count,
-            "reduced_pole_multiset": complex_records(reduced_poles),
-            "reduced_pole_multiplicities": [1] if reduced_poles else [],
-            "cayley_scale_domain": "h>0",
-            "cayley_analytic_half_pole_locus": "{ -i/h : h>0 }",
-            "cayley_real_response_pole_locus": "{ -i/h, +i/h : h>0 }",
-            "sample_cayley_scales": cayley_scales.tolist(),
-            "sample_cayley_real_response_poles": complex_records(
-                [complex(value.item()) for value in cayley_real_response_poles]
-            ),
+            "frozen_comparator": comparator,
+            "exact_gbdn_reduction": gbdn,
             "comparison_scope": (
                 "exact scalar finite-order response, equality on a real interval "
                 "with an accumulation point, after rational cancellation"
@@ -2197,14 +2423,26 @@ def _evaluate_ga27() -> dict[str, Any]:
             ],
         },
         metrics=[
-            _upper_bound_metric("cayley_locus_real_axis_residual", cayley_axis_residual, 0.0),
-            _upper_bound_metric("cancelled_zero_pole_pair_count", cancellation_count, 0.0),
+            _upper_bound_metric(
+                "derived_cayleynet_reduced_pole_axis_residual",
+                comparator_axis_residual,
+                0.0,
+            ),
+            _upper_bound_metric(
+                "gbdn_cancelled_zero_pole_pair_count",
+                cancellation_count,
+                0.0,
+            ),
             _lower_bound_metric(
                 "reduced_pole_distance_to_cayley_imaginary_axis_locus",
                 off_axis,
                 1e-6,
             ),
-            _lower_bound_metric("zero_pole_separation", noncancellation, 1e-6),
+            _lower_bound_metric(
+                "minimum_reduced_pole_multiset_separation",
+                minimum_separation,
+                1e-6,
+            ),
             _lower_bound_metric("lower_half_plane_margin", lower_half_margin, 0.0),
         ],
     )

@@ -20,6 +20,7 @@ from gbdn import (  # noqa: E402
     GBDNTight,
     TightAnalysisOutput,
     blaschke_product_cheb_coeffs,
+    dense_adjoint_tight_synthesis,
     dense_apply_tight_analysis,
     dense_chebyshev_operator,
     dense_exact_blaschke_operator,
@@ -31,6 +32,12 @@ from gbdn import (  # noqa: E402
     validate_adjacency,
     validate_self_adjoint_operator,
 )
+from gbdn.peel import (  # noqa: E402
+    center_width_coeffs_for_mode,
+    oracle_coeffs_for_mode,
+    tight_peel_sequence,
+)
+from gbdn.synthetic import sphere_graph_data  # noqa: E402
 
 
 EXACT_OPERATOR_TOL = 1e-10
@@ -193,6 +200,64 @@ def test_ga00_reciprocal_mean_policy_is_recorded_and_deterministic():
     assert torch.equal(repeated.adjacency.to_dense(), expected)
 
 
+def test_ga00_sphere_helper_routes_directed_knn_through_recorded_preprocessor():
+    """GA-00: the canonical sphere helper cannot feed an asymmetric eigensolver."""
+
+    result = sphere_graph_data(
+        n_nodes=24,
+        k_nn=3,
+        idx_low=2,
+        idx_high=15,
+    )
+    record = result["graph_preprocess_record"]
+    assert record["policy"] == "reciprocal-mean"
+    assert record["formula"] == "A_sym=(A+A^T)/2"
+    adjacency = result["adjacency"].to_dense()
+    assert torch.equal(adjacency, adjacency.mT)
+    laplacian = result["laplacian"].to_dense()
+    assert torch.linalg.matrix_norm(laplacian - laplacian.mT, ord=2) < 1e-14
+    residual = torch.linalg.matrix_norm(
+        laplacian @ result["evecs"]
+        - result["evecs"] * result["evals"].unsqueeze(0),
+        ord="fro",
+    ) / torch.linalg.matrix_norm(laplacian, ord="fro")
+    assert float(residual.item()) < 1e-10
+    assert torch.equal(result["data"].edge_index, result["adjacency"].indices())
+    assert torch.equal(result["data"].edge_weight, result["adjacency"].values())
+
+
+def test_ga00_peel_diagnostics_require_token_and_quarantine_angular_oracle():
+    """GA-00: peeling diagnostics cannot bypass tokens or misname angular anchors."""
+
+    edge_index, edge_weight = _path_edges(5)
+    laplacian = normalized_laplacian(edge_index, edge_weight, 5)
+    eigenvalues = torch.linalg.eigvalsh(laplacian.to_dense())
+    coefficients = center_width_coeffs_for_mode(
+        eigenvalues,
+        2,
+        4,
+        torch.device("cpu"),
+        width=0.3,
+    )
+    signal = torch.randn(
+        5,
+        2,
+        dtype=torch.complex128,
+        generator=torch.Generator().manual_seed(42),
+    )
+    output = tight_peel_sequence(signal, laplacian, [coefficients], 4)
+    assert len(output["hs"]) == 2
+    with pytest.raises(TypeError, match="ValidatedLaplacian"):
+        tight_peel_sequence(signal, laplacian.to_dense(), [coefficients], 4)
+    with pytest.raises(RuntimeError, match="quarantined"):
+        oracle_coeffs_for_mode(
+            eigenvalues,
+            2,
+            4,
+            torch.device("cpu"),
+        )
+
+
 def test_ga03_ga04_dense_exact_unitarity_and_one_level_split():
     """GA-03/04: independent dense factor is two-sided unitary and tightly split."""
 
@@ -263,26 +328,173 @@ def test_ga08_additive_reconstruction_exact_approximate_and_nonunitary():
     assert torch.allclose(one_level[0] + one_level[1], signal, atol=1e-12, rtol=1e-12)
 
 
-def test_ga10_tight_analysis_output_is_semantically_residual_first():
-    """GA-10: sentinels catch any final-carry-first public permutation."""
+def test_ga10_public_tight_values_order_readout_and_synthesis_match_dense_oracle(
+    record_property,
+):
+    """GA-10: public coefficients equal an independent residual-first assembly."""
 
-    residual_zero = torch.full((2, 1), 11.0 + 1.0j, dtype=torch.complex128)
-    residual_one = torch.full((2, 1), 22.0 + 2.0j, dtype=torch.complex128)
-    final_carry = torch.full((2, 1), 33.0 + 3.0j, dtype=torch.complex128)
-    output = TightAnalysisOutput(
-        bands=[residual_zero, residual_one],
-        final_carry=final_carry,
-        roots=[torch.tensor([0.1j]), torch.tensor([0.2j])],
+    num_nodes, depth, degree, hidden = 6, 3, 5, 2
+    edge_index, edge_weight = _path_edges(num_nodes)
+    laplacian = normalized_laplacian(edge_index, edge_weight, num_nodes)
+    model = GBDNTight(
+        in_channels=2,
+        hidden_channels=hidden,
+        out_channels=2,
+        num_layers=depth,
+        K=degree,
+        num_roots=1,
+    ).double()
+    model.eval()
+    with torch.no_grad():
+        model.lifting.weight.copy_(
+            torch.tensor(
+                [
+                    [0.2, -0.1],
+                    [0.4, 0.3],
+                    [-0.25, 0.5],
+                    [0.15, -0.35],
+                ],
+                dtype=torch.float64,
+            )
+        )
+        model.lifting.bias.copy_(
+            torch.tensor([0.1, -0.2, 0.3, -0.4], dtype=torch.float64)
+        )
+        for index, layer in enumerate(model.layers):
+            layer.root_params.copy_(
+                torch.tensor(
+                    [[-0.9 + 0.25 * index, 0.2 + 0.55 * index]],
+                    dtype=torch.float64,
+                )
+            )
+        readout_width = hidden * (depth + 1) * 2
+        model.readout.weight.copy_(
+            torch.arange(
+                1,
+                2 * readout_width + 1,
+                dtype=torch.float64,
+            ).reshape(2, readout_width)
+            / 23.0
+        )
+        model.readout.bias.copy_(torch.tensor([0.2, -0.3], dtype=torch.float64))
+
+    x = torch.tensor(
+        [
+            [0.3, -0.7],
+            [1.2, 0.4],
+            [-0.5, 0.8],
+            [0.9, -1.1],
+            [0.2, 0.6],
+            [-0.8, -0.1],
+        ],
+        dtype=torch.float64,
+    )
+    lifted_real = x @ model.lifting.weight.detach().mT + model.lifting.bias.detach()
+    lifted = torch.complex(lifted_real[:, :hidden], lifted_real[:, hidden:])
+    public = model.analyze_complex(
+        lifted,
+        edge_index,
+        edge_weight=edge_weight,
+        laplacian=laplacian,
     )
 
-    assert output.components[0] is residual_zero
-    assert output.components[1] is residual_one
-    assert output.components[2] is final_carry
-    assert output.component_names == ("r_0", "r_1", "h_D")
-    expected = torch.cat([residual_zero, residual_one, final_carry], dim=-1)
-    wrong = torch.cat([final_carry, residual_zero, residual_one], dim=-1)
-    assert torch.equal(output.concatenate(), expected)
-    assert not torch.equal(output.concatenate(), wrong)
+    operators = []
+    for roots in public.roots:
+        coefficients = blaschke_product_cheb_coeffs(
+            roots,
+            degree,
+            torch.device("cpu"),
+            convention="forward",
+        )
+        operators.append(
+            dense_chebyshev_operator(laplacian.to_dense(), coefficients)
+        )
+    independent = dense_apply_tight_analysis(lifted, operators)
+    assert public.component_names == ("r_0", "r_1", "r_2", "h_D")
+    component_errors = []
+    for observed, expected in zip(public.components, independent, strict=True):
+        relative = (observed - expected).norm() / expected.norm().clamp_min(1e-30)
+        component_errors.append(float(relative.item()))
+        assert float(relative.item()) < SPARSE_OPERATOR_TOL
+
+    independently_concatenated = torch.cat(independent, dim=-1)
+    tuple_error = (
+        (public.concatenate() - independently_concatenated).norm()
+        / independently_concatenated.norm().clamp_min(1e-30)
+    )
+    assert float(tuple_error.item()) < SPARSE_OPERATOR_TOL
+    carry_first = torch.cat((independent[-1], *independent[:-1]), dim=-1)
+    permutation_separation = (
+        (public.concatenate() - carry_first).norm()
+        / independently_concatenated.norm().clamp_min(1e-30)
+    )
+    assert float(permutation_separation.item()) > 1e-3
+
+    independent_features = torch.cat(
+        [independently_concatenated.real, independently_concatenated.imag],
+        dim=-1,
+    )
+    independent_logits = (
+        independent_features @ model.readout.weight.detach().mT
+        + model.readout.bias.detach()
+    )
+    public_logits, _ = model(x, edge_index, edge_weight=edge_weight)
+    readout_error = (
+        (public_logits - independent_logits).norm()
+        / independent_logits.norm().clamp_min(1e-30)
+    )
+    assert float(readout_error.item()) < SPARSE_OPERATOR_TOL
+
+    public_synthesis = model.synthesize(
+        public,
+        edge_index,
+        edge_weight=edge_weight,
+        laplacian=laplacian,
+    )
+    independent_synthesis = dense_adjoint_tight_synthesis(
+        independent,
+        operators,
+    )
+    synthesis_error = (
+        (public_synthesis - independent_synthesis).norm()
+        / independent_synthesis.norm().clamp_min(1e-30)
+    )
+    assert float(synthesis_error.item()) < SPARSE_OPERATOR_TOL
+
+    record_property(
+        "gate_a_metrics",
+        json.dumps(
+            {
+                "gate_id": "GA-10",
+                "realization_tag": "chebyshev-K",
+                "graph_hash": laplacian.sha256,
+                "roots": [
+                    [
+                        [
+                            float(value.detach().real),
+                            float(value.detach().imag),
+                        ]
+                        for value in roots
+                    ]
+                    for roots in public.roots
+                ],
+                "depth": depth,
+                "degree": degree,
+                "component_order": list(public.component_names),
+                "maximum_component_relative_residual": max(component_errors),
+                "tuple_relative_residual": float(tuple_error.item()),
+                "permuted_tuple_relative_separation": float(
+                    permutation_separation.item()
+                ),
+                "readout_relative_residual": float(readout_error.item()),
+                "synthesis_relative_residual": float(synthesis_error.item()),
+                "tolerance": SPARSE_OPERATOR_TOL,
+                "dtype": str(lifted.dtype),
+                "device": str(lifted.device),
+            },
+            sort_keys=True,
+        ),
+    )
 
 
 def test_ga16_dense_oracle_is_invariant_to_repeated_eigenspace_basis():

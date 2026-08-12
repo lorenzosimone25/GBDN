@@ -20,6 +20,10 @@ from gbdn.layers import (
     GraphBlaschkeLayerTight,
     normalized_laplacian,
 )
+from gbdn.diagnostics import (
+    frozen_scalar_cayleynet_comparator,
+    reduced_blaschke_pole_diagnostic,
+)
 from gbdn.oracle import (
     adjoint_tight_synthesis as dense_adjoint_tight_synthesis,
     apply_tight_analysis as dense_apply_tight_analysis,
@@ -81,6 +85,8 @@ __all__ = [
     "GraphBlaschkeLayerTight",
     "GraphBlaschkeLayerRelaxed",
     "normalized_laplacian",
+    "frozen_scalar_cayleynet_comparator",
+    "reduced_blaschke_pole_diagnostic",
     "dense_exact_blaschke_symbol",
     "dense_exact_blaschke_operator",
     "exact_blaschke_operator_from_eigendecomposition",

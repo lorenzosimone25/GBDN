@@ -34,8 +34,10 @@ from gbdn.diagnostics import (  # noqa: E402
     conservative_ellipse_supremum_bound,
     chebyshev_interpolation_error_bound,
     fixed_root_perturbation_constant,
+    frozen_scalar_cayleynet_comparator,
     multilevel_frame_bound,
     product_sum_evaluation_matrix,
+    reduced_blaschke_pole_diagnostic,
     target_pole_ellipse_parameter,
     target_pole_diagnostics,
 )
@@ -124,6 +126,43 @@ def _path_edges(
 def _path_laplacian(n: int, weights: torch.Tensor | None = None) -> torch.Tensor:
     edge_index, edge_weight = _path_edges(n, weights)
     return normalized_laplacian(edge_index, edge_weight, n).to_dense()
+
+
+def _complete_laplacian(n: int = 5) -> torch.Tensor:
+    pairs = [
+        (source, target)
+        for source in range(n)
+        for target in range(n)
+        if source != target
+    ]
+    edge_index = torch.tensor(pairs, dtype=torch.long).t().contiguous()
+    edge_weight = torch.ones(edge_index.shape[1], dtype=torch.float64)
+    return normalized_laplacian(edge_index, edge_weight, n).to_dense()
+
+
+def _weighted_laplacian() -> torch.Tensor:
+    pairs = [
+        (0, 1, 0.4),
+        (1, 2, 1.7),
+        (2, 3, 0.8),
+        (3, 4, 2.1),
+        (1, 4, 0.6),
+    ]
+    directed = []
+    weights = []
+    for source, target, weight in pairs:
+        directed.extend(((source, target), (target, source)))
+        weights.extend((weight, weight))
+    edge_index = torch.tensor(directed, dtype=torch.long).t().contiguous()
+    edge_weight = torch.tensor(weights, dtype=torch.float64)
+    return normalized_laplacian(edge_index, edge_weight, 6).to_dense()
+
+
+FINITE_FRAME_FIXTURES = {
+    "path_8": lambda: _path_laplacian(8),
+    "complete_5_repeated_spectrum": _complete_laplacian,
+    "weighted_6": _weighted_laplacian,
+}
 
 
 def _operator_error(actual: torch.Tensor, expected: torch.Tensor) -> float:
@@ -268,12 +307,17 @@ def test_ga20_exact_graph_error_matches_spectral_max_and_analytic_bound(
     assert joined.certified_interpolation_error_bound == pytest.approx(manual_bound)
 
 
-def test_ga21_one_level_frame_spectrum_obeys_true_operator_error_bound():
+@pytest.mark.parametrize("fixture", FINITE_FRAME_FIXTURES)
+@pytest.mark.parametrize("degree", [8, 16])
+def test_ga21_one_level_frame_spectrum_obeys_true_operator_error_bound(
+    fixture,
+    degree,
+    record_property,
+):
     """GA-21: measured frame spectrum lies inside its epsilon envelope."""
 
     roots = torch.tensor([0.35 + 0.15j], dtype=torch.complex128)
-    degree = 8
-    laplacian = _path_laplacian(8)
+    laplacian = FINITE_FRAME_FIXTURES[fixture]()
     exact = dense_exact_blaschke_operator(laplacian, roots)
     coefficients = blaschke_product_cheb_coeffs(
         roots, degree, torch.device("cpu"), convention="forward"
@@ -291,16 +335,35 @@ def test_ga21_one_level_frame_spectrum_obeys_true_operator_error_bound():
     assert defect <= predicted + slack
     assert float(eigenvalues.min().item()) >= 1.0 - predicted - slack
     assert float(eigenvalues.max().item()) <= 1.0 + predicted + slack
+    record_property(
+        "gate_a_metrics",
+        {
+            "gate_id": "GA-21",
+            "fixture": fixture,
+            "realization_tag": "exact+chebyshev-K",
+            "roots": [[float(root.real), float(root.imag)] for root in roots],
+            "degree": degree,
+            "epsilon_operator_norm": epsilon,
+            "observed_frame_defect": defect,
+            "predicted_frame_defect_bound": predicted,
+            "minimum_frame_eigenvalue": float(eigenvalues.min().item()),
+            "maximum_frame_eigenvalue": float(eigenvalues.max().item()),
+            "dtype": str(laplacian.dtype),
+            "device": str(laplacian.device),
+        },
+    )
 
 
+@pytest.mark.parametrize("fixture", FINITE_FRAME_FIXTURES)
 @pytest.mark.parametrize("depth", [1, 2, 4, 8, 16])
 def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(
+    fixture,
     depth,
     record_property,
 ):
     """GA-22: observed multilevel defect is bounded at every required depth."""
 
-    laplacian = _path_laplacian(6)
+    laplacian = FINITE_FRAME_FIXTURES[fixture]()
     root_bank = [
         torch.tensor([0.2 + 0.1j], dtype=torch.complex128),
         torch.tensor([-0.15 + 0.08j, 0.1 - 0.12j], dtype=torch.complex128),
@@ -373,14 +436,24 @@ def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(
         rtol=EXACT_TOL,
     )
 
-    record_property("depth", depth)
-    record_property("predicted_delta", diagnostic.delta)
     record_property(
-        "singular_values",
-        ",".join(f"{float(value.item()):.17g}" for value in singular_values),
+        "gate_a_metrics",
+        {
+            "gate_id": "GA-22",
+            "fixture": fixture,
+            "realization_tag": "exact+chebyshev-K",
+            "depth": depth,
+            "degrees": degrees,
+            "per_level_epsilon_operator_norms": errors,
+            "predicted_delta": diagnostic.delta,
+            "observed_frame_defect": observed,
+            "singular_values": [float(value.item()) for value in singular_values],
+            "additive_reconstruction_error": additive_error,
+            "adjoint_synthesis_error": synthesis_error,
+            "dtype": str(laplacian.dtype),
+            "device": str(laplacian.device),
+        },
     )
-    record_property("additive_reconstruction_error", additive_error)
-    record_property("adjoint_synthesis_error", synthesis_error)
 
 
 def test_ga22_heterogeneous_formula_and_no_lower_bound_boundary():
@@ -434,13 +507,15 @@ def test_ga24_joined_configuration_diagnostic_is_complete_and_independent():
         "graph_spectral_max_error",
         "interval_grid_size",
         "graph_eigenvalue_count",
-        "root_pole_geometry",
+        "geometry_scope",
+        "target_root_pole_geometry",
     }
     assert diagnostic.realization_tag == "chebyshev-K"
     assert diagnostic.degree == degree
     assert diagnostic.chosen_rho == rho
     assert diagnostic.interval_grid_size == 4097
     assert diagnostic.graph_eigenvalue_count == eigenvalues.numel()
+    assert diagnostic.geometry_scope == "exact-target"
 
     coefficients = blaschke_product_cheb_coeffs(
         roots,
@@ -485,7 +560,7 @@ def test_ga24_joined_configuration_diagnostic_is_complete_and_independent():
         manual_error_bound
     )
 
-    rows = diagnostic.root_pole_geometry
+    rows = diagnostic.target_root_pole_geometry
     assert len(rows) == len(roots)
     required = {
         "root_radius",
@@ -580,8 +655,10 @@ def test_frame_and_interpolation_diagnostics_reject_nonfinite_output():
         )
 
 
-def test_ga25_product_sum_nonzero_roots_interpolate_with_reported_conditioning():
-    """GA-25: nonzero admissible factors give a full-rank, stable witness."""
+def test_ga25_product_sum_reports_stable_and_ill_conditioned_witnesses(
+    record_property,
+):
+    """GA-25: report stable interpolation and the ill-conditioned boundary."""
 
     eigenvalues = torch.tensor([0.0, 0.2, 0.7, 1.4, 2.0], dtype=torch.float64)
     angles = torch.tensor([0.1, 0.7, 1.3, 2.0], dtype=torch.float64)
@@ -600,6 +677,36 @@ def test_ga25_product_sum_nonzero_roots_interpolate_with_reported_conditioning()
     relative = (matrix @ coefficients - target).norm() / target.norm()
     assert float(relative.item()) < EXACT_TOL
 
+    ill_eigenvalues = torch.arange(5, dtype=torch.float64) * 1e-3
+    ill_matrix = product_sum_evaluation_matrix(ill_eigenvalues, roots)
+    ill_singular_values = torch.linalg.svdvals(ill_matrix)
+    ill_condition = float(
+        (ill_singular_values.max() / ill_singular_values.min()).item()
+    )
+    assert ill_condition > 1e10
+    record_property(
+        "gate_a_metrics",
+        {
+            "gate_id": "GA-25",
+            "realization_tag": "exact",
+            "roots": [[float(root.real), float(root.imag)] for root in roots],
+            "stable_spectrum": eigenvalues.tolist(),
+            "stable_singular_values": singular_values.tolist(),
+            "stable_numerical_rank": int(torch.linalg.matrix_rank(matrix).item()),
+            "stable_condition_number": condition,
+            "stable_interpolation_relative_residual": float(relative.item()),
+            "ill_conditioned_spectrum": ill_eigenvalues.tolist(),
+            "ill_conditioned_singular_values": ill_singular_values.tolist(),
+            "ill_conditioned_numerical_rank": int(
+                torch.linalg.matrix_rank(ill_matrix).item()
+            ),
+            "ill_conditioned_condition_number": ill_condition,
+            "finite_k_claim": False,
+            "dtype": str(matrix.dtype),
+            "device": str(matrix.device),
+        },
+    )
+
 
 def test_ga26_scalar_multiplier_cannot_fit_orientations_in_repeated_eigenspace():
     """GA-26: one repeated-eigenvalue scalar cannot realize +1 and -1."""
@@ -612,19 +719,72 @@ def test_ga26_scalar_multiplier_cannot_fit_orientations_in_repeated_eigenspace()
     assert torch.allclose(solution, torch.zeros_like(solution), atol=EXACT_TOL, rtol=0)
 
 
-def test_ga27_off_axis_target_pole_is_outside_scalar_cayleynet_locus():
-    """GA-27: an uncancelled exact GBDN pole lies off the CayleyNet axis."""
+def test_ga27_frozen_cayleynet_and_gbdn_reduced_pole_multisets(record_property):
+    """GA-27: exact reduced poles separate under the frozen continuum scope."""
+
+    comparator = frozen_scalar_cayleynet_comparator(
+        0.3,
+        torch.tensor(
+            [0.7 + 0.2j, -0.4 + 0.3j, 0.15 - 0.25j],
+            dtype=torch.complex128,
+        ),
+        1.7,
+    )
+    assert comparator["declared_order"] == comparator["effective_order"] == 3
+    comparator_poles = comparator["reduced_pole_multiset"]
+    assert comparator_poles
+    assert all(abs(entry["pole"]["real"]) <= 1e-12 for entry in comparator_poles)
+    assert all(entry["multiplicity"] > 0 for entry in comparator_poles)
 
     root = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
-    zero, pole = mapped_zero_pole(root)
-    pole_value = complex(pole.item())
-    zero_value = complex(zero.item())
-    assert abs(pole_value.real) > 1e-6
-    assert pole_value.imag < 0.0
-    assert abs(pole_value - zero_value) > 1e-6
-    # Published scalar finite-order CayleyNet responses have uncancelled poles
-    # only at +/- i/h for h>0. This is a pole-locus witness, not a grid fit.
-    assert pole_value.real != 0.0
+    gbdn = reduced_blaschke_pole_diagnostic(root)
+    assert gbdn["cancelled_pair_count"] == 0
+    assert len(gbdn["reduced_pole_multiset"]) == 1
+    gbdn_pole = gbdn["reduced_pole_multiset"][0]["pole"]
+    assert abs(gbdn_pole["real"]) > 1e-6
+    assert gbdn_pole["imag"] < 0.0
+    distance_to_comparator = min(
+        abs(
+            complex(gbdn_pole["real"], gbdn_pole["imag"])
+            - complex(entry["pole"]["real"], entry["pole"]["imag"])
+        )
+        for entry in comparator_poles
+    )
+    assert distance_to_comparator > 1e-6
+    assert comparator["comparison_domain"] == gbdn["comparison_domain"]
+    record_property(
+        "gate_a_metrics",
+        {
+            "gate_id": "GA-27",
+            "realization_tag": "exact",
+            "comparison_domain": "continuum-with-accumulation-point",
+            "comparator": comparator,
+            "gbdn": gbdn,
+            "minimum_reduced_pole_multiset_distance": distance_to_comparator,
+            "finite_spectrum_claim": False,
+            "approximation_or_efficiency_claim": False,
+            "dtype": str(root.dtype),
+            "device": str(root.device),
+        },
+    )
+
+
+def test_ga27_reduced_pole_diagnostics_reject_invalid_comparator_inputs():
+    """GA-27: the frozen rational comparator fails on undefined conventions."""
+
+    coefficients = torch.tensor([0.5 + 0.2j], dtype=torch.complex128)
+    with pytest.raises(ValueError, match="positive"):
+        frozen_scalar_cayleynet_comparator(0.0, coefficients, 0.0)
+    with pytest.raises(ValueError, match="positive effective order"):
+        frozen_scalar_cayleynet_comparator(
+            0.0,
+            torch.zeros(2, dtype=torch.complex128),
+            1.0,
+        )
+    with pytest.raises(ValueError, match="unit disk"):
+        reduced_blaschke_pole_diagnostic(
+            torch.tensor([1.0 + 0.0j], dtype=torch.complex128)
+        )
 
 
 @pytest.mark.parametrize("scale", [1e-4, 1e-3, 1e-2])
