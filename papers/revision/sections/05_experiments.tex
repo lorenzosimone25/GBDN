@@ -5,19 +5,20 @@ The experimental program follows the claim hierarchy. Exact correctness tests pr
 
 \subsection{Gate A: correctness criteria}
 
-The current implementation passes 449 automated tests.  The Gate-A collector
-maps 410 parametrized test nodes to all 36 prespecified correctness IDs and
-finds no declared graph, depth, root, or degree-matrix gap.  The suite covers
-strict graph validation; root, phase, and mapped-pole geometry; independent
-dense-oracle agreement; exact one-level and multilevel identities; both
-adjoint and additive reconstruction; weighted spectral identities;
-permutation and repeated-eigenspace cases; finite-order error, frame,
-perturbation, locality, and operation-count bounds; and counterexamples to
-target-specific long-range sensitivity.  Exact tests use double or complex
-double precision, with row-specific tolerances and predicted bounds rather
-than a single global threshold.  This is implementation evidence, not yet a
-paper result: Gate A remains closed until row-level numerical provenance is
-emitted and the complete suite receives independent semantic acceptance.
+The Gate-A contract contains 36 prespecified correctness criteria.  Its
+executable suite covers strict graph validation; root, phase, and mapped-pole
+geometry; agreement with an independently assembled dense oracle; exact
+one-level and multilevel identities; adjoint and additive reconstruction;
+weighted spectral identities; permutation and repeated-eigenspace cases;
+finite-order error, frame, perturbation, locality, and operation-count bounds;
+and counterexamples to target-specific long-range sensitivity.  Each row emits
+typed numerical evidence and is cross-checked against its declared graph,
+depth, root, and polynomial-degree fixtures.  Exact tests use double or
+complex-double precision with row-specific tolerances or analytical bounds,
+rather than a global threshold.  The current suite passes all 36 rows, but
+Gate A remains closed pending a fresh independent semantic review of the final
+public interfaces.  We therefore treat the suite as implementation validation,
+not as independent evidence for the paper's empirical claims.
 
 \subsection{Mechanism studies}
 
@@ -44,53 +45,15 @@ The matched response-efficiency study remains open. It will compare Tight GBDN, 
 \subsection{Preliminary legacy H100 reproduction}
 \label{sec:legacy-h100}
 
-We reran the preserved legacy notebook pipeline to diagnose portability on an NVIDIA H100 80GB HBM3. This pipeline predates the revised Tight GBDN implementation; its GBDN+ row evaluates only the relaxed legacy architecture. For heterophily, every method uses seed 25, split column 0, normalized features, hidden width 64, 1,000 epochs, and validation-AUROC checkpoint selection. Roman-empire and Amazon-ratings are reported with accuracy, while Minesweeper, Tolokers, and Questions use macro one-versus-rest ROC-AUC. We recompute ROC-AUC from the archived test probabilities with tie-aware average ranks because the legacy scalar routine resolves equal scores by implementation-dependent sort order.
-
-\begin{table*}[t]
-\centering
-\small
-\setlength{\tabcolsep}{6.5pt}
-\caption{Preliminary single-run heterophily results on one H100. Values are proportions on split 0 with seed 25; each method--dataset cell has $n=1$, so no uncertainty or significance claim is available. Bold marks the largest descriptive value in a column. $\dagger$ marks a rerun whose task metric differs from the archived legacy artifact by more than 0.02. These local implementations are not verified upstream baselines.}
-\label{tab:legacy-heterophily}
-\begin{tabular}{lccccc}
-\toprule
-Method & Roman-empire & Amazon-ratings & Minesweeper & Tolokers & Questions \\
- & Acc.$\uparrow$ & Acc.$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ \\
-\midrule
-GBDN+        & \textbf{0.5687}$^{\dagger}$ & \textbf{0.3699} & 0.9110 & \textbf{0.8466} & 0.6501 \\
-ChebNet      & 0.2838 & 0.3678 & \textbf{0.9337} & 0.8392 & 0.6261 \\
-ChebNetII    & 0.2737 & 0.3665 & 0.9008 & 0.7755 & 0.6185 \\
-H2GCN        & 0.1396 & 0.3680 & 0.8388$^{\dagger}$ & 0.7294 & 0.3739 \\
-FAGCN        & 0.1585 & 0.3680 & 0.7870 & 0.7327 & 0.6216 \\
-MLP          & 0.1396 & 0.3680 & 0.5259 & 0.7120 & 0.6460 \\
-MixHop       & 0.1396 & 0.3680 & 0.8812 & 0.7845 & 0.6131 \\
-GAT          & 0.1382 & 0.3680 & 0.7126 & 0.6913 & \textbf{0.6632} \\
-GraphSAGE    & 0.1382 & 0.3680 & 0.8974 & 0.7761 & 0.6562 \\
-A-DGN        & 0.2215 & 0.3680 & 0.8735 & 0.7510 & 0.6471 \\
-ResNet       & 0.1396 & 0.3680 & 0.5096 & 0.7316 & 0.6410 \\
-ResNet+SGC   & 0.2058 & 0.3680 & 0.6802 & 0.7145 & 0.6464 \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-All 60 heterophily artifacts were produced, but the rerun does not pass the prespecified reproduction criterion. GBDN+ on Roman-empire changes by 0.2963 accuracy and H2GCN on Minesweeper changes by 0.0353 ROC-AUC relative to the archived artifacts. The run also lacks the CLI manifest. Accordingly, \cref{tab:legacy-heterophily} is a diagnostic snapshot rather than evidence of comparative superiority.
-
-The same legacy run produced both Peptides-func artifacts using the official split objects, seed 25, hidden width 256, batch size 128, and 100 epochs. Average precision was saved without test predictions, so it cannot be independently recomputed from the artifacts. \Cref{tab:legacy-lrgb} shows that the two test values tie to four decimals, while GBDN+ uses 5.15 times the peak memory of ChebNet at $K=10$.
-
-\begin{table}[t]
-\centering
-\small
-\caption{Preliminary single-run Peptides-func reproduction on one H100. Runtime and peak allocated CUDA memory refer to one training run. Bold marks the best value; tied rounded values are both bold.}
-\label{tab:legacy-lrgb}
-\begin{tabular}{lrrrr}
-\toprule
-Method & Val. AP$\uparrow$ & Test AP$\uparrow$ & Time (s)$\downarrow$ & MiB$\downarrow$ \\
-\midrule
-ChebNet ($K=10$) & \textbf{0.6969} & \textbf{0.6745} & \textbf{255.1} & \textbf{530.3} \\
-GBDN+             & 0.6922 & \textbf{0.6745} & 287.6 & 2731.6 \\
-\bottomrule
-\end{tabular}
-\end{table}
+The preserved legacy notebook executes on one NVIDIA H100 80GB HBM3, but it
+predates Tight GBDN and evaluates only the relaxed GBDN+ model.  All 60
+heterophily jobs completed, yet the rerun fails its reproduction criterion:
+two primary metrics drift by more than 0.02 and the required run manifest is
+absent.  The two Peptides-func jobs retain runtime and peak-memory measurements
+but no test predictions for independent metric verification.  We therefore
+report the complete protocols and measurements only as a portability
+diagnostic in \cref{app:legacy-h100}; they neither validate the local
+comparators nor support a performance ordering.
 
 \subsection{Downstream evaluation gate}
 

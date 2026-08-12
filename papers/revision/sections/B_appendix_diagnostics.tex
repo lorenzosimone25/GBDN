@@ -1,0 +1,80 @@
+\section{Legacy H100 diagnostic details}
+\label{app:legacy-h100}
+
+We reran the preserved legacy notebook pipeline on one NVIDIA H100 80GB HBM3.
+This pipeline predates the revised Tight GBDN implementation; its GBDN+ row
+evaluates only the relaxed legacy architecture.  For heterophily, every row
+uses seed 25, official split column 0, normalized features, hidden width 64,
+1,000 epochs, and validation-AUROC checkpoint selection.  Roman-empire and
+Amazon-ratings use accuracy; Minesweeper, Tolokers, and Questions use macro
+one-versus-rest ROC-AUC.  We recomputed every ROC-AUC entry from the archived
+test probabilities using tie-aware average ranks because the legacy scalar
+routine resolves equal scores by implementation-dependent sort order.
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{6.2pt}
+\caption{Legacy H100 portability diagnostic on the five heterophily datasets.
+Each entry is one test proportion from official split 0 and training seed 25
+($n=1$); columns are not estimates over splits or seeds.  The two multiclass
+datasets use accuracy and the three binary datasets use independently
+recomputed ROC-AUC.  A dagger marks a rerun whose primary metric differs from
+the corresponding archived artifact by more than 0.02.  GBDN+ is the relaxed
+legacy model, not Tight GBDN, and the local comparator implementations have not
+been verified against their upstream repositories.  The entries are therefore
+not ranked or used for comparative claims.}
+\label{tab:legacy-heterophily}
+\begin{tabular}{lccccc}
+\toprule
+Method & Roman-empire & Amazon-ratings & Minesweeper & Tolokers & Questions \\
+ & Acc.$\uparrow$ & Acc.$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ & ROC-AUC$\uparrow$ \\
+\midrule
+GBDN+        & 0.5687$^{\dagger}$ & 0.3699 & 0.9110 & 0.8466 & 0.6501 \\
+ChebNet      & 0.2838 & 0.3678 & 0.9337 & 0.8392 & 0.6261 \\
+ChebNetII    & 0.2737 & 0.3665 & 0.9008 & 0.7755 & 0.6185 \\
+H2GCN        & 0.1396 & 0.3680 & 0.8388$^{\dagger}$ & 0.7294 & 0.3739 \\
+FAGCN        & 0.1585 & 0.3680 & 0.7870 & 0.7327 & 0.6216 \\
+MLP          & 0.1396 & 0.3680 & 0.5259 & 0.7120 & 0.6460 \\
+MixHop       & 0.1396 & 0.3680 & 0.8812 & 0.7845 & 0.6131 \\
+GAT          & 0.1382 & 0.3680 & 0.7126 & 0.6913 & 0.6632 \\
+GraphSAGE    & 0.1382 & 0.3680 & 0.8974 & 0.7761 & 0.6562 \\
+A-DGN        & 0.2215 & 0.3680 & 0.8735 & 0.7510 & 0.6471 \\
+ResNet       & 0.1396 & 0.3680 & 0.5096 & 0.7316 & 0.6410 \\
+ResNet+SGC   & 0.2058 & 0.3680 & 0.6802 & 0.7145 & 0.6464 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+All 60 method--dataset artifacts were produced, but the rerun fails the
+prespecified reproduction criterion.  Relative to the archived artifacts,
+GBDN+ on Roman-empire changes by 0.2963 accuracy and H2GCN on Minesweeper by
+0.0353 ROC-AUC.  The run also lacks the required CLI manifest.  Consequently,
+\cref{tab:legacy-heterophily} establishes only that the legacy jobs executed
+on the H100; it does not validate the implementations or their ordering.
+
+The same legacy run produced two Peptides-func artifacts using the official
+split objects, seed 25, hidden width 256, batch size 128, and 100 epochs.
+Average precision was saved without test predictions, so it cannot be
+independently recomputed.  The test values differ by $6.08\times10^{-5}$ and
+therefore round to the same four-decimal value, while GBDN+ uses 5.15 times the
+peak allocated CUDA memory of ChebNet at $K=10$.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4.5pt}
+\caption{Legacy H100 portability diagnostic on Peptides-func.  Each row is one
+training run with seed 25.  Runtime and peak allocated CUDA memory are measured
+for that run.  Test predictions were not retained, so average precision is not
+independently verifiable and the rows are not ranked.}
+\label{tab:legacy-lrgb}
+\begin{tabular}{lrrrr}
+\toprule
+Method & Val. AP$\uparrow$ & Test AP$\uparrow$ & Time (s)$\downarrow$ & MiB$\downarrow$ \\
+\midrule
+ChebNet ($K=10$) & 0.6969 & 0.6745 & 255.1 & 530.3 \\
+GBDN+             & 0.6922 & 0.6745 & 287.6 & 2731.6 \\
+\bottomrule
+\end{tabular}
+\end{table}

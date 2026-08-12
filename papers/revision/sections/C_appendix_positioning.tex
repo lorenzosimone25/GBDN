@@ -1,0 +1,60 @@
+\section{Expanded methodological positioning}
+\label{app:related-positioning}
+
+\begin{table*}[!ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.04}
+\caption{Methodological positioning from primary sources. The ``verified scope''
+column reports what each cited paper establishes or evaluates; it is not an
+independent validation of that result. Exact GBDN guarantees apply to the exact
+spectral operator, whereas its finite Chebyshev realization has a measured defect.}
+\label{tab:related-positioning}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.255\textwidth}>{\raggedright\arraybackslash}p{0.285\textwidth}X@{}}
+\toprule
+Family & Parameterized object & Verified scope in the cited source & Relation to GBDN \\
+\midrule
+Graph-QMF~\cite{narang2012graphqmf}
+& Two-channel spectral QMF with graph down/up-sampling
+& Critical sampling, bipartite spectral folding, alias cancellation, and perfect-reconstruction/orthogonality conditions
+& Prior perfect-reconstruction bank; unlike GBDN's redundant, nonsubsampled complete stack \\
+Undecimated graph framelets~\cite{zheng2021framelets}
+& Full-resolution low/high multiscale framelet coefficients
+& Tight-frame decomposition and reconstruction; information-conserving multiscale representation
+& Closest tight-stack precedent; filters are not parameterized by learned Blaschke roots \\
+Polynomial response filters~\cite{defferrard2016chebnet,he2022chebnetii,he2021bernnet}
+& Chebyshev recurrence/interpolation or Bernstein coefficients
+& Sparse polynomial evaluation and flexible learned amplitude responses
+& Matched controls for the finite-order realization and response-fitting efficiency \\
+Adaptive heterophily filters~\cite{chien2021gprgnn,huang2024unifilter,zhang2025herofilter}
+& Signed propagation weights, adaptive polynomial bases, or adaptive filter mixing
+& Data-dependent responses across homophilic and heterophilic regimes
+& Precludes priority claims based only on adaptive spectral learning or heterophily \\
+CayleyNets~\cite{levie2019cayleynets}
+& Complex Cayley powers with learned coefficients and shared scale $h$
+& Rational filtering with a learned, restricted shared pole locus; sparse rational iteration
+& Closest pole-family comparator; GBDN independently moves generic exact-target poles \\
+SLOG~\cite{xu2024slog}
+& Real-valued adaptive non-polynomial filter with subgraph sampling
+& Geometrically interpreted, inductive spectral filtering
+& Blocks ``first non-polynomial spectral GNN''; a distinct non-polynomial family \\
+WaveGC~\cite{liu2025wavegc}
+& Multiresolution spectral bases, matrix-valued kernels, and odd/even Chebyshev decomposition
+& Wavelet admissibility and short-/long-range analysis
+& Multiresolution comparator without Blaschke all-pass root geometry \\
+Unitary/stable dynamics~\cite{kiani2024unitary,gravina2023adgn,hariri2025stablechebnet}
+& Unitary, antisymmetric, or stable Chebyshev state propagation
+& Oversmoothing, stability, non-dissipation, or long-range results for network states/dynamics
+& Different object from isometry of GBDN's complete coefficient map \\
+Tight GBDN
+& Blaschke factors after the Cayley map and complementary $I\!\pm\!\Tcal$ channels
+& Exact complete-map isometry and analysis--synthesis; approximate sparse realization
+& Proposed combination of independent generic-pole targets and a nonsubsampled tight stack \\
+Product-sum GBDN / GBDN+
+& Cumulative all-pass sum / all-pass branch with polynomial correction
+& Unitary exact factors only / no strict all-pass guarantee
+& Expressive relaxations without Tight GBDN's general reconstruction theorem \\
+\bottomrule
+\end{tabularx}
+\end{table*}
