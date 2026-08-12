@@ -275,7 +275,7 @@ def test_ga06_ga07_ga09_full_graph_depth_root_matrix(fixture, root_name, depth):
     [
         ("grid_2x4", 16, "conjugate_pair"),
         ("star_7", 32, "generic_complex"),
-        ("random_weighted_seed_1701", 64, "multi_root"),
+        ("random_weighted_seed_1701", 128, "multi_root"),
     ],
 )
 def test_ga19_sparse_dense_operator_extended_degree_matrix(

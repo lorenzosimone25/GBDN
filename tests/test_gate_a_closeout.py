@@ -189,17 +189,13 @@ def test_gate_a_report_distinguishes_execution_mapping_and_acceptance():
     assert report["ids"]["GA-02"]["status"] == "FAIL"
     assert report["ids"]["GA-03"]["status"] == "MISSING"
     assert report["gate_a_acceptance"]["accepted"] is False
-    assert report["required_depths"]["gaps"]
-    assert report["required_degrees"]["GA-19_acceptance"]["missing"] == [
-        16,
-        32,
-        128,
-    ]
+    assert report["required_depths"]["gaps"] == []
+    assert report["required_degrees"]["GA-19_acceptance"]["missing"] == []
     conjugate = report["required_root_fixtures"]["coverage"][
         "conjugate-symmetric-pair-where-relevant"
     ]
-    assert conjugate["acceptance_complete"] is False
-    assert report["row_specific_coverage"]["rows"]["GA-03"]["complete"] is False
+    assert conjugate["acceptance_complete"] is True
+    assert report["row_specific_coverage"]["rows"]["GA-03"]["complete"] is True
 
 
 def test_gate_a_report_cli_collect_only_is_deterministic_machine_readable_json():
@@ -228,5 +224,5 @@ def test_gate_a_report_cli_collect_only_is_deterministic_machine_readable_json()
     assert report["ids"]["GA-23"]["execution_status"] == "NOT_RUN"
     assert report["summary"]["all_required_ids_executed_and_passing"] is False
     assert report["gate_a_acceptance"]["accepted"] is False
-    assert report["required_depths"]["gaps"]
+    assert report["required_depths"]["gaps"] == []
 
