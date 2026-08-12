@@ -421,7 +421,7 @@ def test_failure_artifact_is_typed_immutable_and_recoverable(tmp_path):
         identity=identity,
         exception_type="RuntimeError",
         message="synthetic failure",
-        traceback_path="logs/traceback.txt",
+        traceback_path=NA_ID,
         partial_artifacts=("history.jsonl",),
         source=_source(),
         environment=_environment(),

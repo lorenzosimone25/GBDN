@@ -22,7 +22,10 @@ def test_current_repository_verifier_is_read_only_and_blocked():
     assert not report.ready_for_claim_bearing_execution
     assert not report.submission_complete
     assert before == after
-    assert any("acceptance token is absent" in blocker for blocker in report.blockers)
+    assert {item["check"]: item["status"] for item in report.checks}[
+        "independent_gate_a_acceptance"
+    ] == "PASS"
+    assert not any("acceptance token is absent" in blocker for blocker in report.blockers)
     assert any("confirmatory_plan.json" in blocker for blocker in report.blockers)
     assert any("operations acceptance" in blocker for blocker in report.blockers)
 

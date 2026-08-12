@@ -937,6 +937,7 @@ class FailureRecord:
     source: SourceMetadata
     environment: EnvironmentMetadata
     created_at_utc: str
+    evidence: tuple[ArtifactFileManifest, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_label(self.exception_type, "exception_type")
@@ -950,6 +951,14 @@ class FailureRecord:
         for path in normalized:
             _safe_relative_path(path, "partial_artifact")
         object.__setattr__(self, "partial_artifacts", normalized)
+        evidence = tuple(sorted(self.evidence, key=lambda item: item.path))
+        if len({item.path for item in evidence}) != len(evidence):
+            raise ArtifactValidationError("failure evidence contains duplicate paths")
+        if self.traceback_path != NA_ID and self.traceback_path not in {
+            item.path for item in evidence
+        }:
+            raise ArtifactValidationError("failure traceback is not hash-bound evidence")
+        object.__setattr__(self, "evidence", evidence)
         _validate_timestamp(self.created_at_utc)
         if self.source.source_sha256 != self.identity.source_sha256:
             raise ArtifactValidationError("failure source does not match run identity")
@@ -967,6 +976,7 @@ class FailureRecord:
         return {
             "created_at_utc": self.created_at_utc,
             "environment": self.environment.to_dict(),
+            "evidence": [item.to_dict() for item in self.evidence],
             "exception_type": self.exception_type,
             "identity": self.identity.to_dict(),
             "message": self.message,
@@ -986,6 +996,7 @@ class FailureRecord:
             {
                 "created_at_utc",
                 "environment",
+                "evidence",
                 "exception_type",
                 "identity",
                 "message",
@@ -1015,6 +1026,7 @@ class FailureRecord:
             source=SourceMetadata.from_dict(data["source"]),
             environment=EnvironmentMetadata.from_dict(data["environment"]),
             created_at_utc=data["created_at_utc"],
+            evidence=tuple(ArtifactFileManifest.from_dict(item) for item in data["evidence"]),
         )
 
 
@@ -1124,6 +1136,16 @@ def write_failure_record(
 ) -> Path:
     """Write one content-addressed failure record without replacing prior attempts."""
 
+    root = Path(repository_root).resolve(strict=True)
+    failure_directory = _failure_directory(record.identity, repository_root=root)
+    for manifest in record.evidence:
+        target = canonical_output_path(manifest.path, repository_root=root)
+        if not _is_within(target, failure_directory):
+            raise ArtifactValidationError("failure evidence escapes its run directory")
+        if target.is_symlink() or not target.is_file():
+            raise ArtifactValidationError("failure evidence is absent or unsafe")
+        if target.stat().st_size != manifest.size_bytes or sha256_file(target) != manifest.sha256:
+            raise ArtifactValidationError("failure evidence hash mismatch")
     relative = (
         Path(CANONICAL_RESULT_DIR)
         / "failures"
@@ -1133,12 +1155,44 @@ def write_failure_record(
     return write_new_canonical_artifact(
         relative,
         canonical_json_bytes(record.to_dict()),
-        repository_root=repository_root,
+        repository_root=root,
     )
 
 
 def load_failure_record(path: str | Path) -> FailureRecord:
     return FailureRecord.from_dict(_load_canonical_json(Path(path)))
+
+
+def _validate_failure_directory(directory: Path, identity: RunIdentity) -> None:
+    if directory.is_symlink() or not directory.is_dir():
+        raise ArtifactValidationError("failure path is not a regular directory")
+    records = sorted(directory.glob("failure=*.json"))
+    if not records:
+        raise ArtifactValidationError("failure directory lacks a complete record")
+    expected = {record.relative_to(directory).as_posix() for record in records}
+    for path in records:
+        record = load_failure_record(path)
+        if record.identity != identity:
+            raise _ArtifactIdentityConflict("failure record belongs to another run")
+        for manifest in record.evidence:
+            target = canonical_output_path(
+                manifest.path, repository_root=directory.parents[2]
+            )
+            if not _is_within(target, directory.resolve(strict=True)):
+                raise ArtifactValidationError("failure evidence escapes its run directory")
+            if target.is_symlink() or not target.is_file():
+                raise ArtifactValidationError("failure evidence is absent or unsafe")
+            if target.stat().st_size != manifest.size_bytes or sha256_file(target) != manifest.sha256:
+                raise ArtifactValidationError("failure evidence hash mismatch")
+            expected.add(target.relative_to(directory).as_posix())
+    observed = set()
+    for path in directory.rglob("*"):
+        if path.is_symlink():
+            raise ArtifactValidationError("failure directory contains a symlink")
+        if path.is_file():
+            observed.add(path.relative_to(directory).as_posix())
+    if observed != expected:
+        raise ArtifactValidationError("failure directory contains partial or unbound evidence")
 
 
 def _bundle_file_path(bundle_root: Path, relative_path: str) -> Path:
@@ -1340,7 +1394,13 @@ def classify_resume(
         )
 
     failure_dir = _failure_directory(identity, repository_root=repository_root)
-    if failure_dir.exists() and any(failure_dir.glob("failure=*.json")):
+    if failure_dir.exists() and any(failure_dir.iterdir()):
+        try:
+            _validate_failure_directory(failure_dir, identity)
+        except _ArtifactIdentityConflict as exc:
+            return ResumeDecision(ResumeState.CONFLICT, failure_dir, str(exc))
+        except (ArtifactValidationError, OSError) as exc:
+            return ResumeDecision(ResumeState.CORRUPT, failure_dir, str(exc))
         return ResumeDecision(
             ResumeState.PARTIAL,
             failure_dir,

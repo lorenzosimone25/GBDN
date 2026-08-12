@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,12 +10,18 @@ from typing import Final
 
 import numpy as np
 
-from gbdn.artifacts import ArtifactValidationError, sha256_file
+from gbdn.artifacts import (
+    ArtifactValidationError,
+    canonical_json_bytes,
+    canonical_json_sha256,
+    sha256_file,
+)
 from gbdn.heterophily_contract import OFFICIAL_SPLITS, resolve_dataset
 from gbdn.heterophily_statistics import recompute_primary_metric
 
 
 PREDICTION_FORMAT: Final[str] = "gbdn-official-heterophily-predictions-v1"
+EVALUATION_SCHEMA: Final[str] = "gbdn-independent-heterophily-evaluation-v1"
 _MAX_ARCHIVE_BYTES: Final[int] = 512 * 1024 * 1024
 _MAX_MEMBER_BYTES: Final[int] = 256 * 1024 * 1024
 _MEMBERS: Final[frozenset[str]] = frozenset(
@@ -31,6 +38,108 @@ class IndependentlyEvaluatedMetric:
     value: float
     prediction_sha256: str
     example_count: int
+
+
+@dataclass(frozen=True)
+class AuthoritativeSplit:
+    indices: np.ndarray
+    labels: np.ndarray
+    dataset_sha256: str
+    indices_sha256: str
+    labels_sha256: str
+
+
+def _array_sha256(value: np.ndarray) -> str:
+    array = np.ascontiguousarray(value)
+    return canonical_json_sha256(
+        {
+            "dtype": array.dtype.str,
+            "shape": list(array.shape),
+            "bytes_sha256": hashlib.sha256(array.tobytes()).hexdigest(),
+        }
+    )
+
+
+def load_authoritative_split(
+    dataset_root: str | Path, *, dataset: str, split: int
+) -> AuthoritativeSplit:
+    """Load only the pinned test row and labels in the trusted parent process."""
+
+    spec = resolve_dataset(dataset)
+    if split not in OFFICIAL_SPLITS:
+        raise ArtifactValidationError("prediction split is outside official rows 0..9")
+    root = Path(dataset_root)
+    if root.is_symlink() or not root.is_dir():
+        raise ArtifactValidationError("authoritative dataset root must be a regular directory")
+    archive = root / spec.npz_path
+    if archive.is_symlink() or not archive.is_file():
+        raise ArtifactValidationError("authoritative dataset archive is absent or unsafe")
+    if archive.stat().st_size != spec.npz_size_bytes or sha256_file(archive) != spec.npz_sha256:
+        raise ArtifactValidationError("authoritative dataset archive differs from pinned identity")
+    try:
+        with np.load(archive, allow_pickle=False) as stored:
+            if "node_labels" not in stored or "test_masks" not in stored:
+                raise ArtifactValidationError("authoritative dataset lacks labels or test masks")
+            all_labels = np.asarray(stored["node_labels"]).reshape(-1)
+            masks = np.asarray(stored["test_masks"])
+    except ArtifactValidationError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile) as exc:
+        raise ArtifactValidationError("authoritative dataset archive is invalid") from exc
+    if all_labels.dtype != np.int64 or all_labels.shape != (spec.node_count,):
+        raise ArtifactValidationError("authoritative labels differ from the official contract")
+    if masks.dtype != np.bool_ or masks.shape != (len(OFFICIAL_SPLITS), spec.node_count):
+        raise ArtifactValidationError("authoritative test masks differ from the official contract")
+    indices = np.flatnonzero(masks[split]).astype(np.int64, copy=False)
+    labels = np.ascontiguousarray(all_labels[indices], dtype=np.int64)
+    if indices.size == 0:
+        raise ArtifactValidationError("authoritative test split is empty")
+    return AuthoritativeSplit(
+        indices,
+        labels,
+        spec.npz_sha256,
+        _array_sha256(indices),
+        _array_sha256(labels),
+    )
+
+
+def evaluation_attestation(
+    metric: IndependentlyEvaluatedMetric,
+    authority: AuthoritativeSplit,
+    *,
+    evaluator_sha256: str,
+) -> dict[str, object]:
+    """Create a deterministic, non-label-bearing evaluation attestation."""
+
+    return {
+        "attestation_sha256": canonical_json_sha256(
+            {
+                "dataset": metric.dataset,
+                "dataset_sha256": authority.dataset_sha256,
+                "evaluator_sha256": evaluator_sha256,
+                "example_count": metric.example_count,
+                "indices_sha256": authority.indices_sha256,
+                "labels_sha256": authority.labels_sha256,
+                "metric_name": metric.metric_name,
+                "metric_value": metric.value,
+                "prediction_sha256": metric.prediction_sha256,
+                "run_id": metric.run_id,
+                "split": metric.split,
+            }
+        ),
+        "dataset": metric.dataset,
+        "dataset_sha256": authority.dataset_sha256,
+        "evaluator_sha256": evaluator_sha256,
+        "example_count": metric.example_count,
+        "indices_sha256": authority.indices_sha256,
+        "labels_sha256": authority.labels_sha256,
+        "metric_name": metric.metric_name,
+        "metric_value": metric.value,
+        "prediction_sha256": metric.prediction_sha256,
+        "run_id": metric.run_id,
+        "schema_version": EVALUATION_SCHEMA,
+        "split": metric.split,
+    }
 
 
 def evaluate_prediction_archive(
@@ -106,7 +215,11 @@ def evaluate_prediction_archive(
 
 
 __all__ = [
+    "AuthoritativeSplit",
+    "EVALUATION_SCHEMA",
     "IndependentlyEvaluatedMetric",
     "PREDICTION_FORMAT",
+    "evaluation_attestation",
     "evaluate_prediction_archive",
+    "load_authoritative_split",
 ]
