@@ -38,11 +38,11 @@ completed_tasks:
   - ENG-GATEA-PUBLIC-BOUNDARY-2
   - REV-GATEA-REVIEW-3
   - EXP-006-PREFLIGHT
+  - OPS-CPU-SMOKE-1
 active_tasks:
   - ENG-002
   - ENG-008
   - ENG-GATEA-TOLERANCE-3
-  - OPS-CPU-SMOKE-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
@@ -56,8 +56,8 @@ stop_line:
     - The submission CLI, frozen run plan, official task contracts, independent metric recomputation, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol is frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
-  automated_tests: 558
-  automated_tests_passing: 558
+  automated_tests: 565
+  automated_tests_passing: 565
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 811
@@ -71,7 +71,7 @@ current_evidence:
 next_dependency_chain:
   - Remove the caller-controlled exactness tolerance escape and rerun the complete clean Gate-A catalog.
   - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
-  - Complete one CPU-only immutable smoke/resume/metric-recomputation path without launching an H100 job.
+  - Independently review the completed CPU-only immutable smoke/resume/metric-recomputation path.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.

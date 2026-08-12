@@ -113,3 +113,11 @@
 - Opened a minimal fourth-pass repair to remove caller-controlled relaxation, freeze dtype-aware validation, and add the exact bypass as a regression. Gate A remains rejected until a different independent reviewer accepts that repair.
 - Froze the official Platonov five-dataset task contract from the official paper and repository: Roman-empire and Amazon-ratings use multiclass cross-entropy and accuracy; Minesweeper, Tolokers, and Questions use a scalar binary head, BCE-with-logits, and binary ROC-AUC.
 - Formally excluded the legacy one-split/one-seed universal cross-entropy and macro-AUROC path from confirmatory evidence. Dataset checksums, redistribution terms, adapter parity, baseline licenses/versions, and the isolated train/validation-versus-test boundary remain implementation blockers.
+
+## 2026-08-12 — CPU submission smoke path
+
+- Added a diagnostic-only `scripts/run_submission.py` interface with `preflight` and `smoke` commands for one fixed synthetic CPU job. It sets `CUDA_VISIBLE_DEVICES=-1` before importing the canonical package or PyTorch.
+- Bound the frozen configuration, synthetic dataset, source, dependency lock, environment, split, seed, and trial to one immutable run identity; executed the job in an isolated subprocess and committed predictions/labels through the atomic bundle core.
+- Independently recomputed the saved prediction accuracy, rejected tampering, and verified that a second invocation resumes as `skipped` without rerunning the worker. No raw bundle was retained or committed.
+- Kept every claim-bearing mode fail-closed behind an intentionally unimplemented, independently reviewed Gate-A acceptance-token schema. The H100 notebook, GPU scheduler, official datasets, multi-job failure handling, statistics, renderers, and final verifier remain absent.
+- The integrated smoke/artifact/provenance slice passes 41 tests; the source branch full suite passed 565 tests with three known environment warnings. This operational milestone enables no scientific claim.

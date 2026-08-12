@@ -61,7 +61,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | DONE |
 | ENG-GATEA-TOLERANCE-3 | Remove caller-controlled exactness tolerance escape and add frozen regressions | Engineer | REV-GATEA-REVIEW-3 | Fixed public validation boundary, tests, and clean evidence | IN_PROGRESS |
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
-| OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | IN_PROGRESS |
+| OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | DONE |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
