@@ -152,3 +152,10 @@
 - Required the complete frozen `10 splits × seeds [0,1,2]` grid, independent metric verification, frozen configurations, and no test exposure before averaging training seeds within each split.
 - Implemented Student-t uncertainty over the ten split means, exact two-sided paired sign-flip comparisons, standardized paired effects when defined, win/tie/loss, and Holm correction for a predeclared comparison family.
 - The full repository suite passes 603 tests with one platform-specific skip and three known environment warnings. This is synthetic protocol infrastructure only: no real prediction, test metric, significance claim, or table was produced.
+
+## 2026-08-12 — Independent-acceptance boundary
+
+- Implemented a fail-closed schema that can validate, but cannot issue, a future independent Gate-A acceptance token. The current repository intentionally contains no token.
+- Bound any future acceptance to a clean reviewed commit/tree, an executed 36-row passing Gate-A report, complete typed evidence/provenance, an independent binary review artifact, canonical tracked files, and SHA-256 identities.
+- Invalidated acceptance on any post-review or uncommitted change to the protected mathematical implementation, evidence generator/reporter, Gate tests, submission runner, or token validator. Rehashed failed reports and partial row verdicts are rejected.
+- Kept a separate scheduler stop after token validation, so even a valid future token cannot currently launch claim-bearing work. The full repository suite passes 610 tests with one platform-specific skip and three known environment warnings.

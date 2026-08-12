@@ -42,6 +42,7 @@ completed_tasks:
   - ENG-GATEA-TOLERANCE-3
   - EXP-006-CONTRACT-1
   - EXP-011-STATISTICS-CONTRACT-1
+  - OPS-GATE-ACCEPTANCE-1
 active_tasks:
   - ENG-002
   - ENG-008
@@ -54,11 +55,11 @@ stop_line:
     - The third independent review accepted 35 of 36 mandatory rows and rejected GA-00 for a caller-controlled exactness tolerance. That escape is repaired with fixed fail-closed validation, but fourth independent acceptance is unavailable because reviewer service quota was exhausted before producing evidence.
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
-    - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, and synthetic split-first statistics contract exist; the full scheduler, acceptance token, official test evaluator, immutable aggregate renderer/verifier, and thin H100 notebook are not yet implemented.
+    - The diagnostic CPU CLI, immutable one-job plan, independent smoke-metric recomputation, synthetic split-first statistics contract, and fail-closed acceptance-token validator exist; no independent token has been issued, and the full scheduler, official test evaluator, immutable aggregate renderer/verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol and metadata contract are frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
-  automated_tests: 603
-  automated_tests_passing: 603
+  automated_tests: 610
+  automated_tests_passing: 610
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817
@@ -72,7 +73,7 @@ current_evidence:
   diagnostic_cpu_smoke_run_id: 84e410613b7c03cb2efe420fd537e31633de71343d67fb32b1bae911cbced57d
   diagnostic_cpu_smoke_resume: matching_complete_then_skipped_same_worker
 next_dependency_chain:
-  - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
+  - Obtain a fourth independent Gate-A adjudication and tracked executable report for the fixed public constructors; only an independently issued source-bound token may close the gate.
   - Obtain independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
   - Independently review the CPU-only official task registry before any dataset acquisition or evaluation code.
   - Independently review the metric/statistics contract and freeze comparison families and practical tie thresholds before confirmatory evaluation.
