@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,24 @@ from gbdn.provenance import (  # noqa: E402
     canonical_output_path,
     write_new_canonical_artifact,
 )
+
+
+def test_clean_checkout_declares_installable_canonical_package():
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert metadata["project"]["name"] == "gbdn-research"
+    assert metadata["project"]["requires-python"] == ">=3.11,<3.13"
+    assert metadata["tool"]["setuptools"]["package-dir"] == {"": "src"}
+    assert metadata["tool"]["setuptools"]["packages"]["find"]["include"] == [
+        "gbdn*"
+    ]
+
+
+def test_h100_setup_installs_and_imports_canonical_package():
+    setup = (ROOT / "scripts" / "setup_h100.sh").read_text(encoding="utf-8")
+
+    assert '"${PYTHON}" -m pip install --no-deps --editable "${ROOT}"' in setup
+    assert "import gbdn" in setup
 
 
 @pytest.mark.parametrize("frozen_root", FROZEN_LEGACY_RESULT_DIRS)
