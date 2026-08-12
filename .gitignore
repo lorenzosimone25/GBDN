@@ -63,6 +63,7 @@
 # sole canonical operator notebook admitted by this policy.
 !/notebooks/
 /notebooks/*
+!/notebooks/BlanshkeGraphs.ipynb
 !/notebooks/reproduce_legacy.ipynb
 !/notebooks/gbdn_submission_h100.ipynb
 
