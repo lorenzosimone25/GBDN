@@ -40,6 +40,7 @@ from gbdn.artifacts import (
     capture_source_metadata,
     classify_resume,
 )
+from gbdn.gate_acceptance import validate_gate_a_acceptance
 
 
 _PLAN_KEYS: Final[frozenset[str]] = frozenset(
@@ -174,20 +175,11 @@ def _require_inside_repository(path: Path, repository_root: Path, label: str) ->
 
 
 def _require_gate_a_acceptance(repository_root: Path) -> None:
-    """Fail closed until a reviewed, source-bound Gate-A token is installed.
+    """Validate future acceptance, while keeping full execution unavailable."""
 
-    The token schema is intentionally not implemented in this Stage-1 slice:
-    the independent reviewer and orchestrator must first freeze that contract.
-    Merely creating a file at this location therefore cannot unlock execution.
-    """
-
-    token = repository_root / _GATE_A_ACCEPTANCE_PATH
-    if not token.exists():
-        raise ArtifactValidationError(
-            "claim-bearing mode is blocked: independent Gate-A acceptance token is absent"
-        )
+    validate_gate_a_acceptance(repository_root, _GATE_A_ACCEPTANCE_PATH)
     raise ArtifactValidationError(
-        "claim-bearing mode is blocked: Gate-A acceptance-token schema is not yet frozen"
+        "claim-bearing mode is blocked: full scheduler is not yet implemented"
     )
 
 
