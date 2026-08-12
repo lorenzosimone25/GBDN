@@ -10,6 +10,7 @@ from typing import Any
 from gbdn.artifacts import ArtifactValidationError
 from gbdn.baseline_contract import validate_plan_registry_binding
 from gbdn.gate_acceptance import validate_gate_a_acceptance
+from gbdn.run_plan import inventory_run_plan, validate_run_plan
 
 
 def validate_operator_notebook(path: str | Path) -> None:
@@ -128,7 +129,7 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
             execution_blockers.append(f"missing execution input: {plan_relative}")
         if not registry_path.is_file() or registry_path.is_symlink():
             execution_blockers.append(f"missing execution input: {registry_relative}")
-    execution_inputs = ("results_submission/run_plan.json",)
+    run_plan_relative = "results_submission/run_plan.json"
     notebook_relative = "notebooks/gbdn_submission_h100.ipynb"
     try:
         validate_operator_notebook(root / notebook_relative)
@@ -137,16 +138,40 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
         execution_blockers.append(str(exc))
     else:
         checks.append({"check": f"execution_input:{notebook_relative}", "status": "PASS"})
-    for relative in execution_inputs:
-        path = root / relative
-        passed = path.is_file() and not path.is_symlink()
-        checks.append({"check": f"execution_input:{relative}", "status": "PASS" if passed else "FAIL"})
-        if not passed:
-            execution_blockers.append(f"missing execution input: {relative}")
-    # File presence is not semantic validation. Keep authorization false until
-    # the frozen plan, baseline registry, scheduler, and test-isolated
-    # evaluator schemas are implemented and independently reviewed.
-    execution_blockers.append("claim-bearing scheduler and run-plan validator are not implemented")
+    run_plan_path = root / run_plan_relative
+    if (
+        run_plan_path.is_file()
+        and not run_plan_path.is_symlink()
+        and plan_path.is_file()
+        and registry_path.is_file()
+    ):
+        try:
+            validated_run_plan = validate_run_plan(
+                run_plan_path,
+                confirmatory_plan_path=plan_path,
+                baseline_registry_path=registry_path,
+                repository_root=root,
+            )
+            inventory = inventory_run_plan(validated_run_plan, repository_root=root)
+        except ArtifactValidationError as exc:
+            checks.append({"check": f"execution_input:{run_plan_relative}", "status": "FAIL"})
+            execution_blockers.append(str(exc))
+        else:
+            checks.append(
+                {
+                    "check": f"execution_input:{run_plan_relative}",
+                    "inventory": inventory.to_dict(),
+                    "status": "PASS",
+                }
+            )
+            if inventory.partial or inventory.corrupt or inventory.conflict:
+                execution_blockers.append("run-plan inventory contains unsafe artifact state")
+    else:
+        checks.append({"check": f"execution_input:{run_plan_relative}", "status": "FAIL"})
+        execution_blockers.append(f"missing execution input: {run_plan_relative}")
+    # Execution remains unavailable until the isolated scheduler and official
+    # post-freeze evaluator are implemented and independently reviewed.
+    execution_blockers.append("claim-bearing scheduler and isolated test evaluator are not implemented")
 
     completion_outputs = (
         "results_submission/aggregate/split_level_metrics.csv",
