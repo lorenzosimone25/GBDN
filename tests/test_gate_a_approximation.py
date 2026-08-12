@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import cmath
+import math
 import sys
 from pathlib import Path
 
@@ -16,8 +18,9 @@ from gbdn import (  # noqa: E402
     ChebyshevBasis,
     GBDNTight,
     TightAnalysisOutput,
-    blaschke_cayley_symbol,
     blaschke_product_cheb_coeffs,
+    dense_adjoint_tight_synthesis,
+    dense_apply_tight_analysis,
     dct_synthesis,
     dense_chebyshev_operator,
     dense_exact_blaschke_operator,
@@ -27,16 +30,79 @@ from gbdn import (  # noqa: E402
     normalized_laplacian,
 )
 from gbdn.diagnostics import (  # noqa: E402
+    approximation_configuration_diagnostic,
+    conservative_ellipse_supremum_bound,
     chebyshev_interpolation_error_bound,
     fixed_root_perturbation_constant,
     multilevel_frame_bound,
     product_sum_evaluation_matrix,
+    target_pole_ellipse_parameter,
     target_pole_diagnostics,
 )
 
 
 EXACT_TOL = 1e-10
 SPARSE_TOL = 1e-8
+
+
+def _independent_blaschke_symbol(
+    eigenvalues: torch.Tensor,
+    roots: torch.Tensor,
+) -> torch.Tensor:
+    """Direct scalar target evaluation independent of production helpers."""
+
+    one = torch.ones_like(eigenvalues)
+    zeta = torch.complex(eigenvalues, -one) / torch.complex(eigenvalues, one)
+    result = torch.ones_like(zeta)
+    for root in roots:
+        result = result * (zeta - root) / (1.0 - torch.conj(root) * zeta)
+    return result
+
+
+def _independent_chebyshev_values(
+    coefficients: torch.Tensor,
+    eigenvalues: torch.Tensor,
+) -> torch.Tensor:
+    """Evaluate a Chebyshev series without the production scalar recurrence."""
+
+    shifted = eigenvalues.to(coefficients.real.dtype) - 1.0
+    previous2 = torch.ones_like(shifted)
+    result = coefficients[0] * previous2
+    if coefficients.numel() == 1:
+        return result
+    previous = shifted
+    result = result + coefficients[1] * previous
+    for index in range(2, coefficients.numel()):
+        current = 2.0 * shifted * previous - previous2
+        result = result + coefficients[index] * current
+        previous2, previous = previous, current
+    return result
+
+
+def _manual_mapped_zero(root: complex) -> complex:
+    return 1j * (1.0 + root) / (1.0 - root)
+
+
+def _manual_ellipse_parameter(point: complex) -> float:
+    radical = cmath.sqrt(point * point - 1.0)
+    return max(abs(point + radical), abs(point - radical))
+
+
+def _manual_distance_to_interval(point: complex) -> float:
+    clipped_real = min(2.0, max(0.0, point.real))
+    return abs(point - clipped_real)
+
+
+def _manual_conservative_m_bound(roots: torch.Tensor, rho: float) -> float:
+    semimajor = 0.5 * (rho + 1.0 / rho)
+    bound = 1.0
+    for root_tensor in roots:
+        zero = _manual_mapped_zero(complex(root_tensor.item()))
+        pole = zero.conjugate()
+        bound *= (abs(zero - 1.0) + semimajor) / (
+            abs(pole - 1.0) - semimajor
+        )
+    return bound
 
 
 def _path_edges(
@@ -107,10 +173,32 @@ def test_ga18_first_kind_coefficients_nodes_and_dense_recurrence():
 
 
 @pytest.mark.parametrize("degree", [4, 8, 16, 32])
-def test_ga20_exact_graph_error_matches_spectral_max_and_analytic_bound(degree):
-    """GA-20: true operator error and interval error obey the analytic bound."""
+@pytest.mark.parametrize(
+    ("roots", "rho"),
+    [
+        (torch.tensor([0.2 + 0.1j], dtype=torch.complex128), 1.5),
+        (
+            torch.tensor(
+                [0.2 + 0.1j, -0.15 + 0.08j],
+                dtype=torch.complex128,
+            ),
+            1.2,
+        ),
+        (torch.tensor([-0.9 + 0.0j], dtype=torch.complex128), 1.02),
+    ],
+    ids=["generic", "multi-root", "near-cap"],
+)
+def test_ga20_exact_graph_error_matches_spectral_max_and_analytic_bound(
+    degree,
+    roots,
+    rho,
+):
+    """GA-20: errors obey independently reconstructed analytic components.
 
-    roots = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
+    The certified bound is permitted to be loose and is not interpreted as an
+    approximation-efficiency result.
+    """
+
     laplacian = _path_laplacian(9)
     eigenvalues, _ = torch.linalg.eigh(laplacian)
     exact = dense_exact_blaschke_operator(laplacian, roots)
@@ -121,28 +209,63 @@ def test_ga20_exact_graph_error_matches_spectral_max_and_analytic_bound(degree):
     operator_error = float(torch.linalg.matrix_norm(exact - approximate, ord=2).item())
     spectral_error = float(
         (
-            blaschke_cayley_symbol(eigenvalues, roots)
-            - evaluate_chebyshev(coefficients, eigenvalues)
-        )
-        .abs()
-        .max()
-        .item()
+            _independent_blaschke_symbol(eigenvalues, roots)
+            - _independent_chebyshev_values(coefficients, eigenvalues)
+        ).abs().max().item()
     )
     assert abs(operator_error - spectral_error) < EXACT_TOL
 
     interval = torch.linspace(0.0, 2.0, 20001, dtype=torch.float64)
     interval_error = float(
         (
-            blaschke_cayley_symbol(interval, roots)
-            - evaluate_chebyshev(coefficients, interval)
-        )
-        .abs()
-        .max()
-        .item()
+            _independent_blaschke_symbol(interval, roots)
+            - _independent_chebyshev_values(coefficients, interval)
+        ).abs().max().item()
     )
-    bound = chebyshev_interpolation_error_bound(roots, degree, rho=1.5)
+    manual_rho_star = min(
+        _manual_ellipse_parameter(
+            _manual_mapped_zero(complex(root.item())).conjugate() - 1.0
+        )
+        for root in roots
+    )
+    manual_m_bound = _manual_conservative_m_bound(roots, rho)
+    manual_bound = 4.0 * manual_m_bound * rho ** (-degree) / (rho - 1.0)
+    assert target_pole_ellipse_parameter(roots) == pytest.approx(
+        manual_rho_star,
+        rel=1e-13,
+        abs=1e-13,
+    )
+    assert conservative_ellipse_supremum_bound(roots, rho) == pytest.approx(
+        manual_m_bound,
+        rel=1e-13,
+        abs=1e-13,
+    )
+    bound = chebyshev_interpolation_error_bound(roots, degree, rho=rho)
+    assert bound == pytest.approx(manual_bound, rel=1e-13, abs=1e-13)
     assert spectral_error <= interval_error + 1e-12
     assert interval_error <= bound + 1e-10 * max(1.0, bound)
+
+    joined = approximation_configuration_diagnostic(
+        roots,
+        degree,
+        rho,
+        eigenvalues,
+        interval_grid_size=20_001,
+    )
+    assert joined.realization_tag == "chebyshev-K"
+    assert joined.graph_spectral_max_error == pytest.approx(
+        spectral_error,
+        rel=1e-11,
+        abs=1e-13,
+    )
+    assert joined.interval_grid_max_error == pytest.approx(
+        interval_error,
+        rel=1e-11,
+        abs=1e-13,
+    )
+    assert joined.pole_limited_rho_star == pytest.approx(manual_rho_star)
+    assert joined.conservative_m_rho_upper_bound == pytest.approx(manual_m_bound)
+    assert joined.certified_interpolation_error_bound == pytest.approx(manual_bound)
 
 
 def test_ga21_one_level_frame_spectrum_obeys_true_operator_error_bound():
@@ -171,7 +294,10 @@ def test_ga21_one_level_frame_spectrum_obeys_true_operator_error_bound():
 
 
 @pytest.mark.parametrize("depth", [1, 2, 4, 8, 16])
-def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(depth):
+def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(
+    depth,
+    record_property,
+):
     """GA-22: observed multilevel defect is bounded at every required depth."""
 
     laplacian = _path_laplacian(6)
@@ -181,7 +307,6 @@ def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(depth):
         torch.tensor([0.3 - 0.05j], dtype=torch.complex128),
     ]
     degrees = [8, 12, 16]
-    exact_operators: list[torch.Tensor] = []
     approximate_operators: list[torch.Tensor] = []
     errors: list[float] = []
     for level in range(depth):
@@ -192,11 +317,9 @@ def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(depth):
             roots, degree, torch.device("cpu"), convention="forward"
         )
         approximate = dense_chebyshev_operator(laplacian, coefficients)
-        exact_operators.append(exact)
         approximate_operators.append(approximate)
         errors.append(float(torch.linalg.matrix_norm(approximate - exact, ord=2).item()))
 
-    del exact_operators
     analysis = dense_tight_analysis_matrix(approximate_operators)
     identity = torch.eye(laplacian.shape[0], dtype=torch.complex128)
     frame = analysis.mH @ analysis
@@ -208,18 +331,161 @@ def test_ga22_multilevel_frame_defect_obeys_heterogeneous_delta(depth):
     assert float(frame_eigenvalues.max().item()) <= 1.0 + diagnostic.delta + slack
     if diagnostic.positive_lower_bound:
         assert float(frame_eigenvalues.min().item()) >= 1.0 - diagnostic.delta - slack
-    adjoint_reconstruction_error = torch.linalg.matrix_norm(frame - identity, ord=2)
-    assert float(adjoint_reconstruction_error.item()) <= diagnostic.delta + slack
+
+    singular_values = torch.linalg.svdvals(analysis)
+    assert torch.allclose(
+        singular_values.square().sort().values,
+        frame_eigenvalues.sort().values,
+        atol=EXACT_TOL,
+        rtol=EXACT_TOL,
+    )
+
+    generator = torch.Generator().manual_seed(2200 + depth)
+    signal = torch.randn(
+        laplacian.shape[0],
+        3,
+        dtype=torch.complex128,
+        generator=generator,
+    )
+    components = dense_apply_tight_analysis(signal, approximate_operators)
+    materialized_components = torch.cat(components, dim=0)
+    assert torch.allclose(
+        materialized_components,
+        analysis @ signal,
+        atol=EXACT_TOL,
+        rtol=EXACT_TOL,
+    )
+
+    additive = sum(components[:-1], start=torch.zeros_like(signal)) + components[-1]
+    additive_error = float((additive - signal).norm().div(signal.norm()).item())
+    assert additive_error <= 1e-12
+
+    synthesized = dense_adjoint_tight_synthesis(
+        components,
+        approximate_operators,
+    )
+    synthesis_error = float((synthesized - signal).norm().div(signal.norm()).item())
+    assert synthesis_error <= diagnostic.delta + slack
+    assert torch.allclose(
+        synthesized,
+        frame @ signal,
+        atol=EXACT_TOL,
+        rtol=EXACT_TOL,
+    )
+
+    record_property("depth", depth)
+    record_property("predicted_delta", diagnostic.delta)
+    record_property(
+        "singular_values",
+        ",".join(f"{float(value.item()):.17g}" for value in singular_values),
+    )
+    record_property("additive_reconstruction_error", additive_error)
+    record_property("adjoint_synthesis_error", synthesis_error)
 
 
-def test_ga24_target_pole_diagnostics_emit_all_descriptive_quantities():
-    """GA-24: radius, angle, pole geometry, margin, and ellipse are emitted."""
+def test_ga22_heterogeneous_formula_and_no_lower_bound_boundary():
+    """GA-22: pin the recurrence formula and the strict Delta<1 condition."""
+
+    errors = (0.1, 0.3, 0.7)
+    defects = tuple(error + 0.5 * error * error for error in errors)
+    amplifications = tuple((1.0 + 0.5 * error) ** 2 for error in errors)
+    expected_delta = (
+        defects[0]
+        + defects[1] * amplifications[0]
+        + defects[2] * amplifications[0] * amplifications[1]
+    )
+    diagnostic = multilevel_frame_bound(errors)
+    assert diagnostic.one_level_defects == pytest.approx(defects)
+    assert diagnostic.carry_amplifications == pytest.approx(amplifications)
+    assert diagnostic.delta == pytest.approx(expected_delta)
+
+    no_lower_bound = multilevel_frame_bound((0.8,))
+    assert no_lower_bound.delta >= 1.0
+    assert not no_lower_bound.positive_lower_bound
+    assert no_lower_bound.to_dict()["positive_lower_bound"] is False
+
+
+def test_ga24_joined_configuration_diagnostic_is_complete_and_independent():
+    """GA-24: join measured error, certified bounds, and root geometry."""
 
     roots = torch.tensor(
-        [0.2 + 0.1j, -0.3 + 0.15j, 0.1 - 0.25j],
+        [0.2 + 0.1j, -0.15 + 0.08j],
         dtype=torch.complex128,
     )
-    rows = target_pole_diagnostics(roots)
+    degree = 12
+    rho = 1.2
+    eigenvalues = torch.linalg.eigvalsh(_path_laplacian(9))
+    diagnostic = approximation_configuration_diagnostic(
+        roots,
+        degree,
+        rho,
+        eigenvalues,
+        interval_grid_size=4097,
+    )
+    payload = diagnostic.to_dict()
+    assert set(payload) == {
+        "realization_tag",
+        "degree",
+        "chosen_rho",
+        "pole_limited_rho_star",
+        "conservative_m_rho_upper_bound",
+        "certified_interpolation_error_bound",
+        "interval_grid_max_error",
+        "graph_spectral_max_error",
+        "interval_grid_size",
+        "graph_eigenvalue_count",
+        "root_pole_geometry",
+    }
+    assert diagnostic.realization_tag == "chebyshev-K"
+    assert diagnostic.degree == degree
+    assert diagnostic.chosen_rho == rho
+    assert diagnostic.interval_grid_size == 4097
+    assert diagnostic.graph_eigenvalue_count == eigenvalues.numel()
+
+    coefficients = blaschke_product_cheb_coeffs(
+        roots,
+        degree,
+        torch.device("cpu"),
+        convention="forward",
+    )
+    expected_graph_error = float(
+        (
+            _independent_blaschke_symbol(eigenvalues, roots)
+            - _independent_chebyshev_values(coefficients, eigenvalues)
+        ).abs().max().item()
+    )
+    interval = torch.linspace(0.0, 2.0, 4097, dtype=torch.float64)
+    expected_interval_error = float(
+        (
+            _independent_blaschke_symbol(interval, roots)
+            - _independent_chebyshev_values(coefficients, interval)
+        ).abs().max().item()
+    )
+    manual_rho_star = min(
+        _manual_ellipse_parameter(
+            _manual_mapped_zero(complex(root.item())).conjugate() - 1.0
+        )
+        for root in roots
+    )
+    manual_m_bound = _manual_conservative_m_bound(roots, rho)
+    manual_error_bound = 4.0 * manual_m_bound * rho ** (-degree) / (rho - 1.0)
+    assert diagnostic.graph_spectral_max_error == pytest.approx(
+        expected_graph_error,
+        rel=1e-11,
+        abs=1e-13,
+    )
+    assert diagnostic.interval_grid_max_error == pytest.approx(
+        expected_interval_error,
+        rel=1e-11,
+        abs=1e-13,
+    )
+    assert diagnostic.pole_limited_rho_star == pytest.approx(manual_rho_star)
+    assert diagnostic.conservative_m_rho_upper_bound == pytest.approx(manual_m_bound)
+    assert diagnostic.certified_interpolation_error_bound == pytest.approx(
+        manual_error_bound
+    )
+
+    rows = diagnostic.root_pole_geometry
     assert len(rows) == len(roots)
     required = {
         "root_radius",
@@ -231,14 +497,87 @@ def test_ga24_target_pole_diagnostics_emit_all_descriptive_quantities():
         "pole_margin_to_interval",
         "bernstein_parameter",
     }
-    for row in rows:
+    for root, row in zip(roots, rows, strict=True):
         assert set(row) == required
         assert all(torch.isfinite(torch.tensor(value)) for value in row.values())
-        assert row["root_radius"] < 1.0
-        assert row["mapped_zero_imag"] > 0.0
-        assert row["mapped_pole_imag"] < 0.0
-        assert row["pole_margin_to_interval"] > 0.0
-        assert row["bernstein_parameter"] > 1.0
+        root_value = complex(root.item())
+        zero = _manual_mapped_zero(root_value)
+        pole = zero.conjugate()
+        assert row["root_radius"] == pytest.approx(abs(root_value))
+        assert row["root_angle"] == pytest.approx(
+            math.atan2(root_value.imag, root_value.real)
+        )
+        assert row["mapped_zero_real"] == pytest.approx(zero.real)
+        assert row["mapped_zero_imag"] == pytest.approx(zero.imag)
+        assert row["mapped_pole_real"] == pytest.approx(pole.real)
+        assert row["mapped_pole_imag"] == pytest.approx(pole.imag)
+        assert row["pole_margin_to_interval"] == pytest.approx(
+            _manual_distance_to_interval(pole)
+        )
+        assert row["bernstein_parameter"] == pytest.approx(
+            _manual_ellipse_parameter(pole - 1.0)
+        )
+
+
+def test_diagnostics_reject_empty_nonfinite_and_inadmissible_inputs():
+    """Gate diagnostics fail loudly instead of emitting invalid records."""
+
+    empty = torch.empty(0, dtype=torch.complex128)
+    nonfinite = torch.tensor([complex(float("nan"), 0.0)], dtype=torch.complex128)
+    inadmissible = torch.tensor([1.0 + 0.0j], dtype=torch.complex128)
+    with pytest.raises(ValueError, match="at least one root"):
+        target_pole_diagnostics(empty)
+    with pytest.raises(TypeError, match="complex dtype"):
+        target_pole_diagnostics(torch.tensor([0.2], dtype=torch.float64))
+    with pytest.raises(ValueError, match="finite"):
+        target_pole_ellipse_parameter(nonfinite)
+    with pytest.raises(ValueError, match="unit disk"):
+        conservative_ellipse_supremum_bound(inadmissible, 1.1)
+    with pytest.raises(ValueError, match="unit disk"):
+        fixed_root_perturbation_constant(inadmissible)
+
+    valid = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
+    with pytest.raises(ValueError, match="must not be empty"):
+        approximation_configuration_diagnostic(
+            valid,
+            8,
+            1.2,
+            torch.empty(0, dtype=torch.float64),
+        )
+    with pytest.raises(ValueError, match=r"\[0, 2\]"):
+        approximation_configuration_diagnostic(
+            valid,
+            8,
+            1.2,
+            torch.tensor([-0.1, 1.0], dtype=torch.float64),
+        )
+
+
+def test_frame_and_interpolation_diagnostics_reject_nonfinite_output():
+    """Finite inputs may not silently produce overflowed theorem bounds."""
+
+    with pytest.raises(ValueError, match="at least one operator error"):
+        multilevel_frame_bound(())
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        multilevel_frame_bound((float("inf"),))
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        multilevel_frame_bound((-0.1,))
+    with pytest.raises(OverflowError, match="overflow"):
+        multilevel_frame_bound((1e308,))
+
+    roots = torch.tensor([0.2 + 0.1j], dtype=torch.complex128)
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        chebyshev_interpolation_error_bound(roots, True, 1.2)
+    with pytest.raises(TypeError, match="real scalar"):
+        chebyshev_interpolation_error_bound(roots, 8, "not-a-number")
+    with pytest.raises(ValueError, match="greater than one"):
+        chebyshev_interpolation_error_bound(roots, 8, 1.0)
+    with pytest.raises(ValueError, match="strictly inside"):
+        chebyshev_interpolation_error_bound(
+            roots,
+            8,
+            target_pole_ellipse_parameter(roots),
+        )
 
 
 def test_ga25_product_sum_nonzero_roots_interpolate_with_reported_conditioning():
@@ -296,7 +635,11 @@ def test_ga27_off_axis_target_pole_is_outside_scalar_cayleynet_locus():
         torch.tensor([0.4 + 0.2j, -0.15 + 0.08j], dtype=torch.complex128),
     ],
 )
-def test_ga28_fixed_root_operator_perturbation_obeys_resolvent_bound(scale, roots):
+def test_ga28_fixed_root_operator_perturbation_obeys_resolvent_bound(
+    scale,
+    roots,
+    record_property,
+):
     """GA-28: aligned Laplacian perturbations satisfy the explicit constant."""
 
     n = 8
@@ -311,12 +654,28 @@ def test_ga28_fixed_root_operator_perturbation_obeys_resolvent_bound(scale, root
     eta_g = float(
         torch.linalg.matrix_norm(operator - perturbed_operator, ord=2).item()
     )
-    bound = fixed_root_perturbation_constant(roots) * eta_l
+    manual_constant = 0.0
+    for root in roots:
+        zero = _manual_mapped_zero(complex(root.item()))
+        pole = zero.conjugate()
+        margin = _manual_distance_to_interval(pole)
+        manual_constant += abs(pole - zero) / (margin * margin)
+    reported_constant = fixed_root_perturbation_constant(roots)
+    assert reported_constant == pytest.approx(
+        manual_constant,
+        rel=1e-13,
+        abs=1e-13,
+    )
+    bound = reported_constant * eta_l
     assert eta_g <= bound + 1e-10 * max(1.0, bound)
+    record_property("laplacian_perturbation_norm", eta_l)
+    record_property("filter_perturbation_norm", eta_g)
+    record_property("perturbation_constant", reported_constant)
+    record_property("observed_to_bound_ratio", eta_g / bound)
 
 
-def test_ga29_polynomial_is_hop_local_while_exact_target_is_generally_dense():
-    """GA-29: finite polynomial support and exact rational density are separate."""
+def test_ga29_polynomial_is_hop_local_while_exact_target_is_not_k_hop_localized():
+    """GA-29: finite support does not transfer from polynomial to exact target."""
 
     n = 14
     degree = 3
@@ -334,26 +693,44 @@ def test_ga29_polynomial_is_hop_local_while_exact_target_is_generally_dense():
         laplacian,
         torch.tensor([0.25 + 0.2j], dtype=torch.complex128),
     )
+    # This witness proves failure of K-hop localization. It is deliberately not
+    # promoted to a universal claim that every exact rational response is dense.
     assert float(exact[distance > degree].abs().max().item()) > 1e-8
 
 
-def test_ga30_canonical_recurrence_uses_depth_times_degree_spmvs(monkeypatch):
-    """GA-30: the current full per-level recurrence performs exactly D*K SpMVs."""
+@pytest.mark.parametrize(("depth", "degree"), [(1, 0), (1, 3), (2, 4), (4, 5)])
+def test_ga30_canonical_recurrence_spmvs_and_coefficient_storage(
+    monkeypatch,
+    record_property,
+    depth,
+    degree,
+):
+    """GA-30: verify D*K SpMVs and residual-first coefficient storage.
+
+    Counting convention: one ``torch.sparse.mm`` call applying the real graph
+    Laplacian to a complex feature matrix counts as one complex-feature SpMV.
+    We report coefficient-tensor storage only; parameters, recurrence
+    temporaries, allocator overhead, and the downstream readout are excluded.
+    """
 
     n = 7
-    depth = 4
-    degree = 5
+    hidden_channels = 3
     edge_index, edge_weight = _path_edges(n)
     laplacian = normalized_laplacian(edge_index, edge_weight, n)
     model = GBDNTight(
         in_channels=2,
-        hidden_channels=3,
+        hidden_channels=hidden_channels,
         out_channels=2,
         num_layers=depth,
         K=degree,
     )
     generator = torch.Generator().manual_seed(3000)
-    signal = torch.randn(n, 3, dtype=torch.complex64, generator=generator)
+    signal = torch.randn(
+        n,
+        hidden_channels,
+        dtype=torch.complex64,
+        generator=generator,
+    )
     calls = 0
     original = torch.sparse.mm
 
@@ -373,3 +750,24 @@ def test_ga30_canonical_recurrence_uses_depth_times_degree_spmvs(monkeypatch):
     assert isinstance(analysis, TightAnalysisOutput)
     assert analysis.component_names == (*[f"r_{i}" for i in range(depth)], "h_D")
     assert len(analysis.components) == depth + 1
+    expected_complex_values = (depth + 1) * n * hidden_channels
+    observed_complex_values = sum(component.numel() for component in analysis.components)
+    observed_storage_bytes = sum(
+        component.numel() * component.element_size()
+        for component in analysis.components
+    )
+    expected_storage_bytes = expected_complex_values * signal.element_size()
+    assert observed_complex_values == expected_complex_values
+    assert observed_storage_bytes == expected_storage_bytes
+    assert all(component.dtype == signal.dtype for component in analysis.components)
+    assert all(component.shape == signal.shape for component in analysis.components)
+
+    record_property(
+        "spmv_counting_convention",
+        "one torch.sparse.mm on a complex feature matrix counts as one SpMV",
+    )
+    record_property("depth", depth)
+    record_property("degree", degree)
+    record_property("observed_spmv_count", calls)
+    record_property("coefficient_complex_value_count", observed_complex_values)
+    record_property("coefficient_storage_bytes", observed_storage_bytes)
