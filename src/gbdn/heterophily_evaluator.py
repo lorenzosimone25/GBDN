@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,6 +159,33 @@ def evaluate_prediction_archive(
         raise ArtifactValidationError("prediction archive must be a regular file")
     if archive_path.stat().st_size > _MAX_ARCHIVE_BYTES:
         raise ArtifactValidationError("prediction archive exceeds the evaluator size limit")
+    try:
+        payload = archive_path.read_bytes()
+    except OSError as exc:
+        raise ArtifactValidationError("prediction archive cannot be read") from exc
+    return evaluate_prediction_bytes(
+        payload,
+        expected_run_id=expected_run_id,
+        expected_dataset=expected_dataset,
+        expected_split=expected_split,
+        expected_test_indices=expected_test_indices,
+        authoritative_test_labels=authoritative_test_labels,
+    )
+
+
+def evaluate_prediction_bytes(
+    payload: bytes,
+    *,
+    expected_run_id: str,
+    expected_dataset: str,
+    expected_split: int,
+    expected_test_indices: np.ndarray,
+    authoritative_test_labels: np.ndarray,
+) -> IndependentlyEvaluatedMetric:
+    """Score one immutable bounded byte snapshot and attest those exact bytes."""
+
+    if not isinstance(payload, bytes) or not payload or len(payload) > _MAX_ARCHIVE_BYTES:
+        raise ArtifactValidationError("prediction snapshot must be nonempty bounded bytes")
     spec = resolve_dataset(expected_dataset)
     if type(expected_split) is not int or expected_split not in OFFICIAL_SPLITS:
         raise ArtifactValidationError("prediction split is outside official rows 0..9")
@@ -170,13 +198,15 @@ def evaluate_prediction_archive(
     if np.unique(expected_indices).size != expected_indices.size or np.any(expected_indices < 0):
         raise ArtifactValidationError("authoritative test indices must be unique and nonnegative")
     try:
-        with zipfile.ZipFile(archive_path) as archive:
+        stream = io.BytesIO(payload)
+        with zipfile.ZipFile(stream) as archive:
             members = archive.infolist()
             if frozenset(member.filename for member in members) != _MEMBERS:
                 raise ArtifactValidationError("prediction archive members do not match schema")
             if any(member.is_dir() or member.file_size > _MAX_MEMBER_BYTES for member in members):
                 raise ArtifactValidationError("prediction archive contains an unsafe member")
-        with np.load(archive_path, allow_pickle=False) as stored:
+        stream.seek(0)
+        with np.load(stream, allow_pickle=False) as stored:
             dataset = str(np.asarray(stored["dataset"]).item())
             format_name = str(np.asarray(stored["format"]).item())
             indices = np.asarray(stored["indices"])
@@ -218,7 +248,7 @@ def evaluate_prediction_archive(
         split,
         metric_name,
         metric,
-        sha256_file(archive_path),
+        hashlib.sha256(payload).hexdigest(),
         expected_indices.size,
     )
 
@@ -228,6 +258,7 @@ __all__ = [
     "EVALUATION_SCHEMA",
     "IndependentlyEvaluatedMetric",
     "PREDICTION_FORMAT",
+    "evaluate_prediction_bytes",
     "evaluation_attestation",
     "evaluate_prediction_archive",
     "load_authoritative_split",

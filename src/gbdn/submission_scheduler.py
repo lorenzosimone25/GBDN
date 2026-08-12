@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -29,7 +30,7 @@ from gbdn.artifacts import (
 from gbdn.gate_acceptance import validate_gate_a_acceptance
 from gbdn.heterophily_evaluator import (
     evaluation_attestation,
-    evaluate_prediction_archive,
+    evaluate_prediction_bytes,
     load_authoritative_split,
 )
 from gbdn.provenance import CANONICAL_RESULT_DIR, canonical_output_path, write_new_canonical_artifact
@@ -139,26 +140,26 @@ def _semantic_evaluation(job, bundle: Path, root: Path, dataset_root: Path) -> N
     prediction = bundle / result.predictions.path
     if prediction.is_symlink() or not prediction.is_file():
         raise ArtifactValidationError("manifest prediction archive is not a regular file")
-    before_size = prediction.stat().st_size
-    before_hash = sha256_file(prediction)
+    try:
+        snapshot = prediction.read_bytes()
+    except OSError as exc:
+        raise ArtifactValidationError("manifest prediction archive cannot be read") from exc
+    before_size = len(snapshot)
+    before_hash = hashlib.sha256(snapshot).hexdigest()
     if before_size != result.predictions.size_bytes or before_hash != result.predictions.sha256:
         raise ArtifactValidationError(
             "prediction archive differs from the immutable result manifest"
         )
-    metric = evaluate_prediction_archive(
-        prediction,
+    metric = evaluate_prediction_bytes(
+        snapshot,
         expected_run_id=job.identity.run_id,
         expected_dataset=job.identity.dataset_name,
         expected_split=job.identity.split_id,
         expected_test_indices=authority.indices,
         authoritative_test_labels=authority.labels,
     )
-    if prediction.is_symlink() or not prediction.is_file():
-        raise ArtifactValidationError("prediction archive changed during evaluation")
-    after_size = prediction.stat().st_size
-    after_hash = sha256_file(prediction)
-    if after_size != before_size or after_hash != before_hash or metric.prediction_sha256 != before_hash:
-        raise ArtifactValidationError("prediction archive changed during evaluation")
+    if metric.prediction_sha256 != before_hash:
+        raise ArtifactValidationError("evaluator attested different prediction bytes")
     reported_name, reported_value = _reported_primary_metric(result)
     if reported_name != metric.metric_name or abs(reported_value - metric.value) > _METRIC_TOLERANCE:
         raise ArtifactValidationError("reported metric disagrees with authoritative recomputation")

@@ -334,6 +334,36 @@ def test_semantic_evaluation_rejects_prediction_manifest_drift_with_same_metric(
         _semantic_evaluation(job, bundle, tmp_path, tmp_path)
 
 
+def test_semantic_evaluation_scores_the_manifest_bound_snapshot_under_aba(tmp_path):
+    job = _job(0)
+    bundle = _prediction_and_result(tmp_path, job, metric=2 / 3)
+    prediction = bundle / "predictions.npz"
+    manifest_bytes = prediction.read_bytes()
+    authority = AuthoritativeSplit(
+        np.asarray([4, 9, 12], dtype=np.int64),
+        np.asarray([1, 1, 2], dtype=np.int64),
+        job.identity.dataset_sha256,
+        "1" * 64,
+        "2" * 64,
+    )
+    observed = {}
+
+    def score_snapshot(payload, **kwargs):
+        observed["payload"] = payload
+        prediction.write_bytes(b"replacement that cannot affect captured bytes")
+        from gbdn.heterophily_evaluator import evaluate_prediction_bytes
+
+        return evaluate_prediction_bytes(payload, **kwargs)
+
+    with (
+        patch("gbdn.submission_scheduler.load_authoritative_split", return_value=authority),
+        patch("gbdn.submission_scheduler.evaluate_prediction_bytes", side_effect=score_snapshot),
+    ):
+        _semantic_evaluation(job, bundle, tmp_path, tmp_path)
+    assert observed["payload"] == manifest_bytes
+    assert prediction.read_bytes() != manifest_bytes
+
+
 def test_skip_path_invokes_semantic_evaluation_and_blocks_on_failure(tmp_path):
     run_plan, confirmatory, registry, worker = _fixture(tmp_path, "raise SystemExit(0)\n")
     job = _job(0)
