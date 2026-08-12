@@ -28,11 +28,12 @@ completed_tasks:
   - ENG-GATEA-APPROX-REPAIR-1
   - MATH-PAPER-REPAIR-1
   - MATH-CHEB-SOURCE-1
+  - ENG-GATEA-PROVENANCE-1
+  - REV-GATEA-FINAL-1
 active_tasks:
   - ENG-002
   - ENG-008
-  - ENG-GATEA-PROVENANCE-1
-  - REV-GATEA-FINAL-1
+  - ENG-GATEA-SEMANTIC-REPAIR-1
   - OPS-RUNID-1
 stop_line:
   gate_a_passed: false
@@ -40,23 +41,26 @@ stop_line:
   h100_confirmation_allowed: false
   reasons:
     - Strict legacy reproduction verification fails with 28 reported problems.
-    - All 36 mandatory Gate-A IDs execute and the declared fixture, depth, root, and row matrices have no gaps, but per-test provenance and independent acceptance remain incomplete.
+    - All 36 mandatory Gate-A IDs execute and have typed row-level evidence, but independent review rejected GA-00, GA-10, GA-14, GA-25, and GA-27 at the reviewed commit.
+    - A canonical synthetic-graph helper still bypasses the validated self-adjoint graph boundary; coefficient-order, finite-recovery, conditioning, and reduced-pole tests require stronger public-object bindings.
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Finite-realization semantic defects in GA-22, GA-24, GA-29, and GA-30 were repaired but still require independent final review.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 449
-  automated_tests_passing: 449
+  automated_tests: 456
+  automated_tests_passing: 456
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
+  gate_a_evidence_value_fields: 703
+  gate_a_evidence_typed_na_fields: 59
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
   frozen_result_files: 128
   mechanism_files: 4
 next_dependency_chain:
-  - Emit complete row-level Gate-A provenance for every mandatory ID.
-  - Independently adjudicate the repaired exact and finite Gate-A contract.
-  - Independently validate the complete first-kind Chebyshev derivation as part of final Gate-A review.
+  - Repair the package-wide graph boundary and rejected GA-10, GA-14, GA-25, and GA-27 semantic bindings.
+  - Rerun the complete typed Gate-A evidence catalog from a clean commit.
+  - Obtain a second independent row-by-row Gate-A adjudication.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.

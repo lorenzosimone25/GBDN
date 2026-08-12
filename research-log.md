@@ -73,3 +73,10 @@
 - Narrowed the abstract, introduction, mechanism captions, and conclusion accordingly: current mechanism and legacy H100 outputs are diagnostics, not contribution evidence. No claim-bearing experiment was launched.
 - Opened immutable run-identity and artifact-bundle infrastructure in parallel; this infrastructure work does not authorize H100 execution.
 - Added installable `src`-layout package metadata and made the H100 setup install and import the canonical `gbdn` package before running tests. A fresh wheel smoke test imports `GBDNTight`; the full suite is now 449/449 passing.
+
+## 2026-08-12 — Gate A structured evidence and independent rejection
+
+- Integrated a deterministic, read-only evidence catalog for all 36 mandatory Gate-A rows. It emits 703 measured values and 59 typed, justified not-applicable fields, links them to 410 collected Gate nodes, and reports no schema, linkage, omission, or decision failure.
+- Re-ran the integrated repository suite with the canonical source path bound: 456 tests passed with three environment warnings. The reporter remains blocked by design.
+- Integrated the independent row-by-row review. It found no counterexample to the core exact mathematics or the first-kind Chebyshev derivation, but rejected GA-00, GA-10, GA-14, GA-25, and GA-27 at the reviewed commit.
+- Opened a bounded semantic-repair task for the canonical synthetic graph boundary, public residual-first coefficient correspondence, actual finite Blaschke recovery bound, Product-sum ill-conditioning disclosure, and executable reduced-pole comparator. No H100 experiment or claim-bearing paper promotion is authorized until a second independent review accepts the repaired clean commit.

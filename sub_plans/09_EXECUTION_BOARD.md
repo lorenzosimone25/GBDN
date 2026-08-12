@@ -51,8 +51,10 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-GATEA-CLOSEOUT-1 | Add GA-23 and auditable Gate-A report/coverage inventory | Engineer | ENG-GATEA-EXACT-2, ENG-008 | GA-23 tests and deterministic report utility | DONE |
 | REV-GATEA-APPROX-1 | Independently audit finite-order Gate-A diagnostics/tests | Reviewer | ENG-008, MATH-007--MATH-011 | Approximation theorem-test verdict | DONE |
 | ENG-GATEA-APPROX-REPAIR-1 | Repair finite-order theorem-test semantic mismatches | Engineer | REV-GATEA-APPROX-1 | Correct GA-20/22/24/29/30 observables and diagnostics | DONE |
-| ENG-GATEA-PROVENANCE-1 | Emit complete deterministic evidence for every Gate-A row | Engineer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Validated row-level evidence schema and report | IN_PROGRESS |
-| REV-GATEA-FINAL-1 | Independently adjudicate the complete Gate-A implementation | Reviewer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Row-by-row verdict and binary gate decision | IN_PROGRESS |
+| ENG-GATEA-PROVENANCE-1 | Emit complete deterministic evidence for every Gate-A row | Engineer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Validated row-level evidence schema and report | DONE |
+| REV-GATEA-FINAL-1 | Independently adjudicate the complete Gate-A implementation | Reviewer | ENG-GATEA-CLOSEOUT-1, ENG-GATEA-APPROX-REPAIR-1 | Row-by-row verdict and binary gate decision | DONE |
+| ENG-GATEA-SEMANTIC-REPAIR-1 | Repair package graph boundary and rejected GA-10/14/25/27 bindings | Engineer | REV-GATEA-FINAL-1, ENG-GATEA-PROVENANCE-1 | Canonical source/tests/evidence patch | IN_PROGRESS |
+| REV-GATEA-REVIEW-2 | Independently re-adjudicate repaired Gate A | Reviewer | ENG-GATEA-SEMANTIC-REPAIR-1 | Clean-commit binary Gate-A decision | BACKLOG |
 | OPS-RUNID-1 | Implement immutable run identities and artifact bundle validation | Engineer | ENG-001 | Deterministic IDs, non-overwrite/resume classifier, schema tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
