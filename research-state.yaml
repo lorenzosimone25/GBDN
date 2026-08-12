@@ -41,8 +41,8 @@ stop_line:
     - Independent finite-realization review found GA-22, GA-24, GA-29, and GA-30 semantic or integration defects that require repair and re-review.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 192
-  automated_tests_passing: 192
+  automated_tests: 429
+  automated_tests_passing: 429
   mandatory_gate_a_ids_with_new_coverage: 35
   mandatory_gate_a_ids_total: 36
   legacy_verifier_status: fail
