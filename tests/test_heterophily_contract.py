@@ -85,8 +85,8 @@ def _candidate(name: str = "Minesweeper") -> DatasetIdentityCandidate:
         dataset=spec.canonical_name,
         source_commit=OFFICIAL_SOURCE_COMMIT,
         npz_path=spec.npz_path,
-        npz_size_bytes=123,
-        npz_sha256=H,
+        npz_size_bytes=spec.npz_size_bytes,
+        npz_sha256=spec.npz_sha256,
         redistribution_terms_record="reviewed-local-acquisition-only-v1",
         arrays=arrays,
         graph=graph,
@@ -194,6 +194,12 @@ def test_identity_rejects_missing_hashes_wrong_array_shape_and_unresolved_terms(
     candidate = _candidate()
     with pytest.raises(ProtocolContractError, match="lowercase hex"):
         validate_dataset_identity(replace(candidate, npz_sha256=UNRESOLVED))
+    with pytest.raises(ProtocolContractError, match="byte identity"):
+        validate_dataset_identity(replace(candidate, npz_sha256="f" * 64))
+    with pytest.raises(ProtocolContractError, match="byte identity"):
+        validate_dataset_identity(
+            replace(candidate, npz_size_bytes=candidate.npz_size_bytes + 1)
+        )
     with pytest.raises(ProtocolContractError, match="redistribution"):
         validate_dataset_identity(replace(candidate, redistribution_terms_record=UNRESOLVED))
     changed = tuple(

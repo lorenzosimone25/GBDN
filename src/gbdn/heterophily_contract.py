@@ -335,6 +335,11 @@ def validate_dataset_identity(candidate: DatasetIdentityCandidate) -> DatasetTas
     if _require_nonnegative(candidate.npz_size_bytes, "npz_size_bytes") == 0:
         raise ProtocolContractError("npz_size_bytes must be positive")
     _require_sha256(candidate.npz_sha256, "npz_sha256")
+    if (
+        candidate.npz_size_bytes != spec.npz_size_bytes
+        or candidate.npz_sha256 != spec.npz_sha256
+    ):
+        raise ProtocolContractError("dataset NPZ byte identity differs from the pinned registry")
     if candidate.redistribution_terms_record in {"", UNRESOLVED}:
         raise ProtocolContractError("dataset-specific redistribution terms are unresolved")
 
