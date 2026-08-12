@@ -289,19 +289,45 @@ reduced nonremovable singularities are the poles in
 $\mathcal P_{\mathrm{red}}(g)$.  Under $x=\lambda-1$, a pole $p$ becomes
 $\xi_p=p-1$.  The largest open Bernstein ellipse not meeting that pole has
 parameter $\chi(\xi_p)$; hence for every strictly smaller common $\varrho$,
-$x\mapsto g(1+x)$ is analytic on and inside $E_\varrho$.  Applying the
-first-kind Chebyshev interpolation estimate at the nodes specified in
-\cref{thm:pole-distance-cheb} gives
+$F(x)=g(1+x)$ is analytic on and inside $E_\varrho$.
+
+Set $N=K+1$ and let $I_K$ denote interpolation at
+$x_j=\cos((j+\tfrac12)\pi/N)$, $j=0,\ldots,N-1$.  Write the absolutely
+convergent Chebyshev series in the convention
 \begin{equation}
- \sup_{x\in[-1,1]}|g(x+1)-p_K(x+1)|
- \leq\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
+ F(x)=\sum_{m=0}^{\infty}a_mT_m(x).
 \end{equation}
+Theorem~8.1 of \citet{trefethen2019analytic} proves, by a contour estimate
+in modulus, the equally valid complex-valued bound
+$|a_m|\leq 2M_\varrho\varrho^{-m}$ for $m\geq1$.
+
+We now derive the aliasing for the first-kind grid used here.  For $m\geq N$,
+write $m=2qN+s$ with $0\leq s<2N$.  Since
+$2N\arccos(x_j)=(2j+1)\pi$, uniqueness of interpolation gives
+\begin{equation}
+ I_KT_m=
+ \begin{cases}
+   (-1)^qT_s, & 0\leq s<N,\\
+   0, & s=N,\\
+   (-1)^{q+1}T_{2N-s}, & N<s<2N.
+ \end{cases}
+ \label{eq:first-kind-alias}
+\end{equation}
+Consequently $\norm{I_KT_m}_{\infty,[-1,1]}\leq1$.  Absolute convergence
+permits termwise interpolation, while $I_KT_m=T_m$ for $m<N$, so
+\begin{align}
+ \norm{F-I_KF}_{\infty,[-1,1]}
+ &\leq 2\sum_{m=N}^{\infty}|a_m| \\
+ &\leq 4M_\varrho\sum_{m=N}^{\infty}\varrho^{-m}
+  =\frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
+ \label{eq:first-kind-interpolation-bound}
+\end{align}
+This proves the displayed scalar bound with exactly the code's $K+1$
+first-kind nodes and degree indexing.  The argument is unchanged for complex
+$F$: only absolute values and linear interpolation over $\mathbb C$ are used.
 The spectral theorem turns uniform scalar error on $[0,2]$ into operator-norm
 error for self-adjoint $L$.  Solving the displayed inequality for $K$ proves
-\cref{eq:cheb-degree}, with the degree truncated below at zero.  This proof
-uses the external approximation theorem whose missing verified attribution is
-flagged immediately after \cref{thm:pole-distance-cheb}; it is not promoted as
-a self-contained derivation of that interpolation constant.
+\cref{eq:cheb-degree}, with the degree truncated below at zero.
 \end{proof}
 
 \begin{proof}[Proof of \cref{thm:finite-frame}]

@@ -10,6 +10,7 @@ copied from the preserved draft or written from memory.
 | Key | Verdict | Primary record | Notes |
 |---|---|---|---|
 | `levie2019cayleynets` | verified | IEEE DOI `10.1109/TSP.2018.2879624`; arXiv `1705.07664` | Journal version used |
+| `trefethen2019analytic` | verified | SIAM chapter DOI `10.1137/1.9781611975949.ch8`, pp. 55--62 | Theorem 8.1 supplies the coefficient bound; the manuscript derives the code-matched first-kind aliasing step |
 | `defferrard2016chebnet` | verified | NeurIPS 2016 proceedings | No DOI required |
 | `he2022chebnetii` | verified | NeurIPS 2022 proceedings | Official code link also confirmed |
 | `gravina2023adgn` | verified | ICLR 2023 OpenReview | Third author is Claudio Gallicchio |
@@ -66,11 +67,16 @@ metadata from the preserved draft.
   isometry because their guarantees concern network propagation or dynamics.
 - Exact rational GBDN targets are separated from finite Chebyshev realizations; the
   latter are not assigned literal poles.
+- The Chebyshev error constant is traced to Trefethen's coefficient theorem, not
+  to that source's interpolation theorem: the latter uses second-kind points,
+  whereas the implementation uses the first-kind roots
+  $\cos((j+1/2)\pi/(K+1))$.  The appendix now derives the required aliasing and
+  indexing explicitly.
 
 ## 2026-08-12 local re-scan
 
-The citation-verifier scan reports 21 unique bibliography keys and 34 citation
-occurrences across 20 cited keys, with no placeholders and no duplicate BibTeX keys.
+The citation-verifier scan reports 22 unique bibliography keys and 36 citation
+occurrences across 21 cited keys, with no placeholders and no duplicate BibTeX keys.
 An independent set comparison finds no cited key missing from `refs.bib`.
 `gama2019diffusion` remains as one verified but currently uncited bibliography entry;
 BibTeX excludes it from the rendered reference list.
@@ -83,6 +89,22 @@ transferability paper uses its final IEEE SampTA 2019 record and DOI rather than
 the preprint. PMLR entries without a DOI retain their official PMLR URL and, where
 independently verified, an arXiv identifier. These are source-status limitations, not
 placeholder references.
+
+## MATH-CHEB-SOURCE-1 source check
+
+The primary record is Lloyd N. Trefethen, ``Convergence for Analytic
+Functions,'' Chapter 8, pp. 55--62 of *Approximation Theory and Approximation
+Practice, Extended Edition* (SIAM, 2019), DOI
+`10.1137/1.9781611975949.ch8`.  Theorem 8.1 is the coefficient estimate
+$|a_m|\leq2M_\varrho\varrho^{-m}$.  The author-hosted chapter sample was used
+to verify the theorem text and the book's distinct interpolation-node
+convention; the bibliography points to the archival SIAM chapter.
+
+No published first-kind interpolation constant is imported.  Instead, the
+appendix aliases every unresolved $T_m$ at the exact $K+1$ roots used by
+`src/gbdn/spectral.py`, sums the coefficient tail, and obtains
+$4M_\varrho\varrho^{-K}/(\varrho-1)$.  This removes the prior attribution
+block without changing the bound or its diagnostic implementation.
 
 ## Minimum safe next step
 

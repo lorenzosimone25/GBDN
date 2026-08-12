@@ -144,6 +144,10 @@ $\lambda_j=1+\cos((j+\tfrac12)\pi/(K+1))$, $j=0,\ldots,K$, satisfies
  \leq \frac{4M_\varrho}{\varrho-1}\varrho^{-K}.
  \label{eq:cheb-bound}
 \end{equation}
+The coefficient estimate underlying this bound is Theorem~8.1 of
+\citet{trefethen2019analytic}; because that source's
+interpolation theorem uses a different node convention,
+\cref{app:proofs} gives the first-kind aliasing step explicitly.
 For self-adjoint $L$ the same bound holds in operator norm.  Hence this upper
 bound is at most $\varepsilon$ whenever
 \begin{equation}
@@ -158,12 +162,6 @@ alone does not determine the realized interpolation error.  The poles belong
 to the reduced rational target; the finite interpolant itself is a polynomial
 without finite poles.
 \end{theorem}
-
-\paragraph{Attribution gate.}
-The displayed constant and first-kind node convention require an exact,
-verified approximation-theory citation before paper promotion.  The frozen
-bibliography contains no such source, so this theorem remains paper-blocked on
-attribution in addition to its Gate~A evidence requirement.
 
 \begin{theorem}[T-D: finite-Chebyshev multilevel frame distortion]
 \label{thm:finite-frame}
