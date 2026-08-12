@@ -10,6 +10,7 @@ from typing import Any
 from gbdn.artifacts import ArtifactValidationError
 from gbdn.baseline_contract import validate_plan_registry_binding
 from gbdn.gate_acceptance import validate_gate_a_acceptance
+from gbdn.operations_acceptance import validate_operations_acceptance
 from gbdn.run_plan import inventory_run_plan, validate_run_plan
 
 
@@ -178,11 +179,13 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
     else:
         checks.append({"check": f"execution_input:{worker_relative}", "status": "FAIL"})
         execution_blockers.append(f"missing canonical training worker: {worker_relative}")
-    # The scheduler is implemented, but its worker/evaluator binding has not
-    # been independently reviewed and no canonical training worker exists.
-    execution_blockers.append(
-        "scheduler-to-authoritative-evaluator binding lacks independent operations acceptance"
-    )
+    try:
+        validate_operations_acceptance(root)
+    except ArtifactValidationError as exc:
+        checks.append({"check": "independent_operations_acceptance", "status": "FAIL"})
+        execution_blockers.append(str(exc))
+    else:
+        checks.append({"check": "independent_operations_acceptance", "status": "PASS"})
 
     completion_outputs = (
         "results_submission/aggregate/split_level_metrics.csv",

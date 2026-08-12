@@ -25,7 +25,10 @@ def test_current_repository_verifier_is_read_only_and_blocked():
     assert {item["check"]: item["status"] for item in report.checks}[
         "independent_gate_a_acceptance"
     ] == "PASS"
-    assert not any("acceptance token is absent" in blocker for blocker in report.blockers)
+    assert not any(
+        blocker.startswith("claim-bearing mode is blocked: independent Gate-A acceptance token")
+        for blocker in report.blockers
+    )
     assert any("confirmatory_plan.json" in blocker for blocker in report.blockers)
     assert any("operations acceptance" in blocker for blocker in report.blockers)
 
