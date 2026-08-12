@@ -12,7 +12,7 @@
 Family & Spectral construction & Learned selection & Guarantee and realization \\
 \midrule
 ChebNet/II~\cite{defferrard2016chebnet,he2022chebnetii} & Chebyshev polynomial or interpolant & Direct coefficients; no learned roots & No intrinsic tightness or depth guarantee; sparse recurrence \\
-CayleyNets~\cite{levie2019cayleynets} & Rational Cayley polynomial & Complex coefficients and a Cayley scale; no free roots & No reconstruction or depth guarantee; rational iteration \\
+CayleyNets~\cite{levie2019cayleynets} & Rational Cayley polynomial & Complex coefficients and a learned shared scale; restricted pole locus & No reconstruction or depth guarantee; rational iteration \\
 Stable-ChebNet~\cite{hariri2025stablechebnet} & Chebyshev dynamics & Direct polynomial channels; no learned roots & Stable, non-dissipative dynamics; sparse recurrence \\
 WaveGC~\cite{liu2025wavegc} & Learned graph-wavelet bases & Matrix-valued kernel; no learned roots & Receptive-field analysis; Chebyshev orders \\
 Tight GBDN & Blaschke factors after the Cayley map & Learned roots and $I\!\pm\!\Tcal$ interference & Exact analysis--synthesis and coefficient isometry; sparse Chebyshev \\
@@ -22,7 +22,7 @@ GBDN+ & All-pass branch plus polynomial correction & Learned roots and a paralle
 \end{tabularx}
 \end{table*}
 
-Polynomial graph filters learn direct amplitude responses through coefficients of a Laplacian polynomial. ChebNet realizes localized filters with a Chebyshev recurrence~\cite{defferrard2016chebnet}, while ChebNetII replaces unconstrained coefficient learning with Chebyshev interpolation~\cite{he2022chebnetii}. CayleyNets instead use complex rational Cayley polynomials that specialize to spectral bands~\cite{levie2019cayleynets}. GBDN does not claim polynomial or complex rational filtering as new. Its distinction is to learn all-pass roots, convert their phase geometry into complementary amplitude-selective channels, and retain a reconstructing multilevel coefficient map.
+Polynomial graph filters learn direct amplitude responses through coefficients of a Laplacian polynomial. ChebNet realizes localized filters with a Chebyshev recurrence~\cite{defferrard2016chebnet}, while ChebNetII replaces unconstrained coefficient learning with Chebyshev interpolation~\cite{he2022chebnetii}. CayleyNets instead use complex rational Cayley polynomials with learned coefficients and a learned scale shared by the powers of one scalar filter~\cite{levie2019cayleynets}. GBDN does not claim polynomial or complex rational filtering as new. Its candidate distinction is independently parameterized Blaschke all-pass roots, their generic exact target-pole geometry, complementary phase-to-amplitude channels, and a reconstructing complete multilevel coefficient map. Whether that parameterization offers a useful finite-order inductive bias is an experimental question.
 
 Stable-ChebNet casts high-order Chebyshev propagation as a stable, non-dissipative dynamical system~\cite{hariri2025stablechebnet}; A-DGN derives stability and non-dissipation from antisymmetric graph dynamics~\cite{gravina2023adgn}. These guarantees concern different objects from tight coefficient analysis. GBDN therefore separates factor unitarity, carried-path contraction, complete coefficient-map isometry, and nonlinear optimization behavior.
 
