@@ -32,8 +32,8 @@ poles; reported mapped poles belong to its parameterized exact target.
 The repository is under a stop-line policy:
 
 - all 36 prespecified Gate-A correctness IDs have executable coverage;
-- the full local suite currently passes 640 tests, with one platform-specific
-  symlink test skipped where Windows privileges are unavailable;
+- the full local suite currently passes 645 tests, with two platform-specific
+  symlink tests skipped where Windows privileges are unavailable;
 - the third independent review accepted 35/36 rows; its final public-tolerance
   finding is repaired and awaits a fourth independent adjudication; and
 - no new claim-bearing H100 benchmark is authorized until that gate closes.

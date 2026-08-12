@@ -187,3 +187,10 @@
 - Enforced exact archive members and size bounds, disabled object loading, bound ordered test indices and identity, enforced task-specific head shapes, and independently recomputed multiclass accuracy or tie-aware binary ROC-AUC.
 - Kept training history, validation selection, checkpoint state, and per-epoch test metrics outside the evaluator interface. Scheduler binding to verified authoritative split metadata remains unimplemented and blocked.
 - The full repository suite passes 640 tests with one platform-specific skip and three known environment warnings. No real prediction or test metric was evaluated.
+
+## 2026-08-12 — Guarded sequential scheduler state machine
+
+- Added a scheduler that revalidates acceptance and the full run plan, admits only the canonical nonsymlinked worker, runs one isolated job at a time, and skips only verified complete bundles.
+- Made partial/corrupt/conflicting state fail closed, made recorded-failure retry explicit, and preserved nonzero-exit, timeout, and missing-bundle postcondition failures as immutable content-addressed records while optionally continuing independent jobs.
+- Kept the real training worker intentionally absent; the readiness verifier names it and missing independent operations acceptance as blockers.
+- The full repository suite passes 645 tests with two platform-specific symlink skips and three known environment warnings. No H100 process was launched.
