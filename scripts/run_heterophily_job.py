@@ -10,6 +10,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository-root", required=True)
     parser.add_argument("--run-plan", required=True)
+    parser.add_argument("--authoritative-dataset-root", required=True)
     parser.add_argument("--job-index", required=True, type=int)
     parser.add_argument("--run-id", required=True)
     return parser
@@ -34,6 +35,7 @@ def main() -> int:
     bundle = execute_planned_job(
         repository_root=arguments.repository_root,
         run_plan_path=arguments.run_plan,
+        authoritative_dataset_root=arguments.authoritative_dataset_root,
         job_index=arguments.job_index,
         run_id=arguments.run_id,
     )

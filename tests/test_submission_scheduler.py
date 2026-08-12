@@ -144,7 +144,8 @@ def test_scheduler_continues_failures_and_preserves_records(tmp_path):
     script = (
         "import argparse\n"
         "p=argparse.ArgumentParser(); p.add_argument('--repository-root'); "
-        "p.add_argument('--run-plan'); p.add_argument('--job-index', type=int); "
+        "p.add_argument('--run-plan'); p.add_argument('--authoritative-dataset-root'); "
+        "p.add_argument('--job-index', type=int); "
         "p.add_argument('--run-id'); a=p.parse_args()\n"
         "raise SystemExit(3 if a.job_index == 0 else 0)\n"
     )
@@ -528,3 +529,27 @@ def test_scheduler_requires_authoritative_dataset_root_argument(tmp_path):
             baseline_registry_path=registry,
             worker_path=worker,
         )
+
+
+def test_scheduler_passes_authoritative_dataset_root_to_worker(tmp_path):
+    run_plan, confirmatory, registry, worker = _fixture(tmp_path, "raise SystemExit(0)\n")
+    job = _job(0)
+    process = SimpleNamespace(returncode=1, stdout="", stderr="")
+    with (
+        patch("gbdn.submission_scheduler.validate_gate_a_acceptance"),
+        patch("gbdn.submission_scheduler.validate_run_plan", return_value=SimpleNamespace(jobs=(job,))),
+        patch("gbdn.submission_scheduler._validate_execution_identity"),
+        patch("gbdn.submission_scheduler.subprocess.run", return_value=process) as launch,
+    ):
+        run_confirmatory_scheduler(
+            repository_root=tmp_path,
+            run_plan_path=run_plan,
+            confirmatory_plan_path=confirmatory,
+            baseline_registry_path=registry,
+            worker_path=worker,
+            authoritative_dataset_root=tmp_path,
+            continue_on_error=False,
+        )
+    command = launch.call_args.args[0]
+    offset = command.index("--authoritative-dataset-root")
+    assert Path(command[offset + 1]) == tmp_path.resolve()

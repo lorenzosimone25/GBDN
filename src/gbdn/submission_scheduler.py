@@ -278,7 +278,8 @@ def run_confirmatory_scheduler(
         child_environment["CUBLAS_WORKSPACE_CONFIG"] = str(job.environment.cublas_workspace_config)
         child_environment["PYTHONHASHSEED"] = str(job.environment.pythonhashseed)
         command = [sys.executable, str(worker), "--repository-root", str(root), "--run-plan",
-                   str(paths["run_plan_path"]), "--job-index", str(index), "--run-id", job.identity.run_id]
+                   str(paths["run_plan_path"]), "--authoritative-dataset-root", str(dataset_root),
+                   "--job-index", str(index), "--run-id", job.identity.run_id]
         exception_type, message, stdout, stderr = "SubprocessFailure", "", "", ""
         try:
             process = subprocess.run(command, check=False, capture_output=True, text=True,

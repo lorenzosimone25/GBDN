@@ -533,7 +533,7 @@ def _validate_graph_arrays(
 
 
 def prepare_official_snapshots(
-    repository_root: str | Path,
+    authoritative_dataset_root: str | Path,
     *,
     dataset: str,
     split: int,
@@ -545,8 +545,13 @@ def prepare_official_snapshots(
     spec = resolve_dataset(dataset)
     if type(split) is not int or split not in OFFICIAL_SPLITS:
         raise ArtifactValidationError("worker split is outside official rows 0..9")
-    root = Path(repository_root).resolve(strict=True)
-    archive = root / spec.npz_path
+    dataset_root = Path(authoritative_dataset_root).resolve(strict=True)
+    archive = dataset_root / Path(spec.npz_path).name
+    if archive.is_symlink() or not archive.is_file():
+        raise ArtifactValidationError("official NPZ must be a regular file in the authoritative root")
+    resolved_archive = archive.resolve(strict=True)
+    if not resolved_archive.is_relative_to(dataset_root):
+        raise ArtifactValidationError("official NPZ escapes the authoritative dataset root")
     if archive.is_symlink() or not archive.is_file():
         raise ArtifactValidationError("pinned official NPZ is absent")
     if archive.stat().st_size != spec.npz_size_bytes or sha256_file(archive) != spec.npz_sha256:
@@ -968,11 +973,13 @@ def _run_internal(arguments: list[str]) -> None:
 
 
 def execute_planned_job(
-    *, repository_root: str | Path, run_plan_path: str | Path, job_index: int, run_id: str
+    *, repository_root: str | Path, run_plan_path: str | Path,
+    authoritative_dataset_root: str | Path, job_index: int, run_id: str
 ) -> Path:
     """Execute exactly one validated job and atomically publish its bundle."""
 
     root = Path(repository_root).resolve(strict=True)
+    dataset_root = Path(authoritative_dataset_root).resolve(strict=True)
     run_plan_target = Path(run_plan_path).resolve(strict=True)
     if run_plan_target.is_symlink() or not run_plan_target.is_file() or not run_plan_target.is_relative_to(root):
         raise ArtifactValidationError("worker run plan must be a regular repository file")
@@ -998,7 +1005,7 @@ def execute_planned_job(
         prediction = work / "predictions.npz"
         evaluation_record = work / "evaluation.json"
         prepare_official_snapshots(
-            root,
+            dataset_root,
             dataset=config.dataset,
             split=job.identity.split_id,
             selection_path=selection,
