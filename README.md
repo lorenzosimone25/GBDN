@@ -32,9 +32,10 @@ poles; reported mapped poles belong to its parameterized exact target.
 The repository is under a stop-line policy:
 
 - all 36 prespecified Gate-A correctness IDs have executable coverage;
-- the full local suite currently passes 449 tests;
-- final row-level provenance and independent Gate-A acceptance are still in
-  progress; and
+- the full local suite currently passes 592 tests, with one platform-specific
+  symlink test skipped where Windows privileges are unavailable;
+- the third independent review accepted 35/36 rows; its final public-tolerance
+  finding is repaired and awaits a fourth independent adjudication; and
 - no new claim-bearing H100 benchmark is authorized until that gate closes.
 
 The active manuscript therefore labels existing mechanism studies and the
@@ -67,6 +68,11 @@ isolated subprocess and the immutable artifact/resume path. They do not launch
 official datasets, CUDA work, or claim-bearing experiments. The H100 operator
 notebook and the broader submission phases remain absent and blocked pending
 independent Gate-A acceptance and reviewed official task contracts.
+
+The official five-dataset task/metadata registry is implemented, but its NPZ
+checksums, redistribution records, adapters, test-isolated evaluator, verified
+baseline registry, and full scheduler are intentionally unresolved. A passing
+CPU smoke must not be interpreted as benchmark readiness.
 
 ## Legacy reproduction
 

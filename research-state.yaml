@@ -44,19 +44,16 @@ completed_tasks:
 active_tasks:
   - ENG-002
   - ENG-008
-  - REV-GATEA-REVIEW-4
-  - REV-OPS-CPU-SMOKE-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
   h100_confirmation_allowed: false
   reasons:
     - Strict legacy reproduction verification fails with 28 reported problems.
-    - The third independent review accepted 35 of 36 mandatory rows but rejected GA-00 because both public exact eigendecomposition constructors allow a large finite orthogonality tolerance to disable the theorem premise.
-    - With orthogonality_atol=10, the frozen two-node nonorthogonal basis is accepted and reproduces operator unitarity defect 4.83269046506849; a fixed fail-closed tolerance and fourth review are required.
+    - The third independent review accepted 35 of 36 mandatory rows and rejected GA-00 for a caller-controlled exactness tolerance. That escape is repaired with fixed fail-closed validation, but fourth independent acceptance is unavailable because reviewer service quota was exhausted before producing evidence.
     - The repaired theory manuscript remains paper-blocked pending final Gate-A provenance and independent acceptance; its Chebyshev attribution block is resolved.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
-    - The submission CLI, frozen run plan, official task contracts, independent metric recomputation, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
+    - The diagnostic CPU CLI, immutable one-job plan, and independent smoke-metric recomputation exist; the full scheduler, acceptance token, official test evaluator, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol and metadata contract are frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
   automated_tests: 592
@@ -71,9 +68,11 @@ current_evidence:
   legacy_verifier_problems: 28
   frozen_result_files: 128
   mechanism_files: 4
+  diagnostic_cpu_smoke_run_id: 84e410613b7c03cb2efe420fd537e31633de71343d67fb32b1bae911cbced57d
+  diagnostic_cpu_smoke_resume: matching_complete_then_skipped_same_worker
 next_dependency_chain:
   - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
-  - Obtain an independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
+  - Obtain independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
   - Independently review the CPU-only official task registry before any dataset acquisition or evaluation code.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
