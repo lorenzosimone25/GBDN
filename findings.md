@@ -52,3 +52,9 @@
 - The confirmatory unit is the official split after averaging at least three training seeds within split. The full frozen grid is ten supplied splits by seeds `[0,1,2]`; thirty seed-level runs are not thirty independent inferential observations.
 - Dataset identity requires the official source commit, NPZ and per-array hashes, canonical serialization, exact graph expansion, ordered split-mask identities, and reviewed redistribution terms. These hashes and terms are unresolved, so no real-data execution is authorized.
 - Training and checkpoint selection must receive only train/validation identities and the official validation metric. Test identities and evaluation belong to a later isolated, post-freeze process.
+
+## Operations lessons and constraints
+
+- Matching immutable run identity is necessary but not sufficient for safe resume: the parent must also require equality of the complete source and environment metadata captured by the worker.
+- Device isolation is a provenance boundary. Diagnostic CPU plan construction and worker launch now both require `CUDA_VISIBLE_DEVICES=-1` before importing the canonical package/PyTorch; inherited accelerator visibility is rejected.
+- A resumable worker must be the canonical source-bound entry point, not an arbitrary caller-selected script. Prediction verification must bound compressed input sizes before deserialization and canonical output roots must remain inside the repository after path resolution.

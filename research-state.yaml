@@ -59,8 +59,8 @@ stop_line:
     - The submission CLI, frozen run plan, official task contracts, independent metric recomputation, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol and metadata contract are frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
-  automated_tests: 590
-  automated_tests_passing: 590
+  automated_tests: 592
+  automated_tests_passing: 592
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   gate_a_evidence_value_fields: 817
@@ -73,7 +73,7 @@ current_evidence:
   mechanism_files: 4
 next_dependency_chain:
   - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
-  - Independently adjudicate the CPU-only immutable smoke/resume/metric-recomputation path.
+  - Obtain an independent adjudication of the hardened CPU-only smoke/resume/metric-recomputation path when reviewer capacity is available.
   - Independently review the CPU-only official task registry before any dataset acquisition or evaluation code.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:

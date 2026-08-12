@@ -136,3 +136,10 @@
 - Made unresolved NPZ checksums and dataset-specific redistribution terms explicit blockers rather than placeholder acceptance. No data was downloaded or opened.
 - Added a training/checkpoint-selection view whose exact-key parser rejects test indices, labels, or metrics, preserving the future process-level leakage boundary at the contract layer.
 - The contract/smoke/artifact slice passes 49 tests and the complete integrated suite passes 590 tests with three known environment warnings. Independent contract review is still required before acquisition or evaluation implementation.
+
+## 2026-08-12 — CPU smoke adversarial hardening
+
+- Found that the reusable smoke API could build a parent plan under one environment and accept a worker bundle captured under another because resume validation compared run identity but not the full parent source/environment records.
+- Bound completed source and environment metadata to the parent plan, forced diagnostic plan construction under `CUDA_VISIBLE_DEVICES=-1`, supplied an explicit isolated child environment, and restricted the worker to the canonical repository script.
+- Added compressed-archive/member limits before NumPy loading and rejected `results_submission` roots that resolve through a symlink outside the repository. The output-root symlink regression is skipped where Windows symlink privileges are unavailable; the underlying canonical artifact layer retains separate junction/symlink tests.
+- The hardened operations/boundary/contract slice passes 67 tests with one platform skip. The complete suite passes 592 tests with the same platform skip and three known environment warnings. Independent operations review remains pending because the delegated reviewer exhausted its service quota without producing evidence.
