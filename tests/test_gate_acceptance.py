@@ -127,6 +127,15 @@ def test_valid_acceptance_is_review_source_and_artifact_bound(tmp_path):
     assert accepted.gate_report_path.endswith("gate_a_report.json")
 
 
+def test_protected_paths_cover_every_gate_a_test_module():
+    root = Path(__file__).resolve().parents[1]
+    gate_tests = {
+        path.relative_to(root).as_posix()
+        for path in (root / "tests").glob("test_gate_a*.py")
+    }
+    assert gate_tests <= set(PROTECTED_PATHS)
+
+
 def test_absent_token_and_wrong_path_fail_closed(tmp_path):
     repository, _ = _accepted_repository(tmp_path)
     (repository / ACCEPTANCE_RELATIVE_PATH).unlink()

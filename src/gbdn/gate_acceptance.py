@@ -43,10 +43,14 @@ PROTECTED_PATHS: Final[tuple[str, ...]] = (
     "src/gbdn/submission.py",
     "tests/test_gate_a.py",
     "tests/test_gate_a_approximation.py",
+    "tests/test_gate_a_closeout.py",
     "tests/test_gate_a_core_slice.py",
     "tests/test_gate_a_exact_slice.py",
     "tests/test_gate_a_fixture_completion.py",
+    "tests/test_gate_a_fixture_matrix.py",
     "tests/test_gate_a_provenance.py",
+    "tests/test_gate_a_public_boundary.py",
+    "tests/test_gate_acceptance.py",
 )
 _GIT_OBJECT = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
