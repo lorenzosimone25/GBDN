@@ -194,3 +194,10 @@
 - Made partial/corrupt/conflicting state fail closed, made recorded-failure retry explicit, and preserved nonzero-exit, timeout, and missing-bundle postcondition failures as immutable content-addressed records while optionally continuing independent jobs.
 - Kept the real training worker intentionally absent; the readiness verifier names it and missing independent operations acceptance as blockers.
 - The full repository suite passes 645 tests with two platform-specific symlink skips and three known environment warnings. No H100 process was launched.
+
+## 2026-08-12 — Official byte identity and comparator-license audit
+
+- Downloaded the five files from the exact official commit to a unique system-temp directory solely to compute whole-file SHA-256; recorded byte size and Git blob SHA-1 from the GitHub API. No archive was deserialized and no label/split array was opened.
+- Pinned those byte identities in the canonical task registry while keeping acquisition/publication false because dataset-specific redistribution terms remain unresolved.
+- Queried the pinned first-party ChebNetII, BernNet, GPR-GNN, and WaveGC roots. GitHub reports no SPDX license and no root LICENSE/LICENCE/COPYING/NOTICE file at any audited commit, so none may be vendored or marked verified.
+- Windows command policy blocked deletion of the already verified unique temp path; it remains untouched outside the repository. The full suite remains 645 passed, 2 privilege-dependent skips, and 3 known environment warnings.

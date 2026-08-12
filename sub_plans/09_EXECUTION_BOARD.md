@@ -85,6 +85,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | EXP-006-EVALUATOR-1 | Implement isolated post-freeze task-specific prediction evaluator | Engineer | EXP-006-CONTRACT-1, EXP-011-STATISTICS-CONTRACT-1 | Synthetic-only identity/index/head/archive/metric verification | DONE |
 | EXP-011-STATISTICS-CONTRACT-1 | Implement task-specific metric recomputation and split-first statistical contract | Engineer | EXP-006-CONTRACT-1 | Synthetic-only metric, aggregation, paired-test, and multiplicity tests | DONE |
 | EXP-007-008-ADMISSION-CONTRACT-1 | Implement baseline-admission and equal-budget confirmatory-plan schemas | Engineer | EXP-006-PREFLIGHT | Synthetic-only provenance/parity/resource/budget/grid validators; no baseline admitted | DONE |
+| EXP-006-007-IDENTITY-AUDIT-1 | Pin official NPZ byte identity and audit comparator root licenses | Orchestrator | EXP-006-PREFLIGHT | Five size/blob/SHA records; four pinned spectral baselines remain BLOCKED | DONE |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |
