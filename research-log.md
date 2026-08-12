@@ -25,3 +25,11 @@
 - Rejected `rho*phi(mu)` as an exact frequency-center parameterization. Kept unrestricted radial roots primary and admitted `phi(mu+i*gamma)` only as a Gate-B ablation candidate.
 - Dropped optional unitary routing from the primary scope and froze the negative boundary from complete-map isometry to oversquashing claims.
 - Opened MATH-001 and ENG-001 in parallel; no claim-bearing experiment is authorized.
+
+## 2026-08-12 — Gate A preflight adjudication
+
+- Accepted the 36-test GA-00–GA-35 mathematical contract as the Gate A target; none of these claims is promoted until executable evidence and independent review pass.
+- Chose a deterministic graph policy: the core rejects invalid operators; a separate recorded preprocessor may use `A_sym=(A+A^T)/2` after coalescing, removing/counting self-loops, and validating nonnegative finite weights.
+- Froze roots and `L` with respect to each analyzed input, qualified pointwise paraunitary terminology, and reserved literal mapped-pole language for the exact rational target.
+- Froze the heterogeneous finite-order frame formula and complete hypotheses for generic reduced-pole separation and fixed-root operator perturbation stability.
+- Merged ENG-001 provenance isolation and output-boundary tests, the MATH-001 theorem/proof/counterexample ledgers, and the independent Gate-A contract preflight.

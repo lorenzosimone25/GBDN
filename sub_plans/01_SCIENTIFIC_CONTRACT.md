@@ -6,7 +6,7 @@ This file defines the scientific identity that the mathematics, implementation, 
 
 The following decisions are frozen for Gate A.
 
-1. **Paper identity:** foundational movable-pole paraunitary graph spectral filter-bank work. Heterophily and long-range behavior are evaluation domains, not the paper identity unless later gates support that change.
+1. **Paper identity:** foundational learned Blaschke-root-parameterized, nonsubsampled Parseval-tight graph spectral analysis. Heterophily and long-range behavior are evaluation domains, not the paper identity unless later gates support that change. The term *paraunitary* may appear only after defining the pointwise analysis vector whose squared Hermitian norm is one; it must not imply a critically sampled polyphase construction.
 2. **Primary method:** Tight GBDN. Product-sum GBDN is a secondary expressivity variant. Canonical GBDN+ is a separately labeled relaxation. The preserved H100 implementation is always named **Legacy GBDN+** and cannot define or validate the revised method.
 3. **Realization tags:** every theorem, model, run, figure, and table must identify `exact`, `chebyshev-K`, or `legacy`. Exact guarantees never transfer silently to a finite realization.
 4. **Coefficient order:** the canonical complete tuple and public API order are
@@ -15,21 +15,25 @@ The following decisions are frozen for Gate A.
    \]
    Any internal alternative order must be exposed only through an explicit tested permutation.
 5. **Norms:** matrix-valued graph signals use the Frobenius norm; complete coefficients use the corresponding Hilbert direct-sum norm; operator bounds use the induced spectral norm.
-6. **Graph contract:** the canonical operator accepts only a finite self-adjoint graph operator. Graph construction must either reject asymmetric/negative inputs or apply an explicit, deterministic, recorded undirected-weight policy before building the Laplacian. Silent reliance on a Hermitian eigensolver is invalid.
-7. **Root semantics:** the unrestricted canonical parameterization remains radial polar. The proposal `alpha = rho phi(mu)` is rejected as an **exact** frequency-center parameterization because its mapped-zero real part is generally not `mu` for finite `rho`. An optional interpretable parameterization may use
+6. **Graph contract:** the canonical core accepts only a finite self-adjoint graph operator and **rejects** asymmetric, negative, nonfinite, or otherwise invalid inputs. A separate explicit preprocessor may convert a directed nonnegative adjacency by `A_sym=(A+A^T)/2`; it must record that policy and the input/output hashes. Missing reverse edges have weight zero in this formula. Duplicate directed edges are summed before symmetrization, input self-loops are removed and counted, and isolated vertices use diagonal normalized-Laplacian value one. Silent symmetrization inside the operator or reliance on a Hermitian eigensolver is invalid.
+7. **Root semantics:** the unrestricted canonical parameterization remains radial polar. Roots and `L` are held fixed with respect to the analyzed input; the primary method has no input-conditioned root path. The proposal `alpha = rho phi(mu)` is rejected as an **exact** frequency-center parameterization because its mapped-zero real part is generally not `mu` for finite `rho`. An optional interpretable parameterization may use
    \[
    \alpha=\phi(\mu+i\gamma),\qquad \mu\in[0,2],\quad \gamma>0,
    \]
-   which places the mapped zero exactly at `mu+i gamma`; it must be evaluated as an ablation before adoption.
+   which places the mapped zero exactly at `mu+i gamma`; it must use frozen finite bounds `0 < gamma_min <= gamma <= gamma_max`, report the resulting pole margin, and be evaluated as an ablation before adoption.
 8. **Optional unitary routing:** dropped from the primary method for this submission unless Gate B exposes a specific failure that it remedies under the same scientific contract.
 9. **Phenomenon claims:** complete-map isometry permits a global injectivity/conditioning statement only. It does not imply carried-state non-dissipation, practical anti-oversmoothing, nonzero source-to-target sensitivity, or mitigation of oversquashing.
 10. **Evidence admission:** legacy H100 and simplified Peptides artifacts remain diagnostic-only. No claim-bearing H100 job may start before Gate A and immutable artifact infrastructure pass independent review.
+11. **Pole language:** an `exact` Blaschke--Cayley rational target has mapped poles. A degree-`K` Chebyshev realization is a polynomial and has no literal finite rational poles; its diagnostics must say **target mapped poles** or **pole-parameterized target response**.
+12. **Linearity scope:** statements about `A_D^*A_D`, singular values, condition number, adjoints, or Jacobian isometry condition on fixed roots and a fixed self-adjoint `L`. Training may change roots between optimizer steps, but they do not depend on the signal passed through one analysis map.
 
 ## 1. Canonical paper identity
 
 Preferred framing:
 
-> **GBDN is a learned movable-pole Blaschke–Cayley paraunitary graph spectral filter bank. Blaschke roots control localized spectral phase transitions; interference with the identity converts phase into complementary amplitude-selective channels; and the complete exact multilevel representation is Parseval tight.**
+> **GBDN is a learned Blaschke-root-parameterized, nonsubsampled Parseval-tight graph spectral analysis bank. In its exact rational target, Blaschke roots induce movable poles and localized spectral phase transitions; interference with the identity converts phase into complementary amplitude-selective channels; and the complete exact multilevel representation is an isometry.**
+
+When used later, *pointwise paraunitary* means only that the effective scalar analysis vector (a(lambda)) satisfies (a(lambda)^*a(lambda)=1) for each real graph frequency. It does not assert downsampling, a polyphase matrix, critical sampling, or novelty of the generic unitary split.
 
 Do not frame the work as a direct graph implementation of classical phase unwinding or as a graph analytic signal.
 
@@ -48,6 +52,7 @@ Primary theory scope:
   \]
 - scalar spectral functional calculus;
 - exact operators distinguished from finite-degree sparse realizations.
+- graph operator and roots fixed independently of the analyzed input for every linear, adjoint, conditioning, or Jacobian statement.
 
 Extensions to directed, magnetic, time-varying, or non-normal graph operators require separate theory.
 
@@ -107,7 +112,7 @@ Preferred exact center-width parameterization to evaluate:
 \mu_r\in[0,2],\quad \gamma_r>0.
 \]
 
-This maps the zero to \(\mu_r+i\gamma_r\), so \(\mu_r\) is the exact phase-derivative center and \(\gamma_r\) its half-width. The implementation must constrain \(\mu_r\) and \(\gamma_r\), verify \(|\alpha_r|<1\), and compare this restricted interpretable family with the unrestricted radial family before it becomes primary.
+This maps the zero to \(\mu_r+i\gamma_r\), so \(\mu_r\) is the exact phase-derivative center and \(\gamma_r\) its half-width. The implementation must constrain \(\mu_r\) to \([0,2]\), constrain \(\gamma_r\) to frozen finite bounds \([\gamma_{\min},\gamma_{\max}]\) with \(\gamma_{\min}>0\), verify \(|\alpha_r|<1\), test extreme gradients, and compare this restricted interpretable family with the unrestricted radial family before it becomes primary. For unrestricted roots whose mapped-zero real part lies outside \([0,2]\), report the mapped location and the maximum over the observed interval separately.
 
 Independent Cartesian `tanh` constraints are invalid because they do not enforce the joint modulus.
 
@@ -269,14 +274,30 @@ If
 \|T_\ell-\widetilde T_\ell\|_{\mathrm{op}}\le\epsilon_\ell,
 \]
 
-derive an explicit bound
+Define
+
+\[
+d_\ell=\epsilon_\ell+\frac{\epsilon_\ell^2}{2},
+\qquad
+c_\ell=\left(1+\frac{\epsilon_\ell}{2}\right)^2,
+\]
+
+and
+
+\[
+\Delta_D=
+\sum_{\ell=0}^{D-1}
+d_\ell\prod_{j=0}^{\ell-1}c_j.
+\]
+
+The frozen Gate-A theorem is
 
 \[
 \|\widetilde A_D^*\widetilde A_D-I\|_{\mathrm{op}}
-\le\Delta_D(\epsilon_0,\ldots,\epsilon_{D-1}),
+\le\Delta_D.
 \]
 
-with corresponding lower and upper frame bounds when \(\Delta_D<1\).
+The corresponding lower and upper frame bounds are \(1-\Delta_D\) and \(1+\Delta_D\) only when \(\Delta_D<1\). The premise uses true operator-norm errors for fixed approximate maps, never a sampled-vector error.
 
 The theorem must be measurable from the implementation.
 
@@ -292,18 +313,26 @@ Formalize the trade-off among:
 
 #### T-F: Movable-pole separation from fixed-pole Cayley filters
 
-State a rational-function separation result based on the reduced pole multiset. The claim should be generic and exact, not an unqualified universal superiority statement.
+Let \(\mathcal F_S\) be a frozen rational comparison family whose **reduced** poles, including every permitted learned scale, lie in a documented locus \(S\). If an exact GBDN target has an uncancelled reduced mapped pole \(p_\alpha\notin S\), then it cannot equal a member of \(\mathcal F_S\) on a real interval with an accumulation point. This statement excludes equality only on a finite graph spectrum, pole cancellations or coincidences, and comparator families with free poles. It proves neither approximation efficiency nor superiority. A CayleyNet-specific corollary is prohibited until the Reviewer verifies its exact real-response family, scale convention, order, and pole locus from the primary source.
 
 #### T-G: Graph perturbation stability
 
-Seek a resolvent-based bound of the form
+For aligned self-adjoint \(L,L'\) with spectra in \([0,2]\), roots fixed independently of the input and perturbation, and
 
 \[
-\|g(L)-g(L')\|_{\mathrm{op}}
-\le C(R,\delta_p)\|L-L'\|_{\mathrm{op}},
+\delta_\alpha=\operatorname{dist}(p_\alpha,[0,2])>0,
 \]
 
-under a positive pole margin \(\delta_p\).
+the one-factor resolvent bound is
+
+\[
+\|g_\alpha(L)-g_\alpha(L')\|_{\mathrm{op}}
+\le
+\frac{|p_\alpha-z_\alpha|}{\delta_\alpha^2}
+\|L-L'\|_{\mathrm{op}}.
+\]
+
+For a finite product, the factor constants add by unitary telescoping. This is an operator perturbation theorem, not an edge-edit, unmatched-vertex, retraining, or optimization-stability theorem. A graph-edge corollary additionally requires the recorded normalization policy and a positive degree lower bound.
 
 #### T-H: Locality and sparse-operation complexity
 
@@ -361,8 +390,9 @@ Any stronger statement requires a valid theorem and dedicated experiments.
 
 Use:
 
-- “learned movable-pole spectral phase parameterization”;
-- “paraunitary” or “Parseval-tight coefficient analysis”;
+- “learned movable-pole spectral phase parameterization” for the exact rational target;
+- “nonsubsampled Parseval-tight coefficient analysis”;
+- “pointwise paraunitary” only with the local definition above;
 - “complete coefficient representation”;
 - “global perturbation-energy preservation”;
 - “dedicated experiments assess oversmoothing and oversquashing separately.”
@@ -374,6 +404,7 @@ Avoid:
 - “non-dissipative dynamics” unless the object and norm are named;
 - “long-range” based only on the heterophily datasets;
 - “state of the art” without the frozen confirmatory table and paired analysis.
+- literal “poles of the Chebyshev realization”; use “target mapped poles” instead.
 
 ## 10. Scientific decision outcomes
 

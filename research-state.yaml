@@ -15,9 +15,13 @@ completed_tasks:
   - PH0-MATH-001
   - PH0-ENG-001
   - SCI-001
-active_tasks:
   - MATH-001
   - ENG-001
+  - REV-GATEA-PREFLIGHT
+active_tasks:
+  - ENG-002
+  - ENG-003
+  - ENG-008
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
