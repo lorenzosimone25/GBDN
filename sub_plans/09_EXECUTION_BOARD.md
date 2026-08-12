@@ -59,9 +59,11 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | ENG-R3-ARTIFACT-1 | Bind residual-first complex coefficients through immutable artifact serialization | Engineer | OPS-RUNID-1, ENG-GATEA-SEMANTIC-REPAIR-1 | Order/dtype/shape/run/hash-bound codec and adversarial tests | DONE |
 | ENG-GATEA-PUBLIC-BOUNDARY-2 | Repair public exact-operator validation, GA-13 premise binding, and report status semantics | Engineer | REV-GATEA-REVIEW-2 | Canonical source/tests/evidence/report patch | DONE |
 | REV-GATEA-REVIEW-3 | Independently adjudicate the repaired public boundary and complete Gate-A evidence | Reviewer | ENG-GATEA-PUBLIC-BOUNDARY-2 | Clean-commit row-by-row and binary Gate-A decision | DONE |
-| ENG-GATEA-TOLERANCE-3 | Remove caller-controlled exactness tolerance escape and add frozen regressions | Engineer | REV-GATEA-REVIEW-3 | Fixed public validation boundary, tests, and clean evidence | IN_PROGRESS |
+| ENG-GATEA-TOLERANCE-3 | Remove caller-controlled exactness tolerance escape and add frozen regressions | Engineer | REV-GATEA-REVIEW-3 | Fixed public validation boundary, tests, and clean evidence | DONE |
+| REV-GATEA-REVIEW-4 | Independently adjudicate the fixed public validation boundary and complete Gate A | Reviewer | ENG-GATEA-TOLERANCE-3 | Clean-commit row-by-row and binary Gate-A decision | IN_PROGRESS |
 | OPS-H100-PREFLIGHT-1 | Audit the submission runner/notebook gap without executing experiments | Reviewer | OPS-RUNID-1 | Read-only implementation sequence and H100-only publication scope | DONE |
 | OPS-CPU-SMOKE-1 | Implement one CPU-only immutable smoke/resume/recompute path | Engineer | OPS-H100-PREFLIGHT-1, OPS-RUNID-1 | Submission preflight/smoke CLI, reusable runner, and adversarial tests | DONE |
+| REV-OPS-CPU-SMOKE-1 | Independently adversarially review CPU smoke/resume/recompute path | Reviewer | OPS-CPU-SMOKE-1 | Binary operations-safety verdict | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
@@ -75,6 +77,7 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | REV-003 | Review mechanism claims and figures | Reviewer | EXP-005 | Mechanism review | BACKLOG |
 | EXP-006 | Implement official heterophily task contract | Engineer | OPS-002 | Protocol tests | BACKLOG |
 | EXP-006-PREFLIGHT | Freeze official five-dataset task, split, metric, provenance, and baseline-admission contract | Reviewer | ORCH-001 | Primary-source protocol audit and manifest | DONE |
+| EXP-006-CONTRACT-1 | Implement declarative official dataset/task registry and leakage-safe metadata validation | Engineer | EXP-006-PREFLIGHT | CPU-only registry and contract tests | IN_PROGRESS |
 | EXP-007 | Verify primary heterophily baselines | Engineer | EXP-006 | `VERIFIED` registry entries | BACKLOG |
 | EXP-008 | Freeze tuning policy and hyperparameter budgets | Orchestrator | EXP-007 | Run-plan decision | BACKLOG |
 | EXP-009 | Run heterophily tuning | Engineer | EXP-008, OPS-004 | Frozen configs | BACKLOG |

@@ -39,10 +39,13 @@ completed_tasks:
   - REV-GATEA-REVIEW-3
   - EXP-006-PREFLIGHT
   - OPS-CPU-SMOKE-1
+  - ENG-GATEA-TOLERANCE-3
 active_tasks:
   - ENG-002
   - ENG-008
-  - ENG-GATEA-TOLERANCE-3
+  - REV-GATEA-REVIEW-4
+  - REV-OPS-CPU-SMOKE-1
+  - EXP-006-CONTRACT-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
@@ -56,11 +59,11 @@ stop_line:
     - The submission CLI, frozen run plan, official task contracts, independent metric recomputation, aggregation, renderer, verifier, and thin H100 notebook are not yet implemented.
     - The official five-dataset protocol is frozen, but dataset/array checksums, redistribution terms, adapter parity, and upstream baseline version/license evidence remain unresolved.
 current_evidence:
-  automated_tests: 565
-  automated_tests_passing: 565
+  automated_tests: 573
+  automated_tests_passing: 573
   mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
-  gate_a_evidence_value_fields: 811
+  gate_a_evidence_value_fields: 817
   gate_a_evidence_typed_na_fields: 59
   immutable_artifact_core_tests_passing: 60
   residual_first_coefficient_artifact_tests_passing: 19
@@ -69,9 +72,9 @@ current_evidence:
   frozen_result_files: 128
   mechanism_files: 4
 next_dependency_chain:
-  - Remove the caller-controlled exactness tolerance escape and rerun the complete clean Gate-A catalog.
   - Obtain a fourth independent Gate-A adjudication of the fixed public constructors.
-  - Independently review the completed CPU-only immutable smoke/resume/metric-recomputation path.
+  - Independently adjudicate the CPU-only immutable smoke/resume/metric-recomputation path.
+  - Review the CPU-only official task registry before any dataset acquisition or evaluation code.
   - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.

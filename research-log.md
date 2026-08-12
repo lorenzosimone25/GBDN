@@ -121,3 +121,10 @@
 - Independently recomputed the saved prediction accuracy, rejected tampering, and verified that a second invocation resumes as `skipped` without rerunning the worker. No raw bundle was retained or committed.
 - Kept every claim-bearing mode fail-closed behind an intentionally unimplemented, independently reviewed Gate-A acceptance-token schema. The H100 notebook, GPU scheduler, official datasets, multi-job failure handling, statistics, renderers, and final verifier remain absent.
 - The integrated smoke/artifact/provenance slice passes 41 tests; the source branch full suite passed 565 tests with three known environment warnings. This operational milestone enables no scientific claim.
+
+## 2026-08-12 — Exact validation tolerance closure
+
+- Removed caller-controlled orthogonality relaxation from every root-exported exact eigendecomposition boundary and froze a dtype-aware internal threshold. The previous `orthogonality_atol=10` bypass is now a rejected keyword on all aliases.
+- Removed public symmetry/spectral tolerance and spectrum-disable knobs from canonical graph validators; only a private post-construction path may omit the dense spectrum check after validated normalized-Laplacian construction.
+- Added regressions for the frozen nonorthogonal basis, large/NaN/infinite/negative tolerance attempts, spectrum-disable attempts, and out-of-range diagonal spectra. The GA-00 evidence now records zero accepted public bypasses.
+- The combined repository suite passes 573 tests with three known environment warnings. A fourth independent review is active; Gate A remains closed until its verdict.
