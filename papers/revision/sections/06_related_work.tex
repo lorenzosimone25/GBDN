@@ -3,29 +3,128 @@
 
 \begin{table*}[!t]
 \centering
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.08}
-\caption{Positioning by spectral construction, learned selection, and structural guarantee. A missing guarantee means that the cited method does not claim it, not that it cannot be extended.}
-\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth}XXX@{}}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.04}
+\caption{Methodological positioning from primary sources. The ``verified scope''
+column reports what each cited paper establishes or evaluates; it is not an
+independent validation of that result. Exact GBDN guarantees apply to the exact
+spectral operator, whereas its finite Chebyshev realization has a measured defect.}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.255\textwidth}>{\raggedright\arraybackslash}p{0.285\textwidth}X@{}}
 \toprule
-Family & Spectral construction & Learned selection & Guarantee and realization \\
+Family & Parameterized object & Verified scope in the cited source & Relation to GBDN \\
 \midrule
-ChebNet/II~\cite{defferrard2016chebnet,he2022chebnetii} & Chebyshev polynomial or interpolant & Direct coefficients; no learned roots & No intrinsic tightness or depth guarantee; sparse recurrence \\
-CayleyNets~\cite{levie2019cayleynets} & Rational Cayley polynomial & Complex coefficients and a learned shared scale; restricted pole locus & No reconstruction or depth guarantee; rational iteration \\
-Stable-ChebNet~\cite{hariri2025stablechebnet} & Chebyshev dynamics & Direct polynomial channels; no learned roots & Stable, non-dissipative dynamics; sparse recurrence \\
-WaveGC~\cite{liu2025wavegc} & Learned graph-wavelet bases & Matrix-valued kernel; no learned roots & Receptive-field analysis; Chebyshev orders \\
-Tight GBDN & Blaschke factors after the Cayley map & Learned roots and $I\!\pm\!\Tcal$ interference & Exact analysis--synthesis and coefficient isometry; sparse Chebyshev \\
-Product-sum GBDN & Cumulative all-pass products & Learned roots and complex output sum & Unitary factors but no general reconstruction; sparse Chebyshev \\
-GBDN+ & All-pass branch plus polynomial correction & Learned roots and a parallel mixture & No strict structural guarantee; sparse Chebyshev \\
+Graph-QMF~\cite{narang2012graphqmf}
+& Two-channel spectral QMF with graph down/up-sampling
+& Critical sampling, bipartite spectral folding, alias cancellation, and perfect-reconstruction/orthogonality conditions
+& Prior perfect-reconstruction bank; unlike GBDN's redundant, nonsubsampled complete stack \\
+Undecimated graph framelets~\cite{zheng2021framelets}
+& Full-resolution low/high multiscale framelet coefficients
+& Tight-frame decomposition and reconstruction; information-conserving multiscale representation
+& Closest tight-stack precedent; filters are not parameterized by learned Blaschke roots \\
+Polynomial response filters~\cite{defferrard2016chebnet,he2022chebnetii,he2021bernnet}
+& Chebyshev recurrence/interpolation or Bernstein coefficients
+& Sparse polynomial evaluation and flexible learned amplitude responses
+& Matched controls for the finite-order realization and response-fitting efficiency \\
+Adaptive heterophily filters~\cite{chien2021gprgnn,huang2024unifilter,zhang2025herofilter}
+& Signed propagation weights, adaptive polynomial bases, or adaptive filter mixing
+& Data-dependent responses across homophilic and heterophilic regimes
+& Precludes priority claims based only on adaptive spectral learning or heterophily \\
+CayleyNets~\cite{levie2019cayleynets}
+& Complex Cayley powers with learned coefficients and shared scale $h$
+& Rational filtering with a learned, restricted shared pole locus; sparse rational iteration
+& Closest pole-family comparator; GBDN independently moves generic exact-target poles \\
+SLOG~\cite{xu2024slog}
+& Real-valued adaptive non-polynomial filter with subgraph sampling
+& Geometrically interpreted, inductive spectral filtering
+& Blocks ``first non-polynomial spectral GNN''; a distinct non-polynomial family \\
+WaveGC~\cite{liu2025wavegc}
+& Multiresolution spectral bases, matrix-valued kernels, and odd/even Chebyshev decomposition
+& Wavelet admissibility and short-/long-range analysis
+& Multiresolution comparator without Blaschke all-pass root geometry \\
+Unitary/stable dynamics~\cite{kiani2024unitary,gravina2023adgn,hariri2025stablechebnet}
+& Unitary, antisymmetric, or stable Chebyshev state propagation
+& Oversmoothing, stability, non-dissipation, or long-range results for network states/dynamics
+& Different object from isometry of GBDN's complete coefficient map \\
+Tight GBDN
+& Blaschke factors after the Cayley map and complementary $I\!\pm\!\Tcal$ channels
+& Exact complete-map isometry and analysis--synthesis; approximate sparse realization
+& Proposed combination of independent generic-pole targets and a nonsubsampled tight stack \\
+Product-sum GBDN / GBDN+
+& Cumulative all-pass sum / all-pass branch with polynomial correction
+& Unitary exact factors only / no strict all-pass guarantee
+& Expressive relaxations without Tight GBDN's general reconstruction theorem \\
 \bottomrule
 \end{tabularx}
 \end{table*}
 
-Polynomial graph filters learn direct amplitude responses through coefficients of a Laplacian polynomial. ChebNet realizes localized filters with a Chebyshev recurrence~\cite{defferrard2016chebnet}, while ChebNetII replaces unconstrained coefficient learning with Chebyshev interpolation~\cite{he2022chebnetii}. CayleyNets instead use complex rational Cayley polynomials with learned coefficients and a learned scale shared by the powers of one scalar filter~\cite{levie2019cayleynets}. GBDN does not claim polynomial or complex rational filtering as new. Its candidate distinction is independently parameterized Blaschke all-pass roots, their generic exact target-pole geometry, complementary phase-to-amplitude channels, and a reconstructing complete multilevel coefficient map. Whether that parameterization offers a useful finite-order inductive bias is an experimental question.
+\paragraph{Graph filter banks and multiresolution analysis.}
+Perfect-reconstruction graph filter banks predate this work. Graph-QMF couples a
+two-channel spectral bank to graph down/up-sampling and derives alias-cancellation,
+orthogonality, and perfect-reconstruction conditions on bipartite graphs; arbitrary
+graphs are handled through bipartite subgraph decomposition~\cite{narang2012graphqmf}.
+It is critically sampled. Tight GBDN instead retains $D+1$ full graph signals in its
+complete depth-$D$ representation, so it is redundant and nonsubsampled. Undecimated
+graph framelets are the closer precedent for this aspect: their full-resolution
+multiscale coefficients form a tight representation with decomposition and
+reconstruction~\cite{zheng2021framelets}. WaveGC further learns multiresolution graph
+wavelets through an odd/even Chebyshev-order construction with wavelet-admissibility
+constraints~\cite{liu2025wavegc}. GBDN therefore does not claim tight graph analysis,
+perfect reconstruction, or multiresolution graph filtering as firsts. Its candidate
+distinction is the learned Blaschke all-pass parameterization inside the complete
+analysis map.
 
-Stable-ChebNet casts high-order Chebyshev propagation as a stable, non-dissipative dynamical system~\cite{hariri2025stablechebnet}; A-DGN derives stability and non-dissipation from antisymmetric graph dynamics~\cite{gravina2023adgn}. These guarantees concern different objects from tight coefficient analysis. GBDN therefore separates factor unitarity, carried-path contraction, complete coefficient-map isometry, and nonlinear optimization behavior.
+\paragraph{Polynomial and adaptive spectral filters.}
+ChebNet realizes localized graph filters with sparse Chebyshev recurrences, and
+ChebNetII parameterizes the response through Chebyshev interpolation
+coefficients~\cite{defferrard2016chebnet,he2022chebnetii}. BernNet instead learns a
+Bernstein-polynomial response and explicitly evaluates complicated band-rejection and
+comb filters~\cite{he2021bernnet}. GPR-GNN learns signed generalized-PageRank
+propagation weights~\cite{chien2021gprgnn}; UniFilter combines adaptive heterophily
+and homophily polynomial bases~\cite{huang2024unifilter}; and HeroFilter adapts its
+filter mixture after showing that the desired response need not vary monotonically
+with a scalar heterophily level~\cite{zhang2025herofilter}. These methods prevent us
+from describing GBDN as the first learnable or adaptive spectral graph filter. They
+also motivate matched polynomial controls and caution against treating heterophily as
+synonymous with high-frequency labels.
 
-Graph wavelet methods provide multiresolution spectral constructions: diffusion scattering builds stable graph representations from diffusion wavelets~\cite{gama2019diffusion}, whereas WaveGC learns admissible graph wavelets by separating odd and even Chebyshev orders~\cite{liu2025wavegc}. Neither citation is used to assert the exact perfect-reconstruction theorem proved here. Classical PDU~\cite{coifman2025pdu} and BDN~\cite{zhang2025bdn} also use Blaschke geometry, but include analytic-signal, inner--outer, selection, or product-sum machinery not supplied by an undirected Laplacian alone. Product-sum GBDN is consequently BDN-inspired rather than equivalent; the cited BDN record is explicitly a withdrawn ICLR submission.
+\paragraph{Rational and non-polynomial parameterizations.}
+CayleyNets use complex Cayley polynomials. Both their coefficients and scale $h>0$
+are optimized~\cite{levie2019cayleynets}. For one published real scalar response, the
+uncancelled poles of the rational continuation are restricted to the shared pair
+$\{ -i/h,+i/h\}$; the analytic half has the lower-axis pole $-i/h$. By contrast, each
+admissible GBDN root selects an independent generic lower-half-plane pole of the exact
+target. This is a pole-family distinction, not a claim that CayleyNets use fixed poles
+or cannot form learned zeros. SLOG supplies another important boundary because it
+constructs a real-valued adaptive non-polynomial spectral filter with an inductive
+subgraph-sampling mechanism~\cite{xu2024slog}. GBDN consequently does not claim
+rational, complex, adaptive, or non-polynomial graph filtering as new. Whether its
+root geometry improves response fitting at a matched budget remains an experimental
+question. Moreover, the deployed finite Chebyshev realization is polynomial and has
+no literal poles; it approximates the exact movable-pole target.
 
-For evaluation, the heterophily suite and its fixed splits follow the audit of Platonov et al.~\cite{platonov2023heterophily}. LRGB~\cite{dwivedi2022lrgb} is reserved for a separate graph-level pipeline; GraphGPS~\cite{rampasek2022graphgps} supplies the upstream framework used by the official WaveGC implementation. These datasets motivate tests, not claims that GBDN already resolves long-range propagation.
+\paragraph{Stability, depth, and transferability.}
+Levie et al. establish linear stability and transferability for Cayley-smooth
+spectral filters under graph perturbations~\cite{levie2019transferability}. Any GBDN
+perturbation result must therefore be presented as a bound specialized to its exact
+resolvent construction, not as the first graph-filter stability theorem. Unitary
+Convolutions analyze same-dimensional unitary graph propagation and prove an
+anti-oversmoothing result for that architecture~\cite{kiani2024unitary}. A-DGN derives
+stable, non-dissipative antisymmetric dynamics~\cite{gravina2023adgn}, while
+Stable-ChebNet casts high-order Chebyshev propagation as a stable, non-dissipative
+dynamical system~\cite{hariri2025stablechebnet}. Those results concern propagated
+states or dynamics. Tight GBDN's strongest unconditional statement concerns its
+complete coefficient map, not the carried branch, nonlinear network, or
+source-to-target sensitivity. Tightness alone therefore supports no oversquashing or
+long-range claim.
+
+\paragraph{Blaschke lineage and evaluation context.}
+Classical PDU uses Blaschke decomposition for nonstationary signals
+~\cite{coifman2025pdu}, and BDN turns related unwinding structure into a learned
+product-sum architecture~\cite{zhang2025bdn}. Product-sum GBDN is BDN-inspired rather
+than equivalent; the cited BDN record is a withdrawn ICLR submission. For evaluation,
+the heterophily suite and fixed splits follow Platonov et
+al.~\cite{platonov2023heterophily}. LRGB~\cite{dwivedi2022lrgb} remains a separate
+graph-level protocol, with GraphGPS~\cite{rampasek2022graphgps} as upstream benchmark
+infrastructure. These datasets motivate tests, not claims that GBDN already prevents
+oversmoothing, relieves oversquashing, or solves long-range reasoning.
