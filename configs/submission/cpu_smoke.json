@@ -1,0 +1,1 @@
+{"claim_status":"diagnostic-only","device":"cpu","jobs":[{"dataset":"synthetic-fixed-binary-v1","experiment":"submission_cpu_smoke","metric":"accuracy","model":"fixed-threshold-oracle","seed":0,"split":0,"trial":0}],"plan_name":"gbdn-stage1-cpu-smoke","plan_version":1,"schema_version":"1.0"}

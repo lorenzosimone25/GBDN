@@ -55,16 +55,18 @@ That setup validates the GPU and runs the test suite.  The tracked
 `scripts/run_h100.sh` command is explicitly the frozen legacy launcher.  Do not
 use it for the current submission study.
 
-The canonical operator interface will be:
+The canonical Stage-1 operator interface now includes:
 
 ```text
-scripts/run_submission.py
-notebooks/gbdn_submission_h100.ipynb
+python scripts/run_submission.py preflight
+python scripts/run_submission.py smoke
 ```
 
-Those interfaces are admitted only after immutable run identities, artifact
-verification, and smoke/resume tests pass.  Until they are present, a clean
-checkout intentionally cannot launch the new benchmark program.
+These commands run exactly one CPU-only, synthetic, diagnostic job through an
+isolated subprocess and the immutable artifact/resume path. They do not launch
+official datasets, CUDA work, or claim-bearing experiments. The H100 operator
+notebook and the broader submission phases remain absent and blocked pending
+independent Gate-A acceptance and reviewed official task contracts.
 
 ## Legacy reproduction
 
