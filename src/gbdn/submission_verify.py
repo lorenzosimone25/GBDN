@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from gbdn.artifacts import ArtifactValidationError
+from gbdn.baseline_contract import validate_plan_registry_binding
 from gbdn.gate_acceptance import validate_gate_a_acceptance
 
 
@@ -109,11 +110,25 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
     else:
         checks.append({"check": "independent_gate_a_acceptance", "status": "PASS"})
 
-    execution_inputs = (
-        "configs/submission/frozen/confirmatory_plan.json",
-        "results_submission/baseline_registry.json",
-        "results_submission/run_plan.json",
-    )
+    plan_relative = "configs/submission/frozen/confirmatory_plan.json"
+    registry_relative = "results_submission/baseline_registry.json"
+    plan_path = root / plan_relative
+    registry_path = root / registry_relative
+    if plan_path.is_file() and not plan_path.is_symlink() and registry_path.is_file() and not registry_path.is_symlink():
+        try:
+            validate_plan_registry_binding(plan_path, registry_path, repository_root=root)
+        except ArtifactValidationError as exc:
+            checks.append({"check": "execution_input:confirmatory_plan_registry_binding", "status": "FAIL"})
+            execution_blockers.append(str(exc))
+        else:
+            checks.append({"check": "execution_input:confirmatory_plan_registry_binding", "status": "PASS"})
+    else:
+        checks.append({"check": "execution_input:confirmatory_plan_registry_binding", "status": "FAIL"})
+        if not plan_path.is_file() or plan_path.is_symlink():
+            execution_blockers.append(f"missing execution input: {plan_relative}")
+        if not registry_path.is_file() or registry_path.is_symlink():
+            execution_blockers.append(f"missing execution input: {registry_relative}")
+    execution_inputs = ("results_submission/run_plan.json",)
     notebook_relative = "notebooks/gbdn_submission_h100.ipynb"
     try:
         validate_operator_notebook(root / notebook_relative)
@@ -131,9 +146,7 @@ def verify_submission_readiness(repository_root: str | Path) -> VerificationRepo
     # File presence is not semantic validation. Keep authorization false until
     # the frozen plan, baseline registry, scheduler, and test-isolated
     # evaluator schemas are implemented and independently reviewed.
-    execution_blockers.append(
-        "claim-bearing scheduler and execution-input semantic validators are not implemented"
-    )
+    execution_blockers.append("claim-bearing scheduler and run-plan validator are not implemented")
 
     completion_outputs = (
         "results_submission/aggregate/split_level_metrics.csv",
