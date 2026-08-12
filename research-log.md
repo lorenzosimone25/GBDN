@@ -56,3 +56,11 @@
 - Independently rejected promotion of the finite-realization slice despite correct core formulas: GA-24 omitted approximation error and the ellipse supremum bound, GA-22 duplicated a frame-defect norm instead of testing synthesis, and GA-29's witness established non-finite-hop behavior rather than full density. A bounded corrective implementation is now in progress.
 - Added the missing deterministic Gate-A fixture matrix: two path sizes, even and odd cycles, a rectangular grid, star, complete/repeated-eigenspace graph, disconnected union, and a frozen positive nonuniform weighted graph. Exact sweeps cover depths 1, 2, 4, 8, and 16; full sparse-versus-dense operator tests now include degrees 16, 32, and 64. The full local suite passes 192 tests with two environment warnings.
 - Strengthened that matrix to the full graph × depth × declared-root-family product and added a directed kNN-style rejection witness. The expanded local suite passes 429 tests with two environment warnings; scientific acceptance still awaits corrected finite observables, GA-23/report integration, and independent review.
+
+## 2026-08-12 — Gate A matrix and finite-diagnostic closeout
+
+- Added GA-23 center--width, mapped-pole, Bernstein-ellipse, and angular-anchor witnesses plus a deterministic read-only GA-00--GA-35 reporter.
+- Completed the prescribed deterministic fixture, depth, root, and row matrices, including a degree-128 sparse-versus-dense high-order case. The reporter now finds no missing ID or declared matrix gap.
+- Repaired the independently identified finite-order semantic defects: GA-22 now exercises synthesis and additive reconstruction, GA-24 joins approximation error with the ellipse supremum diagnostic, GA-29 is scoped to failure of finite-hop localization, and GA-30 uses the documented complex sparse-application convention across multiple depths and degrees.
+- Integrated the contract-aligned theory rewrite while keeping all claims paper-blocked. The full local suite passes 447 tests with three environment warnings.
+- Kept Gate A closed. The remaining blockers are complete per-row machine-readable provenance, independent semantic acceptance, and verified attribution of the exact first-kind Chebyshev interpolation bound.

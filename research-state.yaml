@@ -24,36 +24,39 @@ completed_tasks:
   - REV-THEORY-PATCH
   - REV-CITATIONS-002
   - REV-GATEA-APPROX-1
-active_tasks:
-  - ENG-002
-  - ENG-008
   - ENG-GATEA-CLOSEOUT-1
   - ENG-GATEA-APPROX-REPAIR-1
   - MATH-PAPER-REPAIR-1
+active_tasks:
+  - ENG-002
+  - ENG-008
+  - ENG-GATEA-PROVENANCE-1
+  - REV-GATEA-FINAL-1
+  - MATH-CHEB-SOURCE-1
 stop_line:
   gate_a_passed: false
   benchmark_claims_allowed: false
   h100_confirmation_allowed: false
   reasons:
     - Strict legacy reproduction verification fails with 28 reported problems.
-    - Gate A has executable coverage for 35 of 36 mandatory IDs, but GA-23, the full fixture matrix, the machine-readable report, and independent acceptance remain incomplete.
-    - The theory manuscript patch remains paper-blocked while mandatory notation, hypothesis, and attribution repairs are reviewed.
-    - Independent finite-realization review found GA-22, GA-24, GA-29, and GA-30 semantic or integration defects that require repair and re-review.
+    - All 36 mandatory Gate-A IDs execute and the declared fixture, depth, root, and row matrices have no gaps, but per-test provenance and independent acceptance remain incomplete.
+    - The repaired theory manuscript remains paper-blocked pending exact Chebyshev-source attribution and final Gate-A acceptance.
+    - Finite-realization semantic defects in GA-22, GA-24, GA-29, and GA-30 were repaired but still require independent final review.
     - Official multi-split, multi-seed benchmarks and verified baselines do not exist.
 current_evidence:
-  automated_tests: 429
-  automated_tests_passing: 429
-  mandatory_gate_a_ids_with_new_coverage: 35
+  automated_tests: 447
+  automated_tests_passing: 447
+  mandatory_gate_a_ids_with_new_coverage: 36
   mandatory_gate_a_ids_total: 36
   legacy_verifier_status: fail
   legacy_verifier_problems: 28
   frozen_result_files: 128
   mechanism_files: 4
 next_dependency_chain:
-  - Add GA-23 and independently audit the completed deterministic fixture matrix.
-  - Emit and independently verify the machine-readable Gate A report.
-  - Repair and independently accept the contract-aligned theory patch.
-  - Review Gate A before any claim-bearing experiment or H100 run.
+  - Emit complete row-level Gate-A provenance for every mandatory ID.
+  - Independently adjudicate the repaired exact and finite Gate-A contract.
+  - Verify and cite the exact first-kind Chebyshev interpolation bound.
+  - Promote only independently accepted theorems before any claim-bearing experiment or H100 run.
 open_decisions:
   - Canonical root parameterization variants.
   - Optional unitary routing scope.
