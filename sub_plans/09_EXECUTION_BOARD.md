@@ -24,24 +24,24 @@ The orchestrator maintains this file. Agents may propose status changes in hando
 | PH0-ENG-001 | Independently inventory legacy/canonical implementation, tests, notebooks, artifacts, and hazards | Engineer | ORCH-001 | `reviews/phase0_engineering_inventory.md`; `handoffs/PH0-ENG-001.md` | DONE |
 | SCI-001 | Freeze canonical notation and method variants | Orchestrator + Math | REV-001 | Accepted scientific contract | DONE |
 | MATH-001 | Audit all current theorem statements and proofs | Math | SCI-001 | `math/theorem_ledger.md`; proof/counterexample/test ledgers | DONE |
-| MATH-002 | Add additive versus adjoint reconstruction distinction | Math | MATH-001 | Proof and paper patch | BACKLOG |
-| MATH-003 | Prove pointwise paraunitary partition | Math | MATH-001 | Theorem, proof, test contract | BACKLOG |
-| MATH-004 | Prove weighted spectral Parseval conservation | Math | MATH-003 | Theorem, proof, test contract | BACKLOG |
-| MATH-005 | Formalize conditioning and limited anti-collapse | Math | MATH-003 | Theorem/corollary | BACKLOG |
-| MATH-006 | Audit oversquashing; prove global statement and seek counterexample | Math | MATH-005 | Claim boundary and counterexample | BACKLOG |
-| MATH-007 | Derive multilevel finite-order frame bound | Math | MATH-003 | Theorem and observable | BACKLOG |
-| MATH-008 | Formalize root localization versus approximation | Math | MATH-001 | Proposition/corollary | BACKLOG |
-| MATH-009 | Prove generic movable-pole separation from Cayley filters | Math | MATH-008 | Theorem | BACKLOG |
-| MATH-010 | Derive graph perturbation stability or narrow replacement | Math | MATH-008 | Theorem or negative result | BACKLOG |
-| MATH-011 | State locality, degree, and SpMV complexity | Math | SCI-001 | Proposition | BACKLOG |
+| MATH-002 | Add additive versus adjoint reconstruction distinction | Math | MATH-001 | Proof and paper patch | IN_PROGRESS |
+| MATH-003 | Prove pointwise paraunitary partition | Math | MATH-001 | Theorem, proof, test contract | IN_PROGRESS |
+| MATH-004 | Prove weighted spectral Parseval conservation | Math | MATH-003 | Theorem, proof, test contract | IN_PROGRESS |
+| MATH-005 | Formalize conditioning and limited anti-collapse | Math | MATH-003 | Theorem/corollary | IN_PROGRESS |
+| MATH-006 | Audit oversquashing; prove global statement and seek counterexample | Math | MATH-005 | Claim boundary and counterexample | IN_PROGRESS |
+| MATH-007 | Derive multilevel finite-order frame bound | Math | MATH-003 | Theorem and observable | IN_PROGRESS |
+| MATH-008 | Formalize root localization versus approximation | Math | MATH-001 | Proposition/corollary | IN_PROGRESS |
+| MATH-009 | Prove generic movable-pole separation from Cayley filters | Math | MATH-008 | Theorem | IN_PROGRESS |
+| MATH-010 | Derive graph perturbation stability or narrow replacement | Math | MATH-008 | Theorem or negative result | IN_PROGRESS |
+| MATH-011 | State locality, degree, and SpMV complexity | Math | SCI-001 | Proposition | IN_PROGRESS |
 | ENG-001 | Freeze or isolate legacy implementation and artifacts | Engineer | ORCH-001 | Trackability policy, legacy map, output guard, 10 tests | DONE |
-| ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | BACKLOG |
-| ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | BACKLOG |
+| ENG-002 | Implement admissible roots and canonical symbols | Engineer | SCI-001 | `src/gbdn` core and tests | IN_PROGRESS |
+| ENG-003 | Implement independent dense spectral oracle | Engineer | ENG-002 | Dense oracle tests | IN_PROGRESS |
 | ENG-004 | Implement streaming Chebyshev/Clenshaw realization | Engineer | ENG-002 | Sparse implementation | BACKLOG |
 | ENG-005 | Implement Tight GBDN analysis and synthesis | Engineer | ENG-003, ENG-004, MATH-002 | Canonical model and tests | BACKLOG |
 | ENG-006 | Implement Product-sum GBDN | Engineer | ENG-002, ENG-004 | Model and tests | BACKLOG |
 | ENG-007 | Implement GBDN+ separately | Engineer | ENG-004 | Relaxed model | BACKLOG |
-| ENG-008 | Implement theorem-contract test suite | Engineer | ENG-005, MATH-003–MATH-011 | Contract tests | BACKLOG |
+| ENG-008 | Implement theorem-contract test suite | Engineer | ENG-005, MATH-003–MATH-011 | Contract tests | IN_PROGRESS |
 | REV-002 | Independently review mathematics and exact implementation | Reviewer | MATH-001–MATH-011, ENG-008 | Blocker report | BACKLOG |
 | OPS-001 | Implement submission CLI and run identity | Engineer | ENG-008 | `run_submission.py` | BACKLOG |
 | OPS-002 | Implement artifact schema and verifier | Engineer | OPS-001 | Artifact and verification tests | BACKLOG |
