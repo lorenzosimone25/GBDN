@@ -15,6 +15,7 @@ import os
 import subprocess
 import sys
 import time
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Mapping
@@ -65,6 +66,8 @@ _EXPECTED_JOB: Final[dict[str, Any]] = {
 }
 _PREDICTION_FORMAT: Final[str] = "synthetic_binary_logits_labels_v1"
 _METRIC_TOLERANCE: Final[float] = 1e-12
+_MAX_PREDICTION_ARCHIVE_BYTES: Final[int] = 1024 * 1024
+_MAX_PREDICTION_MEMBER_BYTES: Final[int] = 64 * 1024
 _GATE_A_ACCEPTANCE_PATH: Final[Path] = Path(
     "configs/submission/frozen/gate_a_acceptance.json"
 )
@@ -214,6 +217,10 @@ def build_smoke_plan(
     if mode is not RunMode.SMOKE:
         _require_gate_a_acceptance(root)
     environment = capture_environment_metadata(lock, repository_root=root)
+    if mode is RunMode.SMOKE and environment.cuda_visible_devices != "-1":
+        raise ArtifactValidationError(
+            "diagnostic smoke requires CUDA_VISIBLE_DEVICES=-1 before plan construction"
+        )
     dataset_payload = canonical_json_bytes(
         {
             "labels": [0, 1, 1, 0, 1, 0],
@@ -284,7 +291,22 @@ def recompute_smoke_accuracy(prediction_path: str | Path, *, expected_run_id: st
     path = Path(prediction_path)
     if path.is_symlink() or not path.is_file():
         raise ArtifactValidationError("prediction path must be a regular file")
+    if path.stat().st_size > _MAX_PREDICTION_ARCHIVE_BYTES:
+        raise ArtifactValidationError("prediction archive exceeds the smoke size limit")
     try:
+        with zipfile.ZipFile(path) as archive:
+            members = archive.infolist()
+            if (
+                len(members) != 5
+                or any(member.is_dir() for member in members)
+                or any(
+                    member.file_size > _MAX_PREDICTION_MEMBER_BYTES
+                    for member in members
+                )
+            ):
+                raise ArtifactValidationError(
+                    "prediction archive has unsafe member cardinality or size"
+                )
         with np.load(path, allow_pickle=False) as stored:
             if set(stored.files) != {"indices", "labels", "logits", "run_id", "split_id"}:
                 raise ArtifactValidationError("prediction arrays do not match smoke schema")
@@ -295,7 +317,7 @@ def recompute_smoke_accuracy(prediction_path: str | Path, *, expected_run_id: st
             split_id = int(np.asarray(stored["split_id"]).item())
     except ArtifactValidationError:
         raise
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, zipfile.BadZipFile) as exc:
         raise ArtifactValidationError("invalid smoke prediction archive") from exc
     if run_id != expected_run_id:
         raise ArtifactValidationError("prediction archive belongs to another run")
@@ -319,6 +341,14 @@ def _read_completed_result(
     result_path = bundle_path / "result.json"
     try:
         result = RunResultRecord.from_dict(json.loads(result_path.read_text(encoding="utf-8")))
+        if result.identity != plan.identity:
+            raise ArtifactValidationError("completed smoke result identity differs from plan")
+        if result.source != plan.config.source:
+            raise ArtifactValidationError("completed smoke source metadata differs from plan")
+        if result.environment != plan.config.environment:
+            raise ArtifactValidationError(
+                "completed smoke environment metadata differs from plan"
+            )
         payload = json.loads(result.result_payload_json)
         if set(payload) != {"claim_status", "compute", "diagnostics", "metrics", "selection"}:
             raise ArtifactValidationError("completed smoke result has unexpected payload keys")
@@ -473,12 +503,24 @@ def run_smoke_subprocess(
         "--mode",
         plan.config.run_mode.value,
     ]
+    entry = Path(entry_point).resolve(strict=True)
+    expected_entry = (plan.repository_root / "scripts" / "run_submission.py").resolve(
+        strict=True
+    )
+    if entry != expected_entry or entry.is_symlink() or not entry.is_file():
+        raise ArtifactValidationError(
+            "smoke worker entry point must be the canonical repository script"
+        )
+    command[1] = str(entry)
+    child_environment = os.environ.copy()
+    child_environment["CUDA_VISIBLE_DEVICES"] = "-1"
     completed = subprocess.run(
         command,
         check=False,
         capture_output=True,
         text=True,
         timeout=timeout_seconds,
+        env=child_environment,
     )
     if completed.returncode != 0:
         raise RuntimeError(
@@ -502,6 +544,12 @@ def require_canonical_output_root(repository_root: str | Path, output_root: str 
     output = Path(output_root)
     resolved = (output if output.is_absolute() else root / output).resolve(strict=False)
     expected = (root / "results_submission").resolve(strict=False)
+    try:
+        expected.relative_to(root)
+    except ValueError as exc:
+        raise ArtifactValidationError(
+            "repository_root/results_submission resolves outside the repository"
+        ) from exc
     if resolved != expected:
         raise ArtifactValidationError("output_root must be repository_root/results_submission")
     return resolved

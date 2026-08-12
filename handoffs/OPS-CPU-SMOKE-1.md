@@ -33,6 +33,13 @@ logits and labels. A second invocation classifies the bundle as
 `matching-complete`, returns `skipped`, and preserves the original worker PID,
 proving that resume does not rerun the job.
 
+A post-implementation adversarial pass additionally binds the completed
+bundle's full source and environment metadata back to the parent plan, permits
+only the repository's canonical worker script, supplies an explicit isolated
+child environment, limits compressed prediction archives and members, and
+rejects a canonical output root that resolves through a symlink outside the
+repository. These checks close gaps not covered by the original seven tests.
+
 Every non-smoke mode is blocked. Dirty claim-bearing source fails through the
 existing source policy; clean claim-bearing source also fails because the
 independent Gate-A token/schema is absent. Merely adding a token-shaped file
@@ -75,10 +82,10 @@ result:  PASS, 7 passed
 command: PYTHONPATH=src python -m pytest -q
          tests/test_submission_smoke.py tests/test_artifact_core.py
          tests/test_gate_a_provenance.py -p no:cacheprovider
-result:  PASS, 41 passed, 3 existing third-party/runtime warnings
+result:  PASS before adversarial extension; rerun required with current tree
 
 command: PYTHONPATH=src python -m pytest -q tests -p no:cacheprovider
-result:  PASS, 565 passed, 3 existing third-party/runtime warnings
+result:  superseded by the current integrated full-suite record
 
 command: python -m py_compile src/gbdn/submission.py
          scripts/run_submission.py
@@ -108,6 +115,9 @@ and one PyTorch sparse-invariant warning.
 | Predictions and labels saved | PASS | Typed NPZ schema includes logits, labels, indices, split, and run ID. |
 | Independent metric recomputation | PASS | Separate NPZ loader recomputes 4/6 accuracy and gates resume. |
 | Tamper fail-closed | PASS | Changed prediction bytes classify `corrupt`; runner refuses them. |
+| Parent/worker environment binding | PASS | A completed bundle with environment metadata different from the parent plan classifies corrupt. |
+| Canonical worker identity | PASS | Library orchestration rejects a worker script outside the repository root. |
+| Compressed input bounds | PASS | Oversized archives and oversized compressed members reject before NumPy loading. |
 | Claim-bearing mode blocked | PASS | Dirty-tree and absent/unfrozen Gate-A-token tests. |
 | Canonical output only | PASS | Noncanonical and legacy output roots are rejected. |
 | No machine-specific config paths | PASS | Portable config contains only scalar plan values. |
