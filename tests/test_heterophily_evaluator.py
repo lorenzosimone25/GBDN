@@ -124,6 +124,28 @@ def test_extra_archive_member_and_object_payload_are_rejected(tmp_path):
             authoritative_test_labels=np.asarray([1, 1, 2], dtype=np.int64),
         )
 
+
+def test_split_ids_require_exact_integer_scalars(tmp_path):
+    path = tmp_path / "predictions.npz"
+    _archive(path)
+    kwargs = dict(
+        expected_run_id="a" * 64,
+        expected_dataset="Roman-empire",
+        expected_test_indices=np.asarray([4, 9, 12], dtype=np.int64),
+        authoritative_test_labels=np.asarray([1, 1, 2], dtype=np.int64),
+    )
+    with pytest.raises(ArtifactValidationError, match="outside official"):
+        evaluate_prediction_archive(path, expected_split=0.75, **kwargs)
+    with pytest.raises(ArtifactValidationError, match="outside official"):
+        evaluate_prediction_archive(path, expected_split=True, **kwargs)
+
+    with np.load(path, allow_pickle=False) as stored:
+        values = {name: np.asarray(stored[name]) for name in stored.files}
+    values["split_id"] = np.asarray(0.75, dtype=np.float64)
+    np.savez_compressed(path, **values)
+    with pytest.raises(ArtifactValidationError, match="exact integer scalar"):
+        evaluate_prediction_archive(path, expected_split=0, **kwargs)
+
     stream = io.BytesIO()
     np.save(stream, np.asarray([object()], dtype=object), allow_pickle=True)
     with zipfile.ZipFile(path, "w") as archive:

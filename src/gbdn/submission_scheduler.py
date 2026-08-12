@@ -137,6 +137,14 @@ def _semantic_evaluation(job, bundle: Path, root: Path, dataset_root: Path) -> N
     if authority.dataset_sha256 != job.identity.dataset_sha256:
         raise ArtifactValidationError("job dataset identity differs from authoritative archive")
     prediction = bundle / result.predictions.path
+    if prediction.is_symlink() or not prediction.is_file():
+        raise ArtifactValidationError("manifest prediction archive is not a regular file")
+    before_size = prediction.stat().st_size
+    before_hash = sha256_file(prediction)
+    if before_size != result.predictions.size_bytes or before_hash != result.predictions.sha256:
+        raise ArtifactValidationError(
+            "prediction archive differs from the immutable result manifest"
+        )
     metric = evaluate_prediction_archive(
         prediction,
         expected_run_id=job.identity.run_id,
@@ -145,6 +153,12 @@ def _semantic_evaluation(job, bundle: Path, root: Path, dataset_root: Path) -> N
         expected_test_indices=authority.indices,
         authoritative_test_labels=authority.labels,
     )
+    if prediction.is_symlink() or not prediction.is_file():
+        raise ArtifactValidationError("prediction archive changed during evaluation")
+    after_size = prediction.stat().st_size
+    after_hash = sha256_file(prediction)
+    if after_size != before_size or after_hash != before_hash or metric.prediction_sha256 != before_hash:
+        raise ArtifactValidationError("prediction archive changed during evaluation")
     reported_name, reported_value = _reported_primary_metric(result)
     if reported_name != metric.metric_name or abs(reported_value - metric.value) > _METRIC_TOLERANCE:
         raise ArtifactValidationError("reported metric disagrees with authoritative recomputation")

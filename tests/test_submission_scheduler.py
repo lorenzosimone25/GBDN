@@ -311,6 +311,29 @@ def test_evaluation_attestation_contains_hashes_not_authority_values(tmp_path):
     assert "indices" not in value and "labels" not in value
 
 
+def test_semantic_evaluation_rejects_prediction_manifest_drift_with_same_metric(tmp_path):
+    job = _job(0)
+    bundle = _prediction_and_result(tmp_path, job, metric=2 / 3)
+    prediction = bundle / "predictions.npz"
+    with np.load(prediction, allow_pickle=False) as stored:
+        values = {name: np.asarray(stored[name]) for name in stored.files}
+    values["logits"] = values["logits"].copy()
+    values["logits"][0, 5] = 0.25
+    np.savez_compressed(prediction, **values)
+    authority = AuthoritativeSplit(
+        np.asarray([4, 9, 12], dtype=np.int64),
+        np.asarray([1, 1, 2], dtype=np.int64),
+        job.identity.dataset_sha256,
+        "1" * 64,
+        "2" * 64,
+    )
+    with (
+        patch("gbdn.submission_scheduler.load_authoritative_split", return_value=authority),
+        pytest.raises(ArtifactValidationError, match="immutable result manifest"),
+    ):
+        _semantic_evaluation(job, bundle, tmp_path, tmp_path)
+
+
 def test_skip_path_invokes_semantic_evaluation_and_blocks_on_failure(tmp_path):
     run_plan, confirmatory, registry, worker = _fixture(tmp_path, "raise SystemExit(0)\n")
     job = _job(0)

@@ -159,7 +159,7 @@ def evaluate_prediction_archive(
     if archive_path.stat().st_size > _MAX_ARCHIVE_BYTES:
         raise ArtifactValidationError("prediction archive exceeds the evaluator size limit")
     spec = resolve_dataset(expected_dataset)
-    if expected_split not in OFFICIAL_SPLITS:
+    if type(expected_split) is not int or expected_split not in OFFICIAL_SPLITS:
         raise ArtifactValidationError("prediction split is outside official rows 0..9")
     expected_indices = np.asarray(expected_test_indices)
     labels = np.asarray(authoritative_test_labels)
@@ -182,7 +182,16 @@ def evaluate_prediction_archive(
             indices = np.asarray(stored["indices"])
             logits = np.asarray(stored["logits"])
             run_id = str(np.asarray(stored["run_id"]).item())
-            split = int(np.asarray(stored["split_id"]).item())
+            stored_split = np.asarray(stored["split_id"])
+            if stored_split.ndim != 0 or stored_split.dtype.kind not in {"i", "u"}:
+                raise ArtifactValidationError(
+                    "prediction split_id must be one exact integer scalar"
+                )
+            split = stored_split.item()
+            if type(split) is not int:
+                raise ArtifactValidationError(
+                    "prediction split_id must be one exact integer scalar"
+                )
     except ArtifactValidationError:
         raise
     except (OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile) as exc:
