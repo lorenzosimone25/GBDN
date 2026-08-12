@@ -167,6 +167,19 @@ def _operators(laplacian: torch.Tensor, depth: int) -> list[torch.Tensor]:
     ]
 
 
+def test_ga00_asymmetric_directed_knn_input_is_rejected():
+    """GA-00: a deterministic directed 1-NN-style graph triggers core rejection."""
+
+    # Each vertex chooses one neighbor, but the resulting directed relation is
+    # not reciprocal (for example, 2 -> 1 has no matching 1 -> 2 edge).
+    edge_index = torch.tensor(
+        [[0, 1, 2, 3, 4], [1, 0, 1, 2, 3]], dtype=torch.long
+    )
+    edge_weight = torch.ones(5, dtype=torch.float64)
+    with pytest.raises(ValueError, match="symmetric"):
+        normalized_laplacian(edge_index, edge_weight, num_nodes=5)
+
+
 @pytest.mark.parametrize("root_name", ROOT_FIXTURES)
 def test_ga02_declared_root_fixture_unit_modulus(root_name):
     """GA-02: every declared deterministic root family is an exact all-pass."""
@@ -177,11 +190,12 @@ def test_ga02_declared_root_fixture_unit_modulus(root_name):
 
 
 @pytest.mark.parametrize("fixture", GRAPH_FIXTURES)
-def test_ga03_ga04_full_graph_fixture_matrix(fixture):
+@pytest.mark.parametrize("root_name", ROOT_FIXTURES)
+def test_ga03_ga04_full_graph_fixture_matrix(fixture, root_name):
     """GA-03/04: exact factor and complementary split pass every graph fixture."""
 
     laplacian = _graph(fixture)[0]
-    roots = ROOT_FIXTURES["multi_root"]
+    roots = ROOT_FIXTURES[root_name]
     operator = dense_exact_blaschke_operator(laplacian, roots)
     identity = torch.eye(laplacian.shape[0], dtype=torch.complex128)
     left = operator.mH @ operator
@@ -225,22 +239,17 @@ def test_ga05_partition_on_every_fixture_spectrum(fixture):
     assert float((partition - 1.0).abs().max().item()) < SCALAR_TOL
 
 
-MISSING_DEPTH_FIXTURES = (
-    "path_8",
-    "cycle_even_6",
-    "grid_2x4",
-    "star_7",
-    "random_weighted_seed_1701",
-)
-
-
-@pytest.mark.parametrize("fixture", MISSING_DEPTH_FIXTURES)
+@pytest.mark.parametrize("fixture", GRAPH_FIXTURES)
+@pytest.mark.parametrize("root_name", ROOT_FIXTURES)
 @pytest.mark.parametrize("depth", DEPTHS)
-def test_ga06_ga07_ga09_missing_fixture_depth_matrix(fixture, depth):
-    """GA-06/07/09: close the required graph-by-depth acceptance matrix."""
+def test_ga06_ga07_ga09_full_graph_depth_root_matrix(fixture, root_name, depth):
+    """GA-06/07/09: exercise every graph, depth, and declared root family."""
 
     laplacian = _graph(fixture)[0]
-    operators = _operators(laplacian, depth)
+    roots = ROOT_FIXTURES[root_name]
+    operators = [
+        dense_exact_blaschke_operator(laplacian, roots) for _ in range(depth)
+    ]
     analysis = dense_tight_analysis_matrix(operators)
     identity = torch.eye(laplacian.shape[0], dtype=torch.complex128)
     defect = torch.linalg.matrix_norm(analysis.mH @ analysis - identity, ord=2)
