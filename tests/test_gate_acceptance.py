@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import gbdn.gate_acceptance as gate_acceptance
 from gbdn.artifacts import ArtifactValidationError, canonical_json_bytes
 from gbdn.gate_a_report import REPORT_SCHEMA
 from gbdn.gate_acceptance import (
@@ -239,3 +240,26 @@ def test_gate_report_hash_binds_tracked_blob_not_checkout_line_endings(tmp_path)
     assert _sha256(report_path) != token["gate_report"]["sha256"]
     accepted = validate_gate_a_acceptance(repository)
     assert accepted.gate_report_sha256 == token["gate_report"]["sha256"]
+
+
+def test_gate_report_tracked_blob_size_is_checked_before_materialization(
+    tmp_path, monkeypatch
+):
+    repository, _ = _accepted_repository(tmp_path)
+    original = gate_acceptance._git
+    show_called = False
+
+    def guarded(root, *arguments, **kwargs):
+        nonlocal show_called
+        if arguments[:2] == ("cat-file", "-s"):
+            return subprocess.CompletedProcess(
+                ["git", *arguments], 0, str(gate_acceptance._MAX_REPORT_BYTES + 1).encode(), b""
+            )
+        if arguments and arguments[0] == "show" and ":results_submission/reports/gate_a_report.json" in arguments[1]:
+            show_called = True
+        return original(root, *arguments, **kwargs)
+
+    monkeypatch.setattr(gate_acceptance, "_git", guarded)
+    with pytest.raises(ArtifactValidationError, match="size limit"):
+        validate_gate_a_acceptance(repository)
+    assert show_called is False

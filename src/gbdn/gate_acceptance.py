@@ -88,11 +88,22 @@ def _git(root: Path, *arguments: str, check: bool = True) -> subprocess.Complete
     return completed
 
 
-def _tracked_blob(root: Path, revision: str, relative: str, label: str) -> bytes:
+def _tracked_blob(
+    root: Path,
+    revision: str,
+    relative: str,
+    label: str,
+    *,
+    max_bytes: int | None = None,
+) -> bytes:
     listing = _git(root, "ls-tree", revision, "--", relative).stdout.decode().strip()
     fields = listing.split(maxsplit=3)
     if len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
         raise ArtifactValidationError(f"{label} is not a tracked regular blob")
+    if max_bytes is not None:
+        raw_size = _git(root, "cat-file", "-s", fields[2]).stdout.decode().strip()
+        if not raw_size.isascii() or not raw_size.isdecimal() or int(raw_size) > max_bytes:
+            raise ArtifactValidationError(f"{label} exceeds its tracked blob size limit")
     return _git(root, "show", f"{revision}:{relative}").stdout
 
 
@@ -328,14 +339,18 @@ def validate_gate_a_acceptance(
             raise ArtifactValidationError(f"{label} lies outside the repository") from exc
         if artifact.is_symlink() or not artifact.is_file():
             raise ArtifactValidationError(f"{label} must be a regular file")
-        if hashlib.sha256(_tracked_blob(root, "HEAD", relative.as_posix(), label)).hexdigest() != expected_hash:
+        limit = _MAX_REPORT_BYTES if label == "gate report" else _MAX_TOKEN_BYTES
+        tracked = _tracked_blob(
+            root, "HEAD", relative.as_posix(), label, max_bytes=limit
+        )
+        if hashlib.sha256(tracked).hexdigest() != expected_hash:
             raise ArtifactValidationError(f"{label} content hash does not match token")
         if _git(root, "ls-files", "--error-unmatch", relative.as_posix(), check=False).returncode != 0:
             raise ArtifactValidationError(f"{label} is not tracked")
         if _git(root, "diff", "--quiet", "HEAD", "--", relative.as_posix(), check=False).returncode != 0:
             raise ArtifactValidationError(f"{label} has uncommitted changes")
         if label == "gate report":
-            blob = _tracked_blob(root, "HEAD", relative.as_posix(), label)
+            blob = tracked
             try:
                 report_payload = json.loads(
                     blob.decode("utf-8"),
