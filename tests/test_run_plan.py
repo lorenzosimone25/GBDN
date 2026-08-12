@@ -67,7 +67,7 @@ def _inputs(root: Path) -> tuple[Path, Path, Path]:
             root / paths["final"],
             {
                 "datasets": {
-                    dataset: {"model": {}, "optimizer": {}, "training": {}}
+                    dataset: {"model": {"K": 2}, "optimizer": {}, "training": {}}
                     for dataset in DATASET_REGISTRY
                 },
                 "method": method,

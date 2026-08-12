@@ -124,6 +124,16 @@ def _dataset_bindings() -> dict[str, dict[str, str]]:
     }
 
 
+def _finite_json_value(value: Any) -> bool:
+    if value is None or type(value) in {bool, int, str}:
+        return True
+    if type(value) is float:
+        return math.isfinite(value)
+    if isinstance(value, list):
+        return bool(value) and all(_finite_json_value(item) for item in value)
+    return False
+
+
 @dataclass(frozen=True)
 class VerifiedBaseline:
     name: str
@@ -319,6 +329,7 @@ def _validate_configuration(
 
     search_path: str | None = None
     search_hash: str | None = None
+    search_parameters: Mapping[str, Any] | None = None
     if kind == LOCAL_SEARCH:
         if raw["budget_binding"] != "CONFIRMATORY_PLAN_EQUAL_TRIAL_BUDGET":
             raise ArtifactValidationError(
@@ -345,7 +356,8 @@ def _validate_configuration(
         ):
             raise ArtifactValidationError(f"baseline {name} search space is invalid")
         tuned = 0
-        for parameter, specification in search["parameters"].items():
+        search_parameters = search["parameters"]
+        for parameter, specification in search_parameters.items():
             if not isinstance(parameter, str) or not parameter or not isinstance(
                 specification, dict
             ):
@@ -362,11 +374,7 @@ def _validate_configuration(
                 specification["role"] not in {"FIXED", "TUNED"}
                 or not isinstance(values, list)
                 or not values
-                or any(
-                    isinstance(value, (list, dict))
-                    or (isinstance(value, float) and not math.isfinite(value))
-                    for value in values
-                )
+                or any(not _finite_json_value(value) for value in values)
                 or len({json.dumps(value, sort_keys=True) for value in values})
                 != len(values)
                 or (specification["role"] == "FIXED" and len(values) != 1)
@@ -433,6 +441,34 @@ def _validate_configuration(
             raise ArtifactValidationError(
                 f"baseline {name} final configuration does not freeze all official tasks"
             )
+        if kind == LOCAL_SEARCH:
+            assert search_parameters is not None  # established above
+            for parameter, specification in search_parameters.items():
+                parts = parameter.split(".")
+                if len(parts) != 2 or any(not part for part in parts):
+                    raise ArtifactValidationError(
+                        f"baseline {name} search parameter path is invalid"
+                    )
+                section, field = parts
+                allowed = {
+                    json.dumps(value, sort_keys=True, separators=(",", ":"))
+                    for value in specification["values"]
+                }
+                for dataset, dataset_config in frozen["datasets"].items():
+                    selected_section = dataset_config.get(section)
+                    if not isinstance(selected_section, dict) or field not in selected_section:
+                        raise ArtifactValidationError(
+                            f"baseline {name} final configuration omits search parameter "
+                            f"{parameter} for {dataset}"
+                        )
+                    selected = json.dumps(
+                        selected_section[field], sort_keys=True, separators=(",", ":")
+                    )
+                    if selected not in allowed:
+                        raise ArtifactValidationError(
+                            f"baseline {name} final configuration selects an out-of-space "
+                            f"value for {parameter} on {dataset}"
+                        )
         selection_path, selection_hash = _bound_file(
             root,
             final["selection_evidence_path"],

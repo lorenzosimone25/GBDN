@@ -61,12 +61,12 @@ and prespecified, but no tuning result or final configuration was created.
 PYTHONPATH=src python -m pytest -q \
   tests/test_baseline_contract.py tests/test_run_plan.py \
   tests/test_chebnet_baseline.py tests/test_heterophily_worker.py
-63 passed
+64 passed
 ```
 
 ```text
 PYTHONPATH=src python -m pytest -q tests
-747 passed, 2 skipped
+748 passed, 2 skipped
 ```
 
 The compact operator evidence also binds the SHA-256 of

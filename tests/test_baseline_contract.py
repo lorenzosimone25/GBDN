@@ -106,7 +106,11 @@ def _registry(root: Path, *, finalized: bool = False, trial_budget: int = 10) ->
             root / paths["final"],
             {
                 "datasets": {
-                    name: {"model": {}, "optimizer": {}, "training": {}}
+                    name: {
+                        "model": {"K": 2, "dropout": 0.0},
+                        "optimizer": {},
+                        "training": {},
+                    }
                     for name in DATASET_REGISTRY
                 },
                 "method": BASELINE,
@@ -245,6 +249,27 @@ def test_plan_rejects_final_config_selected_with_different_trial_budget(tmp_path
     _write(plan_path, _plan(sha256_file(registry_path), budget=10))
     with pytest.raises(ArtifactValidationError, match="selection provenance"):
         validate_plan_registry_binding(plan_path, registry_path, repository_root=tmp_path)
+
+
+def test_confirmatory_rejects_final_config_outside_prespecified_search(tmp_path):
+    registry = _registry(tmp_path, finalized=True)
+    final = tmp_path / registry["baselines"][0]["configuration"]["final_configuration"]["path"]
+    payload = json.loads(final.read_text(encoding="utf-8"))
+    payload["datasets"]["Questions"]["model"]["K"] = 99
+    _write(final, payload)
+    record = registry["baselines"][0]
+    record["configuration"]["final_configuration"]["sha256"] = sha256_file(final)
+    selection = tmp_path / record["configuration"]["final_configuration"]["selection_evidence_path"]
+    evidence = json.loads(selection.read_text(encoding="utf-8"))
+    evidence["final_config_sha256"] = sha256_file(final)
+    _write(selection, evidence)
+    record["configuration"]["final_configuration"]["selection_evidence_sha256"] = sha256_file(selection)
+    path = tmp_path / "registry.json"
+    _write(path, registry)
+    with pytest.raises(ArtifactValidationError, match="out-of-space"):
+        validate_baseline_registry(
+            path, repository_root=tmp_path, required_methods=(BASELINE,)
+        )
 
 
 @pytest.mark.parametrize(
