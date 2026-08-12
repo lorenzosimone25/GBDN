@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import torch
+import pytest
 
 from gbdn.baselines.chebnet import ChebNet
+from gbdn.heterophily_contract import DATASET_REGISTRY
 
 
 def _reciprocal_weighted_graph() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -89,3 +91,33 @@ def test_chebnet_rejects_ambiguous_or_invalid_configuration():
             pass
         else:
             raise AssertionError(f"configuration should be rejected: {kwargs}")
+
+
+@pytest.mark.parametrize("dataset", tuple(DATASET_REGISTRY))
+def test_chebnet_official_factory_binds_feature_and_head_width(dataset):
+    spec = DATASET_REGISTRY[dataset]
+    model = ChebNet.for_official_dataset(
+        dataset,
+        in_channels=spec.feature_count,
+        hidden_channels=8,
+        K=3,
+        dropout=0.0,
+    )
+    assert model.conv1.in_channels == spec.feature_count
+    assert model.conv2.out_channels == spec.output_logits
+
+    with pytest.raises(ValueError, match="input features"):
+        ChebNet.for_official_dataset(
+            dataset,
+            in_channels=spec.feature_count + 1,
+            hidden_channels=8,
+            K=3,
+            dropout=0.0,
+        )
+
+
+def test_chebnet_official_factory_rejects_nonregistry_dataset():
+    with pytest.raises(ValueError, match="outside the official registry"):
+        ChebNet.for_official_dataset(
+            "Cora", in_channels=1433, hidden_channels=8, K=3, dropout=0.0
+        )

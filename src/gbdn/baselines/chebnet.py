@@ -14,6 +14,8 @@ import torch
 from torch import nn
 from torch_geometric.nn import ChebConv
 
+from gbdn.heterophily_contract import resolve_dataset
+
 
 @dataclass(frozen=True)
 class ChebNetResourceCount:
@@ -72,6 +74,31 @@ class ChebNet(nn.Module):
         x = torch.relu(x)
         x = nn.functional.dropout(x, p=self.dropout, training=self.training)
         return self.conv2(x, edge_index, edge_weight, lambda_max=lambda_max)
+
+    @classmethod
+    def for_official_dataset(
+        cls,
+        dataset: str,
+        *,
+        in_channels: int,
+        hidden_channels: int,
+        K: int,
+        dropout: float,
+    ) -> "ChebNet":
+        """Construct only the head width frozen by the official task contract."""
+
+        spec = resolve_dataset(dataset)
+        if in_channels != spec.feature_count:
+            raise ValueError(
+                f"{spec.canonical_name} requires {spec.feature_count} input features"
+            )
+        return cls(
+            in_channels,
+            hidden_channels,
+            spec.output_logits,
+            K=K,
+            dropout=dropout,
+        )
 
     def resource_count(self) -> ChebNetResourceCount:
         """Return counts from the instantiated module and PyG recurrence."""
