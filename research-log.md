@@ -128,3 +128,11 @@
 - Removed public symmetry/spectral tolerance and spectrum-disable knobs from canonical graph validators; only a private post-construction path may omit the dense spectrum check after validated normalized-Laplacian construction.
 - Added regressions for the frozen nonorthogonal basis, large/NaN/infinite/negative tolerance attempts, spectrum-disable attempts, and out-of-range diagonal spectra. The GA-00 evidence now records zero accepted public bypasses.
 - The combined repository suite passes 573 tests with three known environment warnings. A fourth independent review is active; Gate A remains closed until its verdict.
+
+## 2026-08-12 — Official heterophily metadata contract
+
+- Added a declarative, immutable registry for the five official Platonov datasets, including canonical aliases, source commit and NPZ paths, graph/task dimensions, exact heads/losses/selection/test metrics, ten official splits, and three frozen training seeds.
+- Added fail-closed metadata validators for required NPZ arrays, canonical serialization and hashes, graph expansion/count invariants, connected simple graphs, ordered official split identities, class counts, disjoint/full-coverage partitions, and the complete dataset/method/split/seed plan product.
+- Made unresolved NPZ checksums and dataset-specific redistribution terms explicit blockers rather than placeholder acceptance. No data was downloaded or opened.
+- Added a training/checkpoint-selection view whose exact-key parser rejects test indices, labels, or metrics, preserving the future process-level leakage boundary at the contract layer.
+- The contract/smoke/artifact slice passes 49 tests and the complete integrated suite passes 590 tests with three known environment warnings. Independent contract review is still required before acquisition or evaluation implementation.

@@ -45,3 +45,10 @@
 - A finite-order multilevel frame bound can be stated tightly enough to guide implementation tolerances.
 - Graph perturbation stability may hold under explicit spectral-gap or functional-calculus assumptions; a gap-free eigenvector claim is unlikely.
 - The complete coefficient representation may resist linear representation collapse, while no comparable claim is currently justified for target-specific long-range transmission.
+
+## Confirmatory protocol constraints now established
+
+- Roman-empire and Amazon-ratings are multiclass tasks selected and evaluated by accuracy; Minesweeper, Tolokers, and Questions require one logit, BCE-with-logits, and binary ROC-AUC. The legacy universal multiclass/macro-AUROC path is not an admissible approximation to this protocol.
+- The confirmatory unit is the official split after averaging at least three training seeds within split. The full frozen grid is ten supplied splits by seeds `[0,1,2]`; thirty seed-level runs are not thirty independent inferential observations.
+- Dataset identity requires the official source commit, NPZ and per-array hashes, canonical serialization, exact graph expansion, ordered split-mask identities, and reviewed redistribution terms. These hashes and terms are unresolved, so no real-data execution is authorized.
+- Training and checkpoint selection must receive only train/validation identities and the official validation metric. Test identities and evaluation belong to a later isolated, post-freeze process.
